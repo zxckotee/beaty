@@ -1,0 +1,12 @@
+{
+  "app.title": "Beaty",
+  "nav.book": "Запись",
+  "nav.my": "Мои записи",
+  "nav.manager": "Админка",
+  "nav.staff": "Мой день",
+  "booking.selectService": "Выберите услугу",
+  "booking.selectSpecialist": "Выберите мастера",
+  "booking.confirm": "Подтвердить запись",
+  "common.loading": "Загрузка…",
+  "common.error": "Ошибка"
+}

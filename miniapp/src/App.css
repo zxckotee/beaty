@@ -1,0 +1,36 @@
+.shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.nav a {
+  color: var(--tg-theme-link-color, #2481cc);
+}
+
+.error {
+  color: #c0392b;
+}
+
+.page ul {
+  list-style: none;
+  padding: 0;
+}
+
+.page button {
+  width: 100%;
+  text-align: left;
+  margin: 0.25rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: var(--tg-theme-bg-color, #fff);
+}

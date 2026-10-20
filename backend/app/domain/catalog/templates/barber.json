@@ -1,0 +1,7 @@
+{
+  "categories": [{"name": "Стрижки"}, {"name": "Борода"}],
+  "services": [
+    {"category": 0, "name": "Мужская стрижка", "price_cents": 150000, "duration_minutes": 45, "revisit_days": 28},
+    {"category": 1, "name": "Моделирование бороды", "price_cents": 80000, "duration_minutes": 30, "revisit_days": 14}
+  ]
+}

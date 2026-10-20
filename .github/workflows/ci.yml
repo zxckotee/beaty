@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beaty
+          POSTGRES_PASSWORD: beaty
+          POSTGRES_DB: beaty
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+asyncpg://beaty:beaty@localhost:5432/beaty
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: test
+      TOKEN_ENCRYPTION_KEY: ci-test-key
+      JWT_SECRET: ci-jwt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend
+        run: pip install -e "./backend[dev]"
+      - name: Ruff
+        run: cd backend && ruff check .
+      - name: Mypy
+        run: cd backend && mypy app/domain app/core
+      - name: Migrate
+        run: cd backend && alembic upgrade head
+      - name: Pytest
+        run: cd backend && pytest -q
+
+  miniapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: cd miniapp && npm install
+      - run: cd miniapp && npm run lint
+      - run: cd miniapp && npm run build

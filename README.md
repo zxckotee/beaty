@@ -39,3 +39,16 @@
 ## Стек (кратко)
 
 Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (Taskiq), React + Vite + Telegram Mini Apps SDK. Один мультитенантный сервис на вебхуках обслуживает всех ботов. Подробности и причины выбора — в [docs/architecture.md](docs/architecture.md).
+
+## Development
+
+1. Скопируйте `.env.example` в `.env` и заполните `PLATFORM_BOT_TOKEN` при работе с Telegram.
+2. `make up` — PostgreSQL, Redis, MinIO.
+3. `make backend-install && make migrate` — зависимости и миграции Alembic.
+4. `make dev-api` — API на http://localhost:8000 (OpenAPI: `/docs`).
+5. `cd miniapp && npm install && npm run dev` — Mini App на http://localhost:5173 (`VITE_API_BASE=http://localhost:8000`).
+6. `make test` / `make lint` — pytest, ruff, mypy; в miniapp — `npm run lint && npm run build`.
+7. `make seed` — демо-тенант (после миграций).
+8. Webhook локально: tunnel на `8000`, `POST setWebhook` на `{WEBHOOK_BASE_URL}/tg/{tenant_public_id}` с заголовком secret.
+
+Структура кода: `backend/app/` (domain, api, bot, platform_bot, workers), `miniapp/src/`, [docs/pilot-checklist.md](docs/pilot-checklist.md).
