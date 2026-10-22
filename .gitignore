@@ -1,4 +1,6 @@
 .env
+.env.prod
+.secrets.env
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -1,9 +1,12 @@
 FROM python:3.12-slim
 
-WORKDIR /app
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]"
-COPY . .
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
-ENV PYTHONPATH=/app
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir . && chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
