@@ -1,0 +1,96 @@
+name: CI/CD Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Ветка для деплоя (пусто = ветка запуска workflow)"
+        required: false
+        type: string
+        default: "main"
+      skip_build:
+        description: "Не пересобирать образы (только docker compose up)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ github.event.inputs.branch || github.ref_name }}
+
+  deploy:
+    name: Deploy bot and web via SSH
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+          SKIP_BUILD: ${{ github.event.inputs.skip_build || 'false' }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER: ${{ github.event_name }}
+          TELEGRAM_SECRET: ${{ secrets.TELEGRAM_SECRET }}
+          TELEGRAM_PROXY: ${{ secrets.TELEGRAM_PROXY }}
+          PUBLIC_HOST: ${{ secrets.SSH_HOST }}
+          WEB_PORT: "4040"
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 15m
+          envs: DEPLOY_BRANCH,SKIP_BUILD,GH_REPOSITORY,GH_TOKEN,TRIGGER,TELEGRAM_SECRET,TELEGRAM_PROXY,PUBLIC_HOST,WEB_PORT
+          script: |
+            set -e
+
+            DEPLOY_PATH="/root/beaty"
+            BRANCH="${DEPLOY_BRANCH:-main}"
+            case "$BRANCH" in
+              *[!A-Za-z0-9._/-]*|"") echo "Invalid branch name: $BRANCH"; exit 1 ;;
+            esac
+
+            PUBLIC_REPO_URL="https://github.com/${GH_REPOSITORY}.git"
+            AUTH_REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPOSITORY}.git"
+
+            echo "============================================"
+            echo "  Beaty deploy — $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "  Trigger: $TRIGGER"
+            echo "  Branch:  $BRANCH"
+            echo "  Path:    $DEPLOY_PATH"
+            echo "  Web:     http://${PUBLIC_HOST}:${WEB_PORT}"
+            echo "============================================"
+
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              git clone "$AUTH_REPO_URL" "$DEPLOY_PATH"
+            fi
+
+            cd "$DEPLOY_PATH"
+            git remote set-url origin "$AUTH_REPO_URL"
+            trap 'git -C "$DEPLOY_PATH" remote set-url origin "$PUBLIC_REPO_URL" || true' EXIT
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            git remote set-url origin "$PUBLIC_REPO_URL"
+
+            bash scripts/write-env-from-ci.sh "$DEPLOY_PATH"
+
+            if [ "$SKIP_BUILD" = "true" ]; then
+              bash scripts/redeploy.sh nobuild
+            else
+              bash scripts/redeploy.sh build
+            fi
+
+            echo "Beaty deploy complete"

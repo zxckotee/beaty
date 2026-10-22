@@ -1,0 +1,1 @@
+"""Beaty backend application."""
