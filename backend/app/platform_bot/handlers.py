@@ -1,11 +1,13 @@
 from aiogram import Router
+from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
-from httpx import AsyncClient
+from aiogram.utils.token import TokenValidationError
 from sqlalchemy import select
 
+from app.bot.factory import create_bot
 from app.core.db import SessionLocal
 from app.domain.services.provisioning import attach_bot_token, create_tenant_for_owner
 
@@ -43,13 +45,19 @@ async def platform_token(message: Message, state: FSMContext) -> None:
         await message.answer("Похоже, это не токен. Попробуйте ещё раз.")
         return
     data = await state.get_data()
-    async with AsyncClient(timeout=20) as client:
-        resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
-        payload = resp.json()
-    if not payload.get("ok"):
+    try:
+        candidate = create_bot(token)
+    except TokenValidationError:
+        await message.answer("Похоже, это не токен. Попробуйте ещё раз.")
+        return
+    try:
+        me = await candidate.get_me()
+    except TelegramAPIError:
         await message.answer("Telegram не принял токен. Проверьте и отправьте снова.")
         return
-    bot_info = payload["result"]
+    finally:
+        await candidate.session.close()
+    bot_info = {"id": me.id, "username": me.username}
     async with SessionLocal() as session:
         tenant = await create_tenant_for_owner(
             session,

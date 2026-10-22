@@ -38,9 +38,9 @@ async def platform_webhook(
     update = Update.model_validate(data)
     if update.update_id and not await _dedupe_update("platform", update.update_id):
         return {"ok": "duplicate"}
-    from aiogram import Bot
+    from app.bot.factory import create_bot
 
-    bot = Bot(token=settings.platform_bot_token)
+    bot = create_bot(settings.platform_bot_token)
     asyncio.create_task(platform_dispatcher.feed_update(bot, update))
     return {"ok": "accepted"}
 

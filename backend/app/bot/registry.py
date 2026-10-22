@@ -1,5 +1,6 @@
 from aiogram import Bot
 
+from app.bot.factory import create_bot
 from app.core.crypto import decrypt_bot_token
 from app.domain.models import Tenant
 
@@ -11,5 +12,5 @@ def get_bot_for_tenant(tenant: Tenant) -> Bot:
         if not tenant.bot_token_encrypted:
             raise ValueError("bot token missing")
         token = decrypt_bot_token(tenant.bot_token_encrypted)
-        _bot_cache[tenant.public_id] = Bot(token=token)
+        _bot_cache[tenant.public_id] = create_bot(token)
     return _bot_cache[tenant.public_id]

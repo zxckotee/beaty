@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
     setup_logging()
     settings = get_settings()
     scheduler_task: asyncio.Task | None = None
-    if settings.environment != "test":
+    if settings.environment != "test" and settings.run_scheduler_in_api:
         scheduler_task = asyncio.create_task(scheduler_loop())
     yield
     if scheduler_task:

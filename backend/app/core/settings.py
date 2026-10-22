@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-jwt-secret-change-in-prod"
     jwt_ttl_minutes: int = 60
 
+    telegram_proxy: str = ""
+    run_scheduler_in_api: bool = True
+
     hold_ttl_seconds: int = 600
     environment: str = "development"
 
