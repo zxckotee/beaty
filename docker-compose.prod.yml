@@ -1,4 +1,5 @@
-name: beaty
+# Project name: `docker compose -p beaty` in scripts/redeploy.sh
+# (top-level `name:` needs Compose V2; legacy docker-compose rejects it)
 
 x-backend: &backend
   build:
