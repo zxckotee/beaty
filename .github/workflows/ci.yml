@@ -2,8 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [main, "cursor/**"]
+    branches: ["cursor/**"]
   pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to check out"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   backend:
@@ -34,6 +41,8 @@ jobs:
       JWT_SECRET: ci-jwt
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -52,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

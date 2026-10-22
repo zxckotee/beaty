@@ -52,3 +52,25 @@ Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (T
 8. Webhook локально: tunnel на `8000`, `POST setWebhook` на `{WEBHOOK_BASE_URL}/tg/{tenant_public_id}` с заголовком secret.
 
 Структура кода: `backend/app/` (domain, api, bot, platform_bot, workers), `miniapp/src/`, [docs/pilot-checklist.md](docs/pilot-checklist.md).
+
+## Деплой
+
+Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запускается при пуше в `main` и вручную (Actions → CI/CD Deploy → Run workflow). Сначала проходят проверки из `ci.yml`, затем GitHub Actions подключается к серверу по SSH и:
+
+1. клонирует или обновляет репозиторий в `/root/beaty` (`git reset --hard origin/<ветка>`);
+2. собирает `.env.prod` скриптом [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh);
+3. поднимает стек скриптом [scripts/redeploy.sh](scripts/redeploy.sh) (`build` или `nobuild`) через [docker-compose.prod.yml](docker-compose.prod.yml) и ждёт ответа `/health`.
+
+На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api` (при старте применяет миграции), `worker` (напоминания), `platform-bot` (long polling) и `web` (nginx с Mini App, проксирует `/api`, `/tg`, `/health` в API). Наружу открыт только порт `4040`; поменять его можно переменной `WEB_PORT` в `deploy.yml`.
+
+Секреты репозитория:
+
+| Секрет | Назначение |
+| --- | --- |
+| `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY` | Подключение к серверу (порт 22). `SSH_HOST` также используется как публичный адрес сайта |
+| `TELEGRAM_SECRET` | Токен платформенного бота |
+| `TELEGRAM_PROXY` | Необязательно: прокси для Telegram API, например `socks5://user:pass@host:1080` |
+
+`POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY` и `JWT_SECRET` генерируются на сервере при первом деплое и хранятся в `/root/beaty/.secrets.env`. Не удаляйте этот файл: без `TOKEN_ENCRYPTION_KEY` не расшифруются сохранённые токены ботов, а без `POSTGRES_PASSWORD` не будет доступа к базе.
+
+Webhook-боты салонов и открытие Mini App внутри Telegram требуют HTTPS-домена; до его появления сайт доступен по `http://<SSH_HOST>:4040`, а платформенный бот работает через polling.
