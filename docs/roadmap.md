@@ -71,6 +71,17 @@
 - Мультиязычность (EN, KZ, UZ) и выход на рынки СНГ.
 - Отдельный инстанс для сетей (Enterprise).
 
+## Production rollout (статус в коде)
+
+| Фаза | Содержание | Статус |
+| --- | --- | --- |
+| P0 | HTTPS (Caddy profile), Sentry, `/ready`, бэкапы PG, деградация подписки | Реализовано |
+| P1 | SlotRepository, manager/staff API, client funnel UI, форс-мажор, bot callbacks | Реализовано |
+| P2 | Миграция `002`, отзывы, waitlist, курсы, маркетинг, финансы, billing API | Реализовано (API + домен) |
+| P3 | Предоплата, импорт, GCal, NL-запись | Заготовки API (`/api/v1/v2/*`) |
+
+Подробная матрица сценариев — в плане перехода MVP → Production (PR production-beaty).
+
 ## Основные риски
 
 | Риск | Как снижаем |

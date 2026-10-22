@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router, manager_router, staff_router
+from app.api.router import api_router
+from app.api.phase2_routes import phase2_router
+from app.core.sentry_init import init_sentry
 from app.core.logging_config import setup_logging
 from app.core.redis_client import close_redis
 from app.core.settings import get_settings
@@ -15,6 +17,7 @@ from app.workers.scheduler import scheduler_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    init_sentry()
     settings = get_settings()
     scheduler_task: asyncio.Task | None = None
     if settings.environment != "test" and settings.run_scheduler_in_api:
@@ -36,5 +39,18 @@ app.add_middleware(
 )
 app.include_router(webhook_router)
 app.include_router(api_router)
-app.include_router(manager_router, prefix="/api/v1")
-app.include_router(staff_router, prefix="/api/v1")
+app.include_router(phase2_router)
+
+
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    from sqlalchemy import text
+
+    from app.core.db import SessionLocal
+    from app.core.redis_client import get_redis
+
+    async with SessionLocal() as session:
+        await session.execute(text("SELECT 1"))
+    redis = await get_redis()
+    await redis.ping()
+    return {"status": "ready"}

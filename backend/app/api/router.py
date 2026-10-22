@@ -2,39 +2,57 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.client_routes import client_router
 from app.api.deps import (
     get_current_user,
     get_tenant_by_public_id,
-    require_role,
     resolve_staff_and_client,
 )
+from app.api.manager_routes import manager_router
 from app.api.schemas import (
     AuthResponse,
     AuthTelegramRequest,
     BookingOut,
-    BookingStatusUpdate,
     HoldBookingRequest,
     MeResponse,
     ProfileUpdate,
+    RescheduleRequest,
     ServiceOut,
     SlotOut,
     SpecialistOut,
 )
+from app.api.staff_routes import staff_router
+from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.crypto import decrypt_bot_token
 from app.core.db import get_session
-from app.core.jwt_auth import create_access_token
+from app.core.jwt_auth import create_access_token, create_refresh_token, decode_refresh_token
 from app.core.telegram_auth import verify_webapp_init_data
-from app.domain.exceptions import DomainError, SlotTakenError
-from app.domain.models import Booking, ClientProfile, Service, StaffMember
-from app.domain.services.booking_service import cancel_booking, confirm_hold, hold_slot
+from app.domain.exceptions import DomainError, ForbiddenError, SlotTakenError
+from app.domain.models import Booking, Branch, ClientProfile, Service, StaffMember, Tenant
+from app.domain.services.booking_service import cancel_booking, confirm_hold, hold_slot, reschedule_booking
 from app.domain.services.client_service import get_or_create_user_account, register_client
-from app.domain.slots import SlotRules, TimeInterval, compute_slots
+from app.domain.services.slot_repository import list_available_slots
 
 api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(client_router)
+api_router.include_router(manager_router)
+api_router.include_router(staff_router)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+    tenant_public_id: str
+
+
+class TenantBrandOut(BaseModel):
+    name: str
+    brand: dict
+    rules: dict
 
 
 @api_router.post("/auth/telegram", response_model=AuthResponse)
@@ -75,7 +93,36 @@ async def auth_telegram(body: AuthTelegramRequest, session: AsyncSession = Depen
         user_account_id=user.id,
         roles=roles,
     )
-    return AuthResponse(access_token=access)
+    refresh = create_refresh_token(tenant_public_id=tenant.public_id, user_account_id=user.id)
+    return AuthResponse(access_token=access, refresh_token=refresh)
+
+
+@api_router.post("/auth/refresh", response_model=AuthResponse)
+async def auth_refresh(body: RefreshRequest, session: AsyncSession = Depends(get_session)) -> AuthResponse:
+    tenant = await get_tenant_by_public_id(body.tenant_public_id, session)
+    try:
+        payload = decode_refresh_token(body.refresh_token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="invalid refresh token") from exc
+    if payload.get("tenant") != tenant.public_id:
+        raise HTTPException(status_code=401, detail="tenant mismatch")
+    user_id = UUID(str(payload["sub"]))
+    staff = await session.scalar(
+        select(StaffMember).where(
+            StaffMember.tenant_id == tenant.id,
+            StaffMember.user_account_id == user_id,
+        )
+    )
+    roles: list[str] = ["client"]
+    if staff and staff.roles:
+        roles = list(set(staff.roles) | {"client"})
+    access = create_access_token(
+        tenant_public_id=tenant.public_id,
+        user_account_id=user_id,
+        roles=roles,
+    )
+    refresh = create_refresh_token(tenant_public_id=tenant.public_id, user_account_id=user_id)
+    return AuthResponse(access_token=access, refresh_token=refresh)
 
 
 @api_router.get("/me", response_model=MeResponse)
@@ -94,7 +141,17 @@ async def me(
         tenant_public_id=tenant.public_id,
         tenant_name=tenant.name,
         brand=tenant.brand or {},
+        subscription_status=tenant.subscription_status,
     )
+
+
+@api_router.get("/tenant/brand", response_model=TenantBrandOut)
+async def tenant_brand(
+    tenant_public_id: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+) -> TenantBrandOut:
+    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    return TenantBrandOut(name=tenant.name, brand=tenant.brand or {}, rules=tenant.rules or {})
 
 
 @api_router.get("/services", response_model=list[ServiceOut])
@@ -123,17 +180,45 @@ async def list_services(
 @api_router.get("/specialists", response_model=list[SpecialistOut])
 async def list_specialists(
     tenant_public_id: str = Query(...),
+    service_id: UUID | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> list[SpecialistOut]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    rows = (
-        await session.scalars(
-            select(StaffMember).where(
-                StaffMember.tenant_id == tenant.id,
-                StaffMember.is_active.is_(True),
+    if service_id:
+        from app.domain.models import SpecialistService
+
+        ids = (
+            await session.scalars(
+                select(SpecialistService.staff_member_id).where(
+                    SpecialistService.tenant_id == tenant.id,
+                    SpecialistService.service_id == service_id,
+                )
             )
-        )
-    ).all()
+        ).all()
+        if ids:
+            rows = (
+                await session.scalars(
+                    select(StaffMember).where(StaffMember.id.in_(ids), StaffMember.is_active.is_(True))
+                )
+            ).all()
+        else:
+            rows = (
+                await session.scalars(
+                    select(StaffMember).where(
+                        StaffMember.tenant_id == tenant.id,
+                        StaffMember.is_active.is_(True),
+                    )
+                )
+            ).all()
+    else:
+        rows = (
+            await session.scalars(
+                select(StaffMember).where(
+                    StaffMember.tenant_id == tenant.id,
+                    StaffMember.is_active.is_(True),
+                )
+            )
+        ).all()
     return [
         SpecialistOut(id=r.id, display_name=r.display_name, photo_url=r.photo_url) for r in rows
     ]
@@ -150,17 +235,20 @@ async def list_slots(
     service = await session.get(Service, service_id)
     if service is None or service.tenant_id != tenant.id:
         raise HTTPException(status_code=404, detail="service not found")
-    rules = tenant.rules or {}
-    slot_rules = SlotRules(
-        grid_step_minutes=int(rules.get("grid_step_minutes", 30)),
-        min_lead_time_minutes=int(rules.get("min_lead_time_hours", 2)) * 60,
-        horizon_days=int(rules.get("booking_horizon_days", 30)),
+    branch_id = UUID(str((tenant.rules or {}).get("default_branch_id")))
+    branch = await session.get(Branch, branch_id)
+    if branch is None:
+        raise HTTPException(status_code=500, detail="branch not configured")
+    slots = await list_available_slots(
+        session,
+        tenant_id=tenant.id,
+        branch=branch,
+        service=service,
+        staff_member_id=staff_member_id,
+        rules=tenant.rules or {},
     )
-    now = datetime.now(UTC)
-    work = [TimeInterval(now.replace(hour=9, minute=0), now.replace(hour=18, minute=0))]
-    slots = compute_slots(work, [], service.duration_minutes, slot_rules, now=now)
     return [
-        SlotOut(start=s.start, end=s.end, staff_member_id=staff_member_id) for s in slots[:20]
+        SlotOut(start=s.start, end=s.end, staff_member_id=s.staff_member_id) for s in slots
     ]
 
 
@@ -172,19 +260,42 @@ async def api_hold_booking(
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    assert_tenant_can_write(tenant)
     user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client profile required")
     branch_id = UUID(str((tenant.rules or {}).get("default_branch_id")))
+    branch = await session.get(Branch, branch_id)
+    if branch is None:
+        raise HTTPException(status_code=500, detail="branch not configured")
+    staff_id = body.staff_member_id
+    start_at = body.start_at
+    if staff_id is None:
+        service = await session.get(Service, body.service_id)
+        if service is None:
+            raise HTTPException(status_code=404, detail="service not found")
+        slots = await list_available_slots(
+            session,
+            tenant_id=tenant.id,
+            branch=branch,
+            service=service,
+            staff_member_id=None,
+            rules=tenant.rules or {},
+            limit=1,
+        )
+        if not slots or slots[0].staff_member_id is None:
+            raise HTTPException(status_code=409, detail="no slots available")
+        staff_id = slots[0].staff_member_id
+        start_at = slots[0].start
     try:
         booking = await hold_slot(
             session,
             tenant=tenant,
             branch_id=branch_id,
             client_profile_id=user.client_profile_id,
-            staff_member_id=body.staff_member_id,
+            staff_member_id=staff_id,
             service_id=body.service_id,
-            start_at=body.start_at,
+            start_at=start_at,
             actor_user_id=user.user_account_id,
         )
         await session.commit()
@@ -207,6 +318,7 @@ async def api_confirm_booking(
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    assert_tenant_can_write(tenant)
     try:
         booking = await confirm_hold(
             session,
@@ -234,6 +346,7 @@ async def api_cancel_booking(
     user: UserContext = Depends(get_current_user),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    assert_tenant_can_write(tenant)
     try:
         await cancel_booking(
             session,
@@ -243,10 +356,40 @@ async def api_cancel_booking(
             actor_user_id=user.user_account_id,
         )
         await session.commit()
-    except DomainError as exc:
+    except (DomainError, ForbiddenError) as exc:
         await session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"status": "cancelled"}
+
+
+@api_router.post("/bookings/{booking_id}/reschedule", response_model=BookingOut)
+async def api_reschedule_booking(
+    booking_id: UUID,
+    body: RescheduleRequest,
+    tenant_public_id: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+    user: UserContext = Depends(get_current_user),
+) -> BookingOut:
+    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    assert_tenant_can_write(tenant)
+    try:
+        booking = await reschedule_booking(
+            session,
+            tenant=tenant,
+            booking_id=booking_id,
+            new_start_at=body.start_at,
+            actor_user_id=user.user_account_id,
+        )
+        await session.commit()
+    except (SlotTakenError, DomainError, ForbiddenError) as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return BookingOut(
+        id=booking.id,
+        status=booking.status,
+        total_price_cents=booking.total_price_cents,
+        hold_expires_at=booking.hold_expires_at,
+    )
 
 
 @api_router.get("/bookings/mine", response_model=list[BookingOut])
@@ -259,22 +402,35 @@ async def my_bookings(
     user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         return []
-    rows = (
-        await session.scalars(
-            select(Booking).where(
-                Booking.tenant_id == tenant.id,
-                Booking.client_profile_id == user.client_profile_id,
-            )
-        )
-    ).all()
+    rows = await session.execute(
+        text(
+            """
+            SELECT b.id, b.status, b.total_price_cents, b.hold_expires_at,
+                   lower(bi.during) AS start_at, upper(bi.during) AS end_at,
+                   s.id AS service_id, s.name AS service_name, sm.display_name AS staff_name
+            FROM booking b
+            LEFT JOIN booking_item bi ON bi.booking_id = b.id AND bi.is_active = true
+            LEFT JOIN service s ON s.id = bi.service_id
+            LEFT JOIN staff_member sm ON sm.id = bi.staff_member_id
+            WHERE b.tenant_id = :tenant_id AND b.client_profile_id = :client_id
+            ORDER BY start_at DESC NULLS LAST
+            """
+        ),
+        {"tenant_id": str(tenant.id), "client_id": str(user.client_profile_id)},
+    )
     return [
         BookingOut(
-            id=b.id,
-            status=b.status,
-            total_price_cents=b.total_price_cents,
-            hold_expires_at=b.hold_expires_at,
+            id=r.id,
+            status=r.status,
+            total_price_cents=r.total_price_cents,
+            hold_expires_at=r.hold_expires_at,
+            start_at=r.start_at,
+            end_at=r.end_at,
+            service_id=r.service_id,
+            service_name=r.service_name,
+            staff_name=r.staff_name,
         )
-        for b in rows
+        for r in rows.all()
     ]
 
 
@@ -286,6 +442,7 @@ async def update_profile(
     user: UserContext = Depends(get_current_user),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    assert_tenant_can_write(tenant)
     user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=404, detail="profile not found")
@@ -298,87 +455,3 @@ async def update_profile(
         profile.phone = body.phone
     await session.commit()
     return {"status": "ok"}
-
-
-manager_router = APIRouter(prefix="/manager", tags=["manager"])
-
-
-@manager_router.get("/calendar")
-async def manager_calendar(
-    tenant_public_id: str = Query(...),
-    _: UserContext = Depends(require_role("manager", "owner")),
-) -> dict:
-    return {"items": []}
-
-
-@manager_router.get("/reschedule-pending")
-async def reschedule_pending(
-    tenant_public_id: str = Query(...),
-    session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
-) -> list[dict]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    rows = (
-        await session.scalars(
-            select(Booking).where(
-                Booking.tenant_id == tenant.id,
-                Booking.reschedule_pending.is_(True),
-            )
-        )
-    ).all()
-    return [{"id": str(b.id), "status": b.status} for b in rows]
-
-
-staff_router = APIRouter(prefix="/staff", tags=["staff"])
-
-
-@staff_router.get("/day")
-async def staff_day(
-    tenant_public_id: str = Query(...),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
-) -> dict:
-    return {"bookings": [], "staff_member_id": str(user.staff_member_id) if user.staff_member_id else None}
-
-
-@staff_router.post("/unavailable")
-async def staff_unavailable(
-    tenant_public_id: str = Query(...),
-    session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
-) -> dict:
-    from datetime import UTC, datetime, timedelta
-
-    from app.domain.services.force_majeure import declare_unavailable
-
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    if user.staff_member_id is None:
-        raise HTTPException(status_code=400, detail="staff profile required")
-    start = datetime.now(UTC)
-    end = start + timedelta(hours=4)
-    ids = await declare_unavailable(
-        session,
-        tenant_id=tenant.id,
-        staff_member_id=user.staff_member_id,
-        start=start,
-        end=end,
-        reason="force_majeure",
-    )
-    await session.commit()
-    return {"affected_bookings": [str(i) for i in ids]}
-
-
-@staff_router.post("/bookings/{booking_id}/status")
-async def staff_booking_status(
-    booking_id: UUID,
-    body: BookingStatusUpdate,
-    tenant_public_id: str = Query(...),
-    session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
-) -> dict[str, str]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    booking = await session.get(Booking, booking_id)
-    if booking is None or booking.tenant_id != tenant.id:
-        raise HTTPException(status_code=404, detail="booking not found")
-    booking.status = body.status
-    await session.commit()
-    return {"status": booking.status}
