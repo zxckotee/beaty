@@ -6,16 +6,7 @@ MODE="${1:-build}"
 DEPLOY_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$DEPLOY_PATH"
 
-if docker compose version >/dev/null 2>&1; then
-  DC=(docker compose)
-elif command -v docker-compose >/dev/null 2>&1; then
-  DC=(docker-compose)
-else
-  echo "Docker Compose is not installed" >&2
-  exit 1
-fi
-
-COMPOSE=("${DC[@]}" -p beaty -f docker-compose.prod.yml --env-file .env.prod)
+COMPOSE=( "$DEPLOY_PATH/scripts/compose-prod.sh" )
 
 if [ ! -f .env.prod ]; then
   echo ".env.prod not found, run scripts/write-env-from-ci.sh first" >&2

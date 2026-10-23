@@ -59,4 +59,10 @@ SENTRY_DSN=${SENTRY_DSN}
 EOF
 chmod 600 "$ENV_FILE"
 
+# docker-compose (v1) and `docker compose` load `.env` from the project dir for
+# variable substitution. CI/redeploy use `.env.prod`; link so manual commands work:
+#   docker-compose -p beaty -f docker-compose.prod.yml logs
+ln -sf .env.prod "$DEPLOY_PATH/.env"
+
 echo "Wrote $ENV_FILE (public URL: $PUBLIC_URL)"
+echo "Linked $DEPLOY_PATH/.env -> .env.prod"
