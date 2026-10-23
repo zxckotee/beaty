@@ -43,7 +43,7 @@ Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (T
 ## Development
 
 1. Скопируйте `.env.example` в `.env` и заполните `PLATFORM_BOT_TOKEN` при работе с Telegram.
-2. `make up` — PostgreSQL, Redis, MinIO.
+2. `make up` — PostgreSQL, Redis, MinIO ([docker-compose.dev.yml](docker-compose.dev.yml)).
 3. `make backend-install && make migrate` — зависимости и миграции Alembic.
 4. `make dev-api` — API на http://localhost:8000 (OpenAPI: `/docs`).
 5. `cd miniapp && npm install && npm run dev` — Mini App на http://localhost:5173 (`VITE_API_BASE=http://localhost:8000`).
@@ -58,8 +58,8 @@ Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (T
 Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запускается при пуше в `main` и вручную (Actions → CI/CD Deploy → Run workflow). Сначала проходят проверки из `ci.yml`, затем GitHub Actions подключается к серверу по SSH и:
 
 1. клонирует или обновляет репозиторий в `/root/beaty` (`git reset --hard origin/<ветка>`);
-2. собирает `.env.prod` скриптом [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh);
-3. поднимает стек скриптом [scripts/redeploy.sh](scripts/redeploy.sh) (`build` или `nobuild`) через [docker-compose.prod.yml](docker-compose.prod.yml) и ждёт ответа `/health`.
+2. записывает production-переменные в [env/bootstrap.env](env/bootstrap.env) скриптом [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh);
+3. поднимает стек скриптом [scripts/redeploy.sh](scripts/redeploy.sh) (`build` или `nobuild`) через [docker-compose.yml](docker-compose.yml) и ждёт ответа `/health`.
 
 На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api` (при старте применяет миграции), `worker` (напоминания), `platform-bot` (long polling) и `web` (nginx с Mini App, проксирует `/api`, `/tg`, `/health` в API). Наружу открыт только порт `4040`; поменять его можно переменной `WEB_PORT` в `deploy.yml`.
 
