@@ -11,6 +11,7 @@ class AuthTelegramRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
 
 
@@ -22,6 +23,7 @@ class MeResponse(BaseModel):
     tenant_public_id: str
     tenant_name: str
     brand: dict
+    subscription_status: str = "trial"
 
 
 class ServiceOut(BaseModel):
@@ -45,8 +47,12 @@ class SlotOut(BaseModel):
 
 
 class HoldBookingRequest(BaseModel):
-    staff_member_id: UUID
+    staff_member_id: UUID | None = None
     service_id: UUID
+    start_at: datetime
+
+
+class RescheduleRequest(BaseModel):
     start_at: datetime
 
 
@@ -55,6 +61,11 @@ class BookingOut(BaseModel):
     status: str
     total_price_cents: int
     hold_expires_at: datetime | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    service_id: UUID | None = None
+    service_name: str | None = None
+    staff_name: str | None = None
 
 
 class ProfileUpdate(BaseModel):

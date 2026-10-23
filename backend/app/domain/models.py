@@ -266,3 +266,140 @@ class AuditLog(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Resource(Base):
+    __tablename__ = "resource"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    branch_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("branch.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255))
+    resource_type: Mapped[str] = mapped_column(String(64))
+
+
+class WaitlistEntry(Base):
+    __tablename__ = "waitlist_entry"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    client_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("client_profile.id", ondelete="CASCADE"))
+    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service.id", ondelete="CASCADE"))
+    staff_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_member.id", ondelete="SET NULL"), nullable=True
+    )
+    preferred_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Review(Base):
+    __tablename__ = "review"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    booking_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("booking.id", ondelete="CASCADE"), unique=True)
+    client_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("client_profile.id", ondelete="CASCADE"))
+    staff_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    salon_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    business_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    moderation_status: Mapped[str] = mapped_column(String(32), default="published")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CourseTemplate(Base):
+    __tablename__ = "course_template"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    sessions_count: Mapped[int] = mapped_column(Integer)
+    min_days_between: Mapped[int] = mapped_column(Integer, default=7)
+    max_days_between: Mapped[int] = mapped_column(Integer, default=30)
+    validity_days: Mapped[int] = mapped_column(Integer, default=180)
+    price_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    is_flexible: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class CourseEnrollment(Base):
+    __tablename__ = "course_enrollment"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    template_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("course_template.id", ondelete="CASCADE"))
+    client_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("client_profile.id", ondelete="CASCADE"))
+    sessions_completed: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active")
+
+
+class Payment(Base):
+    __tablename__ = "payment"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    booking_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("booking.id", ondelete="SET NULL"), nullable=True)
+    amount_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    tip_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    method: Mapped[str] = mapped_column(String(32), default="cash")
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Promotion(Base):
+    __tablename__ = "promotion"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    discount_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    segment: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PromoCode(Base):
+    __tablename__ = "promo_code"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(64))
+    discount_percent: Mapped[int] = mapped_column(Integer, default=0)
+    max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LoyaltyRule(Base):
+    __tablename__ = "loyalty_rule"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    every_nth_visit: Mapped[int] = mapped_column(Integer, default=5)
+    discount_percent: Mapped[int] = mapped_column(Integer, default=10)
+
+
+class Payout(Base):
+    __tablename__ = "payout"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    staff_member_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("staff_member.id", ondelete="CASCADE"))
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PlatformInvoice(Base):
+    __tablename__ = "platform_invoice"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    amount_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

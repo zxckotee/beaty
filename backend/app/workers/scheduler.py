@@ -33,11 +33,17 @@ async def process_due_notifications(batch_size: int = 50) -> int:
 
 
 async def scheduler_loop(interval_seconds: int = 60) -> None:
+    tick = 0
     while True:
         try:
             count = await process_due_notifications()
             if count:
                 logger.info("sent notifications batch=%s", count)
+            tick += 1
+            if tick % 60 == 0:
+                from app.workers.webhook_health import check_tenant_webhooks
+
+                await check_tenant_webhooks()
         except Exception:
             logger.exception("scheduler iteration failed")
         await asyncio.sleep(interval_seconds)

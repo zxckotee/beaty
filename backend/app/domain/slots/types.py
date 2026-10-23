@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -7,19 +8,16 @@ class TimeInterval:
     start: datetime
     end: datetime
 
-    def duration_minutes(self) -> int:
-        return int((self.end - self.start).total_seconds() // 60)
-
 
 @dataclass(frozen=True)
 class SlotRules:
-    grid_step_minutes: int
-    min_lead_time_minutes: int
-    horizon_days: int
+    grid_step_minutes: int = 30
+    min_lead_time_minutes: int = 120
+    horizon_days: int = 30
 
 
 @dataclass(frozen=True)
 class Slot:
     start: datetime
     end: datetime
-    staff_member_id: str | None = None
+    staff_member_id: UUID | None = None

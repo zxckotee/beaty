@@ -1,0 +1,31 @@
+# TLS reverse proxy for Beaty production.
+# Set PUBLIC_DOMAIN and ACME_EMAIL in the environment before starting Caddy.
+#
+# Routes:
+#   /api/*, /tg/*, /health, /ready  -> api:8000
+#   /*                               -> web:80 (Mini App static)
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode gzip
+
+	handle /health* {
+		reverse_proxy api:8000
+	}
+	handle /ready* {
+		reverse_proxy api:8000
+	}
+	handle /tg/* {
+		reverse_proxy api:8000
+	}
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}

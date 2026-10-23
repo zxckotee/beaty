@@ -12,5 +12,7 @@ def get_bot_for_tenant(tenant: Tenant) -> Bot:
         if not tenant.bot_token_encrypted:
             raise ValueError("bot token missing")
         token = decrypt_bot_token(tenant.bot_token_encrypted)
-        _bot_cache[tenant.public_id] = create_bot(token)
+        bot = create_bot(token)
+        setattr(bot, "tenant_public_id", tenant.public_id)
+        _bot_cache[tenant.public_id] = bot
     return _bot_cache[tenant.public_id]
