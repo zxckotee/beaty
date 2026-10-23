@@ -75,27 +75,20 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 
 Webhook-боты салонов и открытие Mini App внутри Telegram требуют HTTPS-домена; до его появления сайт доступен по `http://<SSH_HOST>:4040`, а платформенный бот работает через polling.
 
-### Логи и статус на сервере
+### Логи на сервере
 
-CI/CD поднимает **production**-стек (`docker-compose.prod.yml`, проект `-p beaty`, переменные в `.env.prod`), а не локальный `docker-compose.yml` с `.env`.
+После каждого деплоя CI вызывает `write-env-from-ci.sh` и `redeploy.sh`, которые настраивают симлинки:
 
-Команда `docker-compose logs` без флагов ищет `.env` и dev-compose — отсюда ошибка `Couldn't find env file: /root/beaty/.env`.
+- `docker-compose.yml` → `docker-compose.prod.yml`
+- `.env` → `.env.prod`
 
-После деплоя скрипт `write-env-from-ci.sh` создаёт симлинк `.env` → `.env.prod`. Смотреть логи так:
+Поэтому в `/root/beaty` достаточно обычных команд (ничего вручную на сервере не нужно):
 
 ```bash
 cd /root/beaty
-./scripts/logs.sh              # все сервисы, follow
-./scripts/logs.sh -f api       # только API
-./scripts/ps.sh                # статус контейнеров
+docker-compose logs -f
+docker-compose logs -f api
+docker-compose ps
 ```
 
-Эквивалент вручную (legacy `docker-compose` или Compose V2):
-
-```bash
-docker-compose -p beaty -f docker-compose.prod.yml --env-file .env.prod logs -f --tail=200
-# или
-docker compose -p beaty -f docker-compose.prod.yml --env-file .env.prod logs -f api
-```
-
-Если `.env` ещё нет (деплой был до этого изменения): `ln -sf .env.prod .env` в каталоге репозитория.
+Локальная разработка по-прежнему использует [docker-compose.yml](docker-compose.yml) из репозитория (dev-стек); на сервере после `git reset` симлинки пересоздаются автоматически при деплое.

@@ -13,6 +13,8 @@ if [ ! -f .env.prod ]; then
   exit 1
 fi
 
+bash "$DEPLOY_PATH/scripts/setup-server-compose-links.sh" "$DEPLOY_PATH"
+
 WEB_PORT="$(grep -E '^WEB_PORT=' .env.prod | cut -d= -f2)"
 WEB_PORT="${WEB_PORT:-4040}"
 
