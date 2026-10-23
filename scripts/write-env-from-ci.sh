@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Builds .env.prod for docker-compose.prod.yml from CI-provided variables.
-# Long-lived secrets are generated once and kept in .secrets.env: rotating
-# TOKEN_ENCRYPTION_KEY would make stored bot tokens undecryptable, and
-# POSTGRES_PASSWORD is baked into the existing database volume.
+# Writes env/bootstrap.env on the server (tracked in git with placeholders; overwritten each deploy).
+# Long-lived secrets live in .secrets.env — do not rotate TOKEN_ENCRYPTION_KEY casually.
 set -euo pipefail
 
 DEPLOY_PATH="${1:-$(pwd)}"
-ENV_FILE="$DEPLOY_PATH/.env.prod"
+ENV_FILE="$DEPLOY_PATH/env/bootstrap.env"
 SECRETS_FILE="$DEPLOY_PATH/.secrets.env"
 
 : "${TELEGRAM_SECRET:?TELEGRAM_SECRET is required}"
@@ -17,6 +15,7 @@ TELEGRAM_PROXY="${TELEGRAM_PROXY:-}"
 SENTRY_DSN="${SENTRY_DSN:-}"
 
 umask 077
+mkdir -p "$DEPLOY_PATH/env"
 
 if [ ! -f "$SECRETS_FILE" ]; then
   echo "Generating persistent secrets in $SECRETS_FILE"
@@ -40,6 +39,7 @@ else
 fi
 
 cat > "$ENV_FILE" <<EOF
+COMPOSE_PROJECT_NAME=beaty
 ENVIRONMENT=production
 WEB_PORT=${WEB_PORT}
 
@@ -59,6 +59,8 @@ SENTRY_DSN=${SENTRY_DSN}
 EOF
 chmod 600 "$ENV_FILE"
 
-echo "Wrote $ENV_FILE (public URL: $PUBLIC_URL)"
+# Backward compatibility for scripts/docs that mention .env.prod
+ln -sf env/bootstrap.env "$DEPLOY_PATH/.env.prod"
+ln -sf env/bootstrap.env "$DEPLOY_PATH/.env"
 
-bash "$DEPLOY_PATH/scripts/setup-server-compose-links.sh" "$DEPLOY_PATH"
+echo "Wrote $ENV_FILE (public URL: $PUBLIC_URL)"

@@ -8,14 +8,12 @@ cd "$DEPLOY_PATH"
 
 COMPOSE=( "$DEPLOY_PATH/scripts/compose-prod.sh" )
 
-if [ ! -f .env.prod ]; then
-  echo ".env.prod not found, run scripts/write-env-from-ci.sh first" >&2
+if [ ! -f env/bootstrap.env ]; then
+  echo "env/bootstrap.env not found, run scripts/write-env-from-ci.sh first" >&2
   exit 1
 fi
 
-bash "$DEPLOY_PATH/scripts/setup-server-compose-links.sh" "$DEPLOY_PATH"
-
-WEB_PORT="$(grep -E '^WEB_PORT=' .env.prod | cut -d= -f2)"
+WEB_PORT="$(grep -E '^WEB_PORT=' env/bootstrap.env | cut -d= -f2)"
 WEB_PORT="${WEB_PORT:-4040}"
 
 case "$MODE" in

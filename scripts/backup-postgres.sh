@@ -4,7 +4,7 @@ set -euo pipefail
 
 DEPLOY_PATH="${1:-$(pwd)}"
 BACKUP_DIR="${BACKUP_DIR:-$DEPLOY_PATH/backups}"
-COMPOSE="docker compose -p beaty -f $DEPLOY_PATH/docker-compose.prod.yml"
+COMPOSE="docker compose -p beaty -f $DEPLOY_PATH/docker-compose.yml"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$BACKUP_DIR/beaty-$STAMP.sql.gz"
 

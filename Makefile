@@ -1,10 +1,10 @@
 .PHONY: up down migrate test lint backend-install miniapp-install
 
 up:
-	docker compose up -d postgres redis minio
+	docker compose -f docker-compose.dev.yml up -d postgres redis minio
 
 down:
-	docker compose down
+	docker compose -f docker-compose.dev.yml down
 
 backend-install:
 	cd backend && pip install -e ".[dev]"

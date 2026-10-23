@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Production Docker Compose wrapper (same flags as CI deploy / redeploy.sh).
-# Usage: scripts/compose-prod.sh logs -f api
-#        scripts/compose-prod.sh ps
 set -euo pipefail
 
 DEPLOY_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$DEPLOY_PATH"
 
-if [ ! -f .env.prod ]; then
-  echo "Missing .env.prod — run scripts/write-env-from-ci.sh or wait for CI deploy." >&2
+if [ ! -f env/bootstrap.env ]; then
+  echo "Missing env/bootstrap.env" >&2
   exit 1
 fi
 
@@ -21,4 +19,4 @@ else
   exit 1
 fi
 
-exec "${DC[@]}" -p beaty -f docker-compose.prod.yml --env-file .env.prod "$@"
+exec "${DC[@]}" -p beaty -f docker-compose.yml "$@"
