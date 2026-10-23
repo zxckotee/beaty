@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -33,7 +32,7 @@ from app.core.db import get_session
 from app.core.jwt_auth import create_access_token, create_refresh_token, decode_refresh_token
 from app.core.telegram_auth import verify_webapp_init_data
 from app.domain.exceptions import DomainError, ForbiddenError, SlotTakenError
-from app.domain.models import Booking, Branch, ClientProfile, Service, StaffMember, Tenant
+from app.domain.models import Branch, ClientProfile, Service, StaffMember
 from app.domain.services.booking_service import cancel_booking, confirm_hold, hold_slot, reschedule_booking
 from app.domain.services.client_service import get_or_create_user_account, register_client
 from app.domain.services.slot_repository import list_available_slots

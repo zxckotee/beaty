@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router
 from app.api.phase2_routes import phase2_router
-from app.core.sentry_init import init_sentry
+from app.api.router import api_router
 from app.core.logging_config import setup_logging
 from app.core.redis_client import close_redis
+from app.core.sentry_init import init_sentry
 from app.core.settings import get_settings
 from app.webhook.routes import webhook_router
 from app.workers.scheduler import scheduler_loop

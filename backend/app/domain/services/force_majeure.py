@@ -1,12 +1,12 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import Booking, BookingItem, Service, SpecialistService
+from app.domain.models import Booking, BookingItem, Branch, Service, SpecialistService
 from app.domain.services.slot_repository import list_available_slots
-from app.domain.models import Branch
 
 
 async def declare_unavailable(
@@ -79,7 +79,7 @@ async def build_resolution_options(
     tenant_id: UUID,
     booking_id: UUID,
     unavailable_staff_id: UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     from app.domain.models import Tenant
 
     booking = await session.get(Booking, booking_id)
@@ -102,7 +102,7 @@ async def build_resolution_options(
         {"id": str(item.id)},
     )
     original_start = row.scalar_one()
-    options: list[dict] = []
+    options: list[dict[str, Any]] = []
 
     alts = (
         await session.scalars(
@@ -160,7 +160,7 @@ async def apply_force_majeure_choice(
     *,
     tenant_id: UUID,
     booking_id: UUID,
-    choice: dict,
+    choice: dict[str, Any],
     actor_user_id: UUID | None,
 ) -> None:
     from app.domain.models import Tenant

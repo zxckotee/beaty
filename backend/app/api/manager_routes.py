@@ -6,24 +6,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_tenant_by_public_id, require_role, resolve_staff_and_client
+from app.api.deps import get_tenant_by_public_id, require_role
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.db import get_session
 from app.domain.exceptions import DomainError, SlotTakenError
 from app.domain.models import (
     Booking,
-    BookingItem,
     Branch,
     ClientProfile,
     Service,
-    ServiceCategory,
     StaffMember,
-    Tenant,
 )
-from app.domain.services.booking_service import cancel_booking, hold_slot, confirm_hold
+from app.domain.services.booking_service import confirm_hold, hold_slot
 from app.domain.services.catalog_service import apply_catalog_template
-from app.domain.services.client_service import register_client
 from app.domain.services.schedule_service import ensure_default_schedule, replace_weekly_template
 
 manager_router = APIRouter(prefix="/manager", tags=["manager"])

@@ -23,7 +23,6 @@ def _miniapp_url(tenant_public_id: str, start_param: str | None = None) -> str:
 
 @tenant_router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    settings = get_settings()
     start_param = message.text.split(maxsplit=1)[1] if message.text and " " in message.text else None
     tenant_public_id = getattr(message.bot, "tenant_public_id", "demo")
     kb = InlineKeyboardBuilder()
@@ -46,7 +45,7 @@ async def confirm_visit_callback(callback: CallbackQuery) -> None:
     async with SessionLocal() as session:
         from sqlalchemy import select
 
-        from app.domain.models import Booking, Tenant
+        from app.domain.models import Tenant
 
         tenant = await session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
         if tenant is None:

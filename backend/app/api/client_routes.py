@@ -1,9 +1,8 @@
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_tenant_by_public_id, resolve_staff_and_client
@@ -12,10 +11,8 @@ from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.db import get_session
 from app.domain.exceptions import DomainError, ForbiddenError, SlotTakenError
-from app.domain.models import Booking, BookingItem, Branch, Service, StaffMember
+from app.domain.models import Branch, Service
 from app.domain.services.booking_service import (
-    cancel_booking,
-    confirm_hold,
     hold_slot,
     reschedule_booking,
 )

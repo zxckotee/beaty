@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -27,23 +28,23 @@ async def replace_weekly_template(
     *,
     tenant_id: UUID,
     staff_member_id: UUID,
-    rows: list[dict],
+    rows: list[dict[str, Any]],
     actor_user_id: UUID | None,
 ) -> None:
     existing = await list_templates(session, tenant_id=tenant_id, staff_member_id=staff_member_id)
-    for row in existing:
-        await session.delete(row)
+    for tpl in existing:
+        await session.delete(tpl)
     await session.flush()
-    for row in rows:
+    for spec in rows:
         session.add(
             ScheduleTemplate(
                 tenant_id=tenant_id,
                 staff_member_id=staff_member_id,
-                weekday=int(row["weekday"]),
-                start_time=row["start_time"],
-                end_time=row["end_time"],
-                break_start=row.get("break_start"),
-                break_end=row.get("break_end"),
+                weekday=int(spec["weekday"]),
+                start_time=str(spec["start_time"]),
+                end_time=str(spec["end_time"]),
+                break_start=spec.get("break_start"),
+                break_end=spec.get("break_end"),
             )
         )
     await log_audit(

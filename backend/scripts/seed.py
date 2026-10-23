@@ -5,7 +5,6 @@ import asyncio
 from sqlalchemy import select
 
 from app.core.db import SessionLocal
-from app.domain.models import StaffMember
 from app.domain.models import Service, SpecialistService, StaffMember
 from app.domain.services.catalog_service import apply_catalog_template
 from app.domain.services.provisioning import attach_bot_token, create_tenant_for_owner

@@ -16,11 +16,11 @@ from app.domain.services.course_service import enroll_client
 from app.domain.services.marketing_service import create_promotion, validate_promo_code
 from app.domain.services.payment_service import record_payment
 from app.domain.services.review_service import create_review, reply_to_review
+from app.domain.services.v2.gcal_sync import export_staff_day_to_gcal
 from app.domain.services.v2.import_service import import_from_csv
 from app.domain.services.v2.nl_booking import suggest_slots_from_intent
 from app.domain.services.v2.prepayment_service import create_deposit_invoice
 from app.domain.services.waitlist_service import join_waitlist
-from app.domain.services.v2.gcal_sync import export_staff_day_to_gcal
 
 phase2_router = APIRouter(prefix="/api/v1", tags=["phase2"])
 

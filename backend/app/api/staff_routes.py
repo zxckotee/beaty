@@ -3,15 +3,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_tenant_by_public_id, require_role, resolve_staff_and_client
+from app.api.deps import get_tenant_by_public_id, require_role, resolve_staff_and_client
 from app.api.schemas import BookingStatusUpdate
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.db import get_session
-from app.domain.models import Booking, BookingStatus, Tenant
+from app.domain.models import Booking, BookingStatus
 from app.domain.services.force_majeure import declare_unavailable
 
 staff_router = APIRouter(prefix="/staff", tags=["staff"])

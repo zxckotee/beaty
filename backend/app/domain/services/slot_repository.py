@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -9,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis_client import get_redis
 from app.domain.models import (
-    Booking,
-    BookingItem,
     BookingStatus,
     Branch,
     ScheduleException,
@@ -31,7 +30,7 @@ ACTIVE_STATUSES = {
 DEFAULT_WEEKDAY_HOURS = (time(9, 0), time(18, 0))
 
 
-def _slot_rules_from_tenant(rules: dict) -> SlotRules:
+def _slot_rules_from_tenant(rules: dict[str, Any]) -> SlotRules:
     return SlotRules(
         grid_step_minutes=int(rules.get("grid_step_minutes", 30)),
         min_lead_time_minutes=int(rules.get("min_lead_time_hours", 2)) * 60,
@@ -78,7 +77,7 @@ def _work_intervals_for_day(
     day: date,
     tz: ZoneInfo,
     templates: list[ScheduleTemplate],
-    holidays: list,
+    holidays: list[Any],
 ) -> list[TimeInterval]:
     day_iso = day.isoformat()
     if any(h.get("date") == day_iso for h in holidays if isinstance(h, dict)):
@@ -179,7 +178,7 @@ async def list_available_slots(
     branch: Branch,
     service: Service,
     staff_member_id: UUID | None,
-    rules: dict,
+    rules: dict[str, Any],
     limit: int = 50,
 ) -> list[Slot]:
     slot_rules = _slot_rules_from_tenant(rules)
