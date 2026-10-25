@@ -1,5 +1,5 @@
-# TLS reverse proxy for Beaty production.
-# Set PUBLIC_DOMAIN and ACME_EMAIL in the environment before starting Caddy.
+# TLS reverse proxy for Beaty production (see docker-compose.tls.yml).
+# Set PUBLIC_DOMAIN and ACME_EMAIL in .env.prod before starting Caddy.
 #
 # Routes:
 #   /api/*, /tg/*, /health, /ready  -> api:8000
