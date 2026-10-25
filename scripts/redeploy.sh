@@ -17,6 +17,17 @@ fi
 
 COMPOSE=("${DC[@]}" -p beaty -f docker-compose.prod.yml --env-file .env.prod)
 
+# docker-compose 1.29.x + modern Docker Engine raises KeyError: 'ContainerConfig'
+# when recreating containers. Stop and remove the stack first so `up` creates
+# fresh containers instead of hitting the recreate path.
+legacy_compose_up() {
+  if [ "${DC[0]}" = "docker-compose" ]; then
+    echo "Legacy docker-compose detected: stopping stack before up (ContainerConfig workaround)"
+    "${COMPOSE[@]}" down --remove-orphans || true
+  fi
+  "${COMPOSE[@]}" up -d --remove-orphans "$@"
+}
+
 if [ ! -f .env.prod ]; then
   echo ".env.prod not found, run scripts/write-env-from-ci.sh first" >&2
   exit 1
@@ -28,11 +39,11 @@ WEB_PORT="${WEB_PORT:-4040}"
 case "$MODE" in
   build)
     echo "Building images and starting services"
-    "${COMPOSE[@]}" up -d --build --remove-orphans
+    legacy_compose_up --build
     ;;
   nobuild)
     echo "Starting services without rebuild"
-    "${COMPOSE[@]}" up -d --remove-orphans
+    legacy_compose_up
     ;;
   *)
     echo "Unknown mode: $MODE (expected build|nobuild)" >&2
