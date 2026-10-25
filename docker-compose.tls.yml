@@ -1,0 +1,30 @@
+# Optional HTTPS front (Caddy + Let's Encrypt).
+# Use with production stack:
+#   docker compose -p beaty -f docker-compose.prod.yml -f docker-compose.tls.yml \
+#     --env-file .env.prod up -d --build
+#
+# Requires PUBLIC_DOMAIN (and optionally ACME_EMAIL) in .env.prod.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?PUBLIC_DOMAIN is required for TLS deploy}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  caddydata:
+  caddyconfig:
