@@ -74,3 +74,23 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY` и `JWT_SECRET` генерируются на сервере при первом деплое и хранятся в `/root/beaty/.secrets.env`. Не удаляйте этот файл: без `TOKEN_ENCRYPTION_KEY` не расшифруются сохранённые токены ботов, а без `POSTGRES_PASSWORD` не будет доступа к базе.
 
 Webhook-боты салонов и открытие Mini App внутри Telegram требуют HTTPS-домена; до его появления сайт доступен по `http://<SSH_HOST>:4040`, а платформенный бот работает через polling.
+
+### Логи и состояние на сервере
+
+Код на VPS обновляет **только CI/CD** (GitHub Actions с deploy-токеном). Ручной `git pull` с HTTPS обычно падает с `Authentication failed` — это нормально: у каталога на сервере нет вашего GitHub-токена. Ветка в репозитории — **`main`**, не `master`.
+
+После каждого деплоя [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh) создаёт `.env.prod` и симлинки `.env` → `.env.prod`, `docker-compose.yml` → `docker-compose.prod.yml`, чтобы работали привычные команды:
+
+```bash
+cd ~/beaty
+docker-compose logs -f --tail=200
+docker-compose ps
+```
+
+Эквивалент без симлинков (и для локальной отладки prod-файлов):
+
+```bash
+scripts/logs.sh
+scripts/compose-prod.sh ps
+scripts/compose-prod.sh logs -f api
+```

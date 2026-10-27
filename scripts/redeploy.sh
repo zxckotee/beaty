@@ -3,8 +3,11 @@
 set -euo pipefail
 
 MODE="${1:-build}"
-DEPLOY_PATH="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEPLOY_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$DEPLOY_PATH"
+
+COMPOSE=("$SCRIPT_DIR/compose-prod.sh")
 
 if docker compose version >/dev/null 2>&1; then
   DC=(docker compose)
@@ -14,8 +17,6 @@ else
   echo "Docker Compose is not installed" >&2
   exit 1
 fi
-
-COMPOSE=("${DC[@]}" -p beaty -f docker-compose.prod.yml --env-file .env.prod)
 
 # docker-compose 1.29.x + modern Docker Engine raises KeyError: 'ContainerConfig'
 # when recreating containers. Stop and remove the stack first so `up` creates

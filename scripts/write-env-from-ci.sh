@@ -40,6 +40,7 @@ else
 fi
 
 cat > "$ENV_FILE" <<EOF
+COMPOSE_PROJECT_NAME=beaty
 ENVIRONMENT=production
 WEB_PORT=${WEB_PORT}
 
@@ -59,4 +60,10 @@ SENTRY_DSN=${SENTRY_DSN}
 EOF
 chmod 600 "$ENV_FILE"
 
+# Legacy `docker-compose` on the server reads docker-compose.yml and .env by default.
+# Git tracks the dev compose file; re-link after each deploy (git reset --hard restores dev files).
+ln -sf .env.prod "$DEPLOY_PATH/.env"
+ln -sf docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.yml"
+
 echo "Wrote $ENV_FILE (public URL: $PUBLIC_URL)"
+echo "Linked .env and docker-compose.yml for plain docker-compose logs/ps on the server"
