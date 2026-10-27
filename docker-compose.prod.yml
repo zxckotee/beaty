@@ -42,6 +42,7 @@ services:
     <<: *backend
     environment:
       RUN_MIGRATIONS: "true"
+      RUN_SEED_IF_EMPTY: "true"
       RUN_SCHEDULER_IN_API: "false"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
     healthcheck:

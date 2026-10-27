@@ -1,20 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
+  ApiError,
   cancelBooking,
   fetchMyBookings,
   fetchSlots,
   rescheduleBooking,
   type Booking,
 } from "../api/client";
+import { useAuth } from "../shared/auth";
 
 type Props = { tenantPublicId: string };
 
 export function MyBookingsPage({ tenantPublicId }: Props) {
   const qc = useQueryClient();
+  const { status } = useAuth();
   const q = useQuery({
     queryKey: ["my-bookings", tenantPublicId],
     queryFn: () => fetchMyBookings(tenantPublicId),
+    enabled: status === "ready",
   });
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
   const [serviceIdForReschedule, setServiceIdForReschedule] = useState<string | null>(null);
@@ -40,11 +44,24 @@ export function MyBookingsPage({ tenantPublicId }: Props) {
     },
   });
 
-  if (q.isLoading) return <p className="muted">Загрузка…</p>;
+  if (q.isLoading || q.isFetching) return <p className="muted">Загрузка…</p>;
+  if (q.isError) {
+    const msg =
+      q.error instanceof ApiError && q.error.status === 404
+        ? "Салон не найден. Проверьте ссылку из бота."
+        : "Не удалось загрузить записи.";
+    return (
+      <div className="page">
+        <h2>Мои записи</h2>
+        <p className="error">{msg}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
       <h2>Мои записи</h2>
+      {!q.data?.length && <p className="muted">Пока нет записей.</p>}
       {q.data?.map((b: Booking) => (
         <div key={b.id} className="card">
           <div className="card-row">
