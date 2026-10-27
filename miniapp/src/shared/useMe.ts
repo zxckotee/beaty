@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchMe, type MeResponse } from "../api/client";
+import { useAuth } from "./auth";
 
 export function useMe(tenantPublicId: string) {
+  const { status } = useAuth();
   return useQuery<MeResponse>({
     queryKey: ["me", tenantPublicId],
     queryFn: () => fetchMe(tenantPublicId),
-    retry: 1,
+    enabled: status === "ready",
   });
 }
 

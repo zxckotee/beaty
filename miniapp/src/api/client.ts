@@ -6,6 +6,20 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
+export function getAccessToken() {
+  return accessToken;
+}
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
@@ -13,7 +27,7 @@ async function apiFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || res.statusText);
+    throw new ApiError(text || res.statusText, res.status);
   }
   if (res.status === 204) return null;
   return res.json();

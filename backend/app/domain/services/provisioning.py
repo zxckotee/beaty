@@ -18,6 +18,7 @@ async def create_tenant_for_owner(
     owner_telegram_id: int,
     business_name: str,
     owner_display_name: str,
+    public_id: str | None = None,
 ) -> Tenant:
     user = await session.scalar(
         select(UserAccount).where(UserAccount.telegram_user_id == owner_telegram_id)
@@ -28,10 +29,10 @@ async def create_tenant_for_owner(
         await session.flush()
 
     tenant = Tenant(
-        public_id=_public_id(),
+        public_id=public_id or _public_id(),
         name=business_name,
         rules=DEFAULT_TENANT_RULES.copy(),
-        brand={"tone": "formal"},
+        brand={"tone": "formal", "primary": "#2481cc"},
         webhook_secret=secrets.token_hex(16),
     )
     session.add(tenant)

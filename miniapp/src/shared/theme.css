@@ -32,6 +32,11 @@
   margin: 0;
   font-size: 1.125rem;
   font-weight: 650;
+  color: var(--beaty-text);
+}
+
+.auth-gate h2 {
+  margin-top: 0;
 }
 
 .nav-tabs {

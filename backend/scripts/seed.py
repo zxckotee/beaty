@@ -22,6 +22,7 @@ async def main() -> None:
             owner_telegram_id=100001,
             business_name="Demo Barber",
             owner_display_name="Иван",
+            public_id="demo",
         )
         await attach_bot_token(
             session,

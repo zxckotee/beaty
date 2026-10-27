@@ -2,41 +2,31 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Route, Routes, useParams } from "react-router-dom";
-import { authTelegram, fetchTenantBrand, setAccessToken } from "./api/client";
+import { ApiError, fetchTenantBrand } from "./api/client";
 import { ClientBookingPage } from "./client/ClientBookingPage";
 import { MyBookingsPage } from "./client/MyBookingsPage";
 import { ManagerPage } from "./manager/ManagerPage";
 import { StaffDayPage } from "./staff/StaffDayPage";
+import { AuthGate, AuthProvider } from "./shared/auth";
 import { isManager, isStaff, useMe } from "./shared/useMe";
 import "./shared/theme.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+          return false;
+        }
+        return failureCount < 2;
+      },
+    },
+  },
+});
 
-function TenantShell() {
-  const { tenantPublicId = "demo" } = useParams();
+function TenantShellContent({ tenantPublicId }: { tenantPublicId: string }) {
   const { t } = useTranslation();
   const me = useMe(tenantPublicId);
-
-  useEffect(() => {
-    const initData = window.Telegram?.WebApp?.initData;
-    if (!initData) return;
-    authTelegram(tenantPublicId, initData)
-      .then((res) => {
-        setAccessToken(res.access_token);
-        me.refetch();
-      })
-      .catch(() => undefined);
-  }, [tenantPublicId]);
-
-  useEffect(() => {
-    fetchTenantBrand(tenantPublicId)
-      .then((b) => {
-        const primary = b.brand?.primary as string | undefined;
-        if (primary) document.documentElement.style.setProperty("--beaty-brand", primary);
-      })
-      .catch(() => undefined);
-  }, [tenantPublicId]);
-
   const roles = me.data?.roles ?? ["client"];
   const nav = useMemo(
     () => (
@@ -63,21 +53,44 @@ function TenantShell() {
   );
 
   return (
-    <div className="shell">
+    <>
       <header className="shell-header">
-        <h1 className="shell-title">{me.data?.tenant_name ?? t("app.title")}</h1>
+        <h1 className="shell-title">{me.data?.tenant_name ?? tenantPublicId}</h1>
         {me.data?.subscription_status === "expired" && (
           <p className="error">Подписка неактивна — доступ только для просмотра</p>
         )}
         {nav}
       </header>
-      <Routes>
-        <Route path="book" element={<ClientBookingPage tenantPublicId={tenantPublicId} />} />
-        <Route path="my" element={<MyBookingsPage tenantPublicId={tenantPublicId} />} />
-        <Route path="manager" element={<ManagerPage tenantPublicId={tenantPublicId} />} />
-        <Route path="staff" element={<StaffDayPage tenantPublicId={tenantPublicId} />} />
-        <Route path="*" element={<ClientBookingPage tenantPublicId={tenantPublicId} />} />
-      </Routes>
+      <AuthGate>
+        <Routes>
+          <Route path="book" element={<ClientBookingPage tenantPublicId={tenantPublicId} />} />
+          <Route path="my" element={<MyBookingsPage tenantPublicId={tenantPublicId} />} />
+          <Route path="manager" element={<ManagerPage tenantPublicId={tenantPublicId} />} />
+          <Route path="staff" element={<StaffDayPage tenantPublicId={tenantPublicId} />} />
+          <Route path="*" element={<ClientBookingPage tenantPublicId={tenantPublicId} />} />
+        </Routes>
+      </AuthGate>
+    </>
+  );
+}
+
+function TenantShell() {
+  const { tenantPublicId = "demo" } = useParams();
+
+  useEffect(() => {
+    fetchTenantBrand(tenantPublicId)
+      .then((b) => {
+        const primary = b.brand?.primary as string | undefined;
+        if (primary) document.documentElement.style.setProperty("--beaty-brand", primary);
+      })
+      .catch(() => undefined);
+  }, [tenantPublicId]);
+
+  return (
+    <div className="shell">
+      <AuthProvider tenantPublicId={tenantPublicId}>
+        <TenantShellContent tenantPublicId={tenantPublicId} />
+      </AuthProvider>
     </div>
   );
 }

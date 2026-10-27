@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  ApiError,
   confirmBooking,
   fetchServices,
   fetchSlots,
@@ -12,12 +13,14 @@ import {
   type Slot,
   type Specialist,
 } from "../api/client";
+import { useAuth } from "../shared/auth";
 
 type EntryMode = "service" | "specialist" | "time";
 type Props = { tenantPublicId: string };
 
 export function ClientBookingPage({ tenantPublicId }: Props) {
   const { t } = useTranslation();
+  const { status } = useAuth();
   const [params] = useSearchParams();
   const entry = (params.get("entry")?.split("_")[0] as EntryMode) || "service";
   const preService = params.get("entry")?.startsWith("service_") ? params.get("entry")!.slice(8) : null;
@@ -37,6 +40,7 @@ export function ClientBookingPage({ tenantPublicId }: Props) {
   const services = useQuery({
     queryKey: ["services", tenantPublicId],
     queryFn: () => fetchServices(tenantPublicId),
+    enabled: status === "ready",
   });
 
   const specialists = useQuery({
@@ -79,8 +83,16 @@ export function ClientBookingPage({ tenantPublicId }: Props) {
     mutationFn: () => confirmBooking(tenantPublicId, bookingId!),
   });
 
-  if (services.isLoading) return <p className="muted">{t("common.loading")}</p>;
-  if (services.error) return <p className="error">{t("common.error")}</p>;
+  if (services.isLoading || services.isFetching) {
+    return <p className="muted">{t("common.loading")}</p>;
+  }
+  if (services.error) {
+    const msg =
+      services.error instanceof ApiError && services.error.status === 404
+        ? "Салон не найден. Откройте ссылку из бота салона или дождитесь настройки на сервере."
+        : t("common.error");
+    return <p className="error">{msg}</p>;
+  }
 
   const selectedStaffName =
     anyStaff && slot?.staff_member_id
