@@ -59,6 +59,38 @@ async def find_tenant_by_bot_id(session: AsyncSession, bot_id: int) -> Tenant | 
     return await session.scalar(select(Tenant).where(Tenant.bot_id == bot_id))
 
 
+async def find_owned_tenant_for_telegram_user(
+    session: AsyncSession,
+    telegram_user_id: int,
+) -> Tenant | None:
+    user = await session.scalar(
+        select(UserAccount).where(UserAccount.telegram_user_id == telegram_user_id)
+    )
+    if user is None:
+        return None
+    staff_rows = (
+        await session.scalars(select(StaffMember).where(StaffMember.user_account_id == user.id))
+    ).all()
+    for staff in staff_rows:
+        if StaffRole.OWNER.value in (staff.roles or []):
+            tenant = await session.get(Tenant, staff.tenant_id)
+            if tenant is not None:
+                return tenant
+    return None
+
+
+async def mark_tenant_bot_revoked(session: AsyncSession, *, public_id: str) -> bool:
+    """Mark tenant bot token invalid. Returns True if status changed to revoked."""
+    tenant = await session.scalar(select(Tenant).where(Tenant.public_id == public_id))
+    if tenant is None:
+        return False
+    if tenant.bot_status == "revoked":
+        return False
+    tenant.bot_status = "revoked"
+    await session.flush()
+    return True
+
+
 async def attach_bot_token(
     session: AsyncSession,
     tenant: Tenant,
