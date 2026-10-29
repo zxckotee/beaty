@@ -6,6 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.client.states import ClientOnboarding
+from app.bot.filters.roles import is_manager
 from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply, menu_flags
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
@@ -27,8 +28,8 @@ def _parse_start_param(text: str | None) -> str | None:
 
 
 def _reply_menu(roles: set[str], staff_member: StaffMember | None):
-    mgr, spec, solo = menu_flags(roles, has_staff_profile=staff_member is not None)
-    return main_menu_reply(is_manager=mgr, is_specialist=spec, is_solo=solo)
+    mgr, spec = menu_flags(roles, has_staff_profile=staff_member is not None)
+    return main_menu_reply(is_manager=mgr, is_specialist=spec)
 
 
 @client_onboarding_router.message(CommandStart())
@@ -56,11 +57,11 @@ async def cmd_start(
             roles.update(staff.roles or [])
             roles.add("specialist")
             staff_member = staff
-            mgr, spec, solo = menu_flags(roles, has_staff_profile=True)
+            mgr, spec = menu_flags(roles, has_staff_profile=True)
             await state.clear()
             await message.answer(
                 f"Вы присоединились к {tenant.name} как {staff.display_name}.",
-                reply_markup=main_menu_reply(is_manager=mgr, is_specialist=spec, is_solo=solo),
+                reply_markup=main_menu_reply(is_manager=mgr, is_specialist=spec),
             )
             return
         except DomainError as exc:
@@ -91,8 +92,16 @@ async def cmd_start(
         return
 
     if staff_member is not None and client_profile is None:
+        lines = [f"Здравствуйте, {staff_member.display_name}!"]
+        if is_manager(roles):
+            lines.append(
+                "Вы управляете салоном: добавьте услуги в «Услуги», "
+                "мастеров в «Команда», записи — в «Сегодня»."
+            )
+        else:
+            lines.append("Ваш рабочий день — кнопка «Мой день».")
         await message.answer(
-            f"Здравствуйте, {staff_member.display_name}!",
+            "\n".join(lines),
             reply_markup=_reply_menu(roles, staff_member),
         )
         return
