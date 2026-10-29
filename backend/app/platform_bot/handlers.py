@@ -9,7 +9,12 @@ from sqlalchemy import select
 
 from app.bot.factory import create_bot
 from app.core.db import SessionLocal
-from app.domain.services.provisioning import attach_bot_token, create_tenant_for_owner
+from app.domain.exceptions import BotAlreadyLinkedError
+from app.domain.services.provisioning import (
+    attach_bot_token,
+    create_tenant_for_owner,
+    find_tenant_by_bot_id,
+)
 
 platform_router = Router(name="platform")
 
@@ -57,27 +62,41 @@ async def platform_token(message: Message, state: FSMContext) -> None:
         return
     finally:
         await candidate.session.close()
-    bot_info = {"id": me.id, "username": me.username}
-    async with SessionLocal() as session:
-        tenant = await create_tenant_for_owner(
-            session,
-            owner_telegram_id=message.from_user.id,  # type: ignore[union-attr]
-            business_name=data.get("business_name", "Мой салон"),
-            owner_display_name=message.from_user.full_name,  # type: ignore[union-attr]
-        )
-        await attach_bot_token(
-            session,
-            tenant,
-            bot_token=token,
-            bot_id=bot_info["id"],
-            bot_username=bot_info.get("username", ""),
-        )
-        await session.commit()
-        public_id = tenant.public_id
+    bot_info = {"id": me.id, "username": me.username or ""}
     try:
         await message.delete()
     except Exception:
         pass
+    async with SessionLocal() as session:
+        if await find_tenant_by_bot_id(session, bot_info["id"]) is not None:
+            await message.answer(
+                "Этот бот уже подключён к другому бизнесу. "
+                "Пришлите токен другого бота из @BotFather."
+            )
+            return
+        try:
+            tenant = await create_tenant_for_owner(
+                session,
+                owner_telegram_id=message.from_user.id,  # type: ignore[union-attr]
+                business_name=data.get("business_name", "Мой салон"),
+                owner_display_name=message.from_user.full_name,  # type: ignore[union-attr]
+            )
+            await attach_bot_token(
+                session,
+                tenant,
+                bot_token=token,
+                bot_id=bot_info["id"],
+                bot_username=bot_info["username"],
+            )
+            await session.commit()
+            public_id = tenant.public_id
+        except BotAlreadyLinkedError:
+            await session.rollback()
+            await message.answer(
+                "Этот бот уже подключён к другому бизнесу. "
+                "Пришлите токен другого бота из @BotFather."
+            )
+            return
     await state.clear()
     bot_line = f"@{bot_info.get('username')}" if bot_info.get("username") else "ваш бот салона"
     await message.answer(
