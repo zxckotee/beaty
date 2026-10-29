@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.factory import create_bot
 from app.core.db import SessionLocal
@@ -14,7 +16,7 @@ from app.domain.models import StaffMember, StaffRole, Tenant, UserAccount
 logger = logging.getLogger(__name__)
 
 
-async def find_owner_telegram_id(session, tenant_id) -> int | None:
+async def find_owner_telegram_id(session: AsyncSession, tenant_id: UUID) -> int | None:
     rows = (
         await session.scalars(select(StaffMember).where(StaffMember.tenant_id == tenant_id))
     ).all()
@@ -25,7 +27,7 @@ async def find_owner_telegram_id(session, tenant_id) -> int | None:
             continue
         user = await session.get(UserAccount, staff.user_account_id)
         if user is not None:
-            return user.telegram_user_id
+            return int(user.telegram_user_id)
     return None
 
 
