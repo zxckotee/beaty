@@ -35,6 +35,7 @@
 - [docs/architecture.md](docs/architecture.md) — техническая архитектура, стек, модель данных, алгоритм слотов, уведомления, безопасность.
 - [docs/business.md](docs/business.md) — позиционирование, монетизация, онбординг, юридические вопросы (152-ФЗ), метрики.
 - [docs/roadmap.md](docs/roadmap.md) — этапы MVP / V1 / V2.
+- [docs/sales-call-script.md](docs/sales-call-script.md) — скрипт холодного звонка салонам и барбершопам (Яндекс.Карты → бот).
 
 ## Стек (кратко)
 
@@ -60,7 +61,7 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 2. собирает `.env.prod` скриптом [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh);
 3. поднимает стек скриптом [scripts/redeploy.sh](scripts/redeploy.sh) (`build` или `nobuild`) через [docker-compose.prod.yml](docker-compose.prod.yml) и ждёт ответа `/health`.
 
-На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api` (при старте применяет миграции; наружу порт `WEB_PORT`, по умолчанию `4040`), `worker` (напоминания) и `platform-bot` (long polling). Отдельного контейнера с фронтендом нет. Поменять порт можно переменной `WEB_PORT` в `deploy.yml`.
+На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api` (при старте применяет миграции; наружу порт `WEB_PORT`, по умолчанию `4040`), `worker` (напоминания), `platform-bot` (онбординг владельца) и **`tenant-bots`** (long polling ботов салонов — основной UX записи в чате). Отдельного контейнера с фронтендом нет. Поменять порт API можно переменной `WEB_PORT` в `deploy.yml`.
 
 Секреты репозитория:
 
@@ -72,7 +73,7 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 
 `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY` и `JWT_SECRET` генерируются на сервере при первом деплое и хранятся в `/root/beaty/.secrets.env`. Не удаляйте этот файл: без `TOKEN_ENCRYPTION_KEY` не расшифруются сохранённые токены ботов, а без `POSTGRES_PASSWORD` не будет доступа к базе.
 
-Webhook-боты салонов требуют HTTPS-домена; до его появления API доступен по `http://<SSH_HOST>:4040`, а платформенный бот работает через polling. Опциональный TLS — профиль [docker-compose.tls.yml](docker-compose.tls.yml) + Caddy.
+Боты салонов работают через **long polling** (`tenant-bots`); для записи клиентам HTTPS-домен не нужен. API и вебхуки при необходимости доступны по `http://<SSH_HOST>:4040` или через опциональный TLS — профиль [docker-compose.tls.yml](docker-compose.tls.yml) + Caddy.
 
 ### Логи и состояние на сервере
 

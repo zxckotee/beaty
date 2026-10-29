@@ -34,7 +34,10 @@ async def plan_booking_notifications(
                 notification_type=ntype,
                 send_at=send_at,
                 idempotency_key=key,
-                payload={"booking_id": str(booking.id)},
+                payload={
+                    "booking_id": str(booking.id),
+                    "text": "Напоминание о записи. Подтвердите визит кнопкой ниже.",
+                },
             )
         )
     confirm_key = f"{booking.id}:booking_confirmed:{int(datetime.now(UTC).timestamp())}"
@@ -47,7 +50,10 @@ async def plan_booking_notifications(
             notification_type=NotificationType.BOOKING_CONFIRMED.value,
             send_at=datetime.now(UTC),
             idempotency_key=confirm_key,
-            payload={"booking_id": str(booking.id)},
+            payload={
+                "booking_id": str(booking.id),
+                "text": "Запись подтверждена. Ждём вас!",
+            },
         )
     )
 

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     hold_ttl_seconds: int = 600
     environment: str = "development"
+    tenant_ui_mode: str = "bot"  # bot | miniapp | both
 
 
 @lru_cache

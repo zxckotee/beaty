@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import encrypt_bot_token
 from app.domain.default_rules import DEFAULT_TENANT_RULES
+from app.domain.exceptions import BotAlreadyLinkedError
 from app.domain.models import Branch, StaffMember, StaffRole, Tenant, UserAccount
 
 
@@ -54,6 +55,10 @@ async def create_tenant_for_owner(
     return tenant
 
 
+async def find_tenant_by_bot_id(session: AsyncSession, bot_id: int) -> Tenant | None:
+    return await session.scalar(select(Tenant).where(Tenant.bot_id == bot_id))
+
+
 async def attach_bot_token(
     session: AsyncSession,
     tenant: Tenant,
@@ -62,6 +67,11 @@ async def attach_bot_token(
     bot_id: int,
     bot_username: str,
 ) -> None:
+    existing = await find_tenant_by_bot_id(session, bot_id)
+    if existing is not None and existing.id != tenant.id:
+        raise BotAlreadyLinkedError(
+            f"bot_id={bot_id} already linked to tenant {existing.public_id}"
+        )
     tenant.bot_token_encrypted = encrypt_bot_token(bot_token)
     tenant.bot_id = bot_id
     tenant.bot_username = bot_username
