@@ -8,6 +8,7 @@ from aiogram.utils.token import TokenValidationError
 from sqlalchemy import select
 
 from app.bot.factory import create_bot
+from app.bot.telegram_format import bot_mention_html
 from app.core.db import SessionLocal
 from app.domain.exceptions import BotAlreadyLinkedError
 from app.domain.services.provisioning import (
@@ -126,12 +127,12 @@ async def platform_token(message: Message, state: FSMContext) -> None:
             )
             return
     await state.clear()
-    bot_line = f"@{bot_info.get('username')}" if bot_info.get("username") else "ваш бот салона"
+    bot_line = bot_mention_html(bot_info.get("username") or None)
     await message.answer(
-        f"Бизнес подключён.\nPublic ID: `{public_id}`\n\n"
+        f"Бизнес подключён.\nPublic ID: <code>{public_id}</code>\n\n"
         f"Откройте {bot_line} и нажмите /start — запись идёт через чат и кнопки, "
         "отдельный сайт не нужен.",
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
 
 
