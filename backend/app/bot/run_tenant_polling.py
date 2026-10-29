@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from aiogram.exceptions import TelegramUnauthorizedError
 from sqlalchemy import select
 
 from app.bot.dispatcher_setup import dispatcher
@@ -17,6 +18,8 @@ from app.core.crypto import decrypt_bot_token
 from app.core.db import SessionLocal
 from app.core.logging_config import setup_logging
 from app.domain.models import Tenant
+from app.domain.services.bot_token_alerts import notify_owner_bot_token_revoked
+from app.domain.services.provisioning import mark_tenant_bot_revoked
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +49,30 @@ async def _load_tenants() -> list[tuple[str, str]]:
         return out
 
 
+async def _handle_unauthorized(public_id: str) -> None:
+    async with SessionLocal() as session:
+        newly_revoked = await mark_tenant_bot_revoked(session, public_id=public_id)
+        if newly_revoked:
+            await session.commit()
+            logger.error(
+                "tenant %s: bot token unauthorized — marked revoked, polling stopped",
+                public_id,
+            )
+            await notify_owner_bot_token_revoked(public_id)
+        else:
+            logger.warning("tenant %s: unauthorized (already revoked)", public_id)
+
+
 async def _poll_one(public_id: str, token: str) -> None:
     bot = create_bot(token)
     setattr(bot, "tenant_public_id", public_id)
     offset: int | None = None
     try:
-        me = await bot.get_me()
+        try:
+            me = await bot.get_me()
+        except TelegramUnauthorizedError:
+            await _handle_unauthorized(public_id)
+            return
         logger.info("tenant bot @%s (%s) polling", me.username, public_id)
         await bot.delete_webhook(drop_pending_updates=False)
         while True:
@@ -66,6 +87,9 @@ async def _poll_one(public_id: str, token: str) -> None:
                     await dispatcher.feed_update(bot, update)
             except asyncio.CancelledError:
                 raise
+            except TelegramUnauthorizedError:
+                await _handle_unauthorized(public_id)
+                return
             except Exception:
                 logger.exception("poll error tenant=%s", public_id)
                 await asyncio.sleep(POLL_ERROR_BACKOFF_SEC)
