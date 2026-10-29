@@ -81,7 +81,8 @@ async def platform_token(message: Message, state: FSMContext) -> None:
     await state.clear()
     await message.answer(
         f"Бизнес подключён. Public ID: `{public_id}`\n"
-        "Дальше: настройте вебхук и Mini App в админке (скрипт деплоя).",
+        "Дальше: вебхук выставит деплой. Откройте бот салона и настройте каталог, "
+        "график и тон общения прямо в чате (меню команд).",
         parse_mode="Markdown",
     )
 

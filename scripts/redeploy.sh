@@ -66,5 +66,5 @@ done
 
 echo "Healthcheck failed" >&2
 "${COMPOSE[@]}" ps >&2 || true
-"${COMPOSE[@]}" logs --tail 100 api platform-bot web >&2 || true
+"${COMPOSE[@]}" logs --tail 100 api platform-bot worker >&2 || true
 exit 1

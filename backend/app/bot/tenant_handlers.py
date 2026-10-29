@@ -2,40 +2,36 @@ from uuid import UUID
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import CallbackQuery, Message, WebAppInfo
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
+from sqlalchemy import select
 
+from app.bot.booking_flow import start_booking
+from app.bot.keyboards import client_main_menu
 from app.core.db import SessionLocal
-from app.core.settings import get_settings
+from app.domain.models import BookingEvent, Tenant
 from app.domain.services.booking_service import confirm_visit
+from app.domain.services.force_majeure import apply_force_majeure_choice
 
 tenant_router = Router(name="tenant")
 
 
-def _miniapp_url(tenant_public_id: str, start_param: str | None = None) -> str:
-    settings = get_settings()
-    base = settings.miniapp_public_url.rstrip("/")
-    path = f"/t/{tenant_public_id}/book"
-    if start_param:
-        return f"{base}{path}?entry={start_param}"
-    return f"{base}{path}"
-
-
 @tenant_router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, state: FSMContext) -> None:
     start_param = message.text.split(maxsplit=1)[1] if message.text and " " in message.text else None
-    tenant_public_id = getattr(message.bot, "tenant_public_id", "demo")
-    kb = InlineKeyboardBuilder()
-    kb.button(
-        text="Открыть запись",
-        web_app=WebAppInfo(url=_miniapp_url(tenant_public_id, start_param)),
+    greet = (
+        "Добро пожаловать! Запись, перенос и напоминания — прямо в этом чате.\n"
+        "Нажмите «Записаться» или выберите пункт меню."
     )
-    greet = "Добро пожаловать! Запишитесь через мини-приложение или используйте кнопки в уведомлениях."
     if start_param and start_param.startswith("service_"):
-        greet = "Вы выбрали услугу — откройте запись, чтобы выбрать время."
+        greet = "Вы выбрали услугу — продолжите шаги ниже."
     elif start_param and start_param.startswith("master_"):
-        greet = "Запись к выбранному мастеру — откройте мини-приложение."
-    await message.answer(greet, reply_markup=kb.as_markup())
+        greet = "Запись к выбранному мастеру — продолжите шаги ниже."
+    await message.answer(greet, reply_markup=client_main_menu())
+    if start_param and (
+        start_param.startswith("service_") or start_param.startswith("master_")
+    ):
+        await start_booking(message, state, start_param=start_param)
 
 
 @tenant_router.callback_query(F.data.startswith("confirm_visit:"))
@@ -43,10 +39,6 @@ async def confirm_visit_callback(callback: CallbackQuery) -> None:
     booking_id = callback.data.split(":", 1)[1] if callback.data else ""
     tenant_public_id = getattr(callback.bot, "tenant_public_id", None)
     async with SessionLocal() as session:
-        from sqlalchemy import select
-
-        from app.domain.models import Tenant
-
         tenant = await session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
         if tenant is None:
             await callback.answer("Ошибка", show_alert=True)
@@ -79,11 +71,6 @@ async def force_majeure_callback(callback: CallbackQuery) -> None:
     option_index = int(parts[2])
     tenant_public_id = getattr(callback.bot, "tenant_public_id", None)
     async with SessionLocal() as session:
-        from sqlalchemy import select
-
-        from app.domain.models import BookingEvent, Tenant
-        from app.domain.services.force_majeure import apply_force_majeure_choice
-
         tenant = await session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
         if tenant is None:
             await callback.answer("Ошибка", show_alert=True)

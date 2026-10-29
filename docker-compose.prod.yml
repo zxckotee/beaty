@@ -44,6 +44,8 @@ services:
       RUN_MIGRATIONS: "true"
       RUN_SEED_IF_EMPTY: "true"
       RUN_SCHEDULER_IN_API: "false"
+    ports:
+      - "${WEB_PORT:-4040}:8000"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -65,18 +67,6 @@ services:
       api:
         condition: service_healthy
     command: ["python", "-m", "app.platform_bot.run_polling"]
-
-  web:
-    build:
-      context: ./miniapp
-      dockerfile: Dockerfile
-    image: beaty-web:latest
-    ports:
-      - "${WEB_PORT:-4040}:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
 
 volumes:
   pgdata:
