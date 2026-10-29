@@ -1,4 +1,8 @@
-"""Long polling for all active tenant salon bots."""
+"""Long polling for all active tenant salon bots.
+
+Uses one shared Dispatcher (routers are process singletons) and per-tenant
+getUpdates loops, same pattern as webhook ``feed_update``.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ import logging
 
 from sqlalchemy import select
 
-from app.bot.dispatcher_setup import build_dispatcher
+from app.bot.dispatcher_setup import dispatcher
 from app.bot.factory import create_bot
 from app.core.crypto import decrypt_bot_token
 from app.core.db import SessionLocal
@@ -17,6 +21,8 @@ from app.domain.models import Tenant
 logger = logging.getLogger(__name__)
 
 RELOAD_INTERVAL_SEC = 60
+GET_UPDATES_TIMEOUT = 30
+POLL_ERROR_BACKOFF_SEC = 5
 
 
 async def _load_tenants() -> list[tuple[str, str]]:
@@ -43,12 +49,26 @@ async def _load_tenants() -> list[tuple[str, str]]:
 async def _poll_one(public_id: str, token: str) -> None:
     bot = create_bot(token)
     setattr(bot, "tenant_public_id", public_id)
-    dp = build_dispatcher()
-    me = await bot.get_me()
-    logger.info("tenant bot @%s (%s) polling", me.username, public_id)
-    await bot.delete_webhook(drop_pending_updates=False)
+    offset: int | None = None
     try:
-        await dp.start_polling(bot, handle_signals=False)
+        me = await bot.get_me()
+        logger.info("tenant bot @%s (%s) polling", me.username, public_id)
+        await bot.delete_webhook(drop_pending_updates=False)
+        while True:
+            try:
+                updates = await bot.get_updates(
+                    offset=offset,
+                    timeout=GET_UPDATES_TIMEOUT,
+                    allowed_updates=dispatcher.resolve_used_update_types(),
+                )
+                for update in updates:
+                    offset = update.update_id + 1
+                    await dispatcher.feed_update(bot, update)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("poll error tenant=%s", public_id)
+                await asyncio.sleep(POLL_ERROR_BACKOFF_SEC)
     finally:
         await bot.session.close()
 
@@ -58,6 +78,8 @@ async def main() -> None:
 
     while True:
         tenants = {pid: tok for pid, tok in await _load_tenants()}
+        if tenants:
+            logger.info("tenant polling: %d active bot(s)", len(tenants))
         for pid, task in list(tasks.items()):
             if pid not in tenants:
                 task.cancel()

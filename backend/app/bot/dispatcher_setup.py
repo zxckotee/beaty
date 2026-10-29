@@ -12,6 +12,7 @@ from app.bot.tenant_handlers import legacy_router
 
 
 def build_dispatcher() -> Dispatcher:
+    """Build the process-wide tenant dispatcher (call once; routers are singletons)."""
     dp = Dispatcher()
     dp.update.middleware(BotContextMiddleware())
     dp.include_router(legacy_router)
