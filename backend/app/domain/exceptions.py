@@ -12,3 +12,7 @@ class NotFoundError(DomainError):
 
 class ForbiddenError(DomainError):
     pass
+
+
+class BotAlreadyLinkedError(DomainError):
+    """Raised when a Telegram bot_id is already attached to another tenant."""
