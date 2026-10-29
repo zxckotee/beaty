@@ -35,6 +35,7 @@
 - [docs/architecture.md](docs/architecture.md) — техническая архитектура, стек, модель данных, алгоритм слотов, уведомления, безопасность.
 - [docs/business.md](docs/business.md) — позиционирование, монетизация, онбординг, юридические вопросы (152-ФЗ), метрики.
 - [docs/roadmap.md](docs/roadmap.md) — этапы MVP / V1 / V2.
+- [docs/sales-call-script.md](docs/sales-call-script.md) — скрипт холодного звонка салонам и барбершопам (Яндекс.Карты → бот).
 
 ## Стек (кратко)
 
