@@ -29,7 +29,8 @@ class Settings(BaseSettings):
 
     hold_ttl_seconds: int = 600
     environment: str = "development"
-    tenant_ui_mode: str = "bot"  # bot | miniapp | both
+    tenant_ui_mode: str = "bot"  # bot | miniapp | both (miniapp disabled in code)
+    enable_public_api: bool = False
 
 
 @lru_cache

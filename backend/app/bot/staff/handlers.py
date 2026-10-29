@@ -5,20 +5,43 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
+from app.bot.filters.roles import is_manager, is_staff
 from app.bot.shared import assert_can_write
 from app.domain.exceptions import DomainError
-from app.domain.models import Booking, BookingStatus, StaffMember, Tenant
+from app.domain.models import Booking, BookingItem, BookingStatus, StaffMember, Tenant
 from app.domain.services.force_majeure import declare_unavailable
 
 staff_router = Router(name="staff")
 
 
-def _is_staff(roles: set[str]) -> bool:
-    return bool(roles.intersection({"specialist", "owner", "manager", "reception"}))
+async def _can_update_booking_status(
+    session: AsyncSession,
+    *,
+    tenant: Tenant,
+    booking_id: UUID,
+    roles: set[str],
+    staff_member: StaffMember | None,
+) -> bool:
+    if not is_staff(roles):
+        return False
+    booking = await session.get(Booking, booking_id)
+    if booking is None or booking.tenant_id != tenant.id:
+        return False
+    if is_manager(roles):
+        return True
+    if staff_member is None:
+        return False
+    item = await session.scalar(
+        select(BookingItem).where(
+            BookingItem.booking_id == booking_id,
+            BookingItem.is_active.is_(True),
+        )
+    )
+    return item is not None and item.staff_member_id == staff_member.id
 
 
 @staff_router.message(Command("day"))
@@ -30,7 +53,7 @@ async def cmd_day(
     staff_member: StaffMember | None,
     roles: set[str],
 ) -> None:
-    if not _is_staff(roles) or staff_member is None:
+    if not is_staff(roles) or staff_member is None:
         await message.answer("Доступно мастерам.")
         return
     now = datetime.now(UTC)
@@ -73,8 +96,28 @@ async def cmd_day(
 
 
 @staff_router.callback_query(F.data.startswith("s:st:menu:"))
-async def staff_booking_menu(callback: CallbackQuery) -> None:
+async def staff_booking_menu(
+    callback: CallbackQuery,
+    tenant: Tenant,
+    db_session: AsyncSession,
+    roles: set[str],
+    staff_member: StaffMember | None,
+) -> None:
     bid = (callback.data or "").split(":")[-1]
+    try:
+        booking_id = UUID(bid)
+    except ValueError:
+        await callback.answer("Неверная запись", show_alert=True)
+        return
+    if not await _can_update_booking_status(
+        db_session,
+        tenant=tenant,
+        booking_id=booking_id,
+        roles=roles,
+        staff_member=staff_member,
+    ):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
     kb = InlineKeyboardBuilder()
     kb.button(text="Пришёл", callback_data=f"s:st:{bid}:arrived")
     kb.button(text="Выполнено", callback_data=f"s:st:{bid}:completed")
@@ -91,6 +134,8 @@ async def staff_status(
     tenant: Tenant,
     db_session: AsyncSession,
     subscription_read_only: bool,
+    roles: set[str],
+    staff_member: StaffMember | None,
 ) -> None:
     if callback.data and callback.data.startswith("s:st:menu:"):
         return
@@ -108,12 +153,27 @@ async def staff_status(
     if status not in mapping:
         await callback.answer()
         return
+    if not await _can_update_booking_status(
+        db_session,
+        tenant=tenant,
+        booking_id=booking_id,
+        roles=roles,
+        staff_member=staff_member,
+    ):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
     try:
         assert_can_write(tenant, subscription_read_only)
         booking = await db_session.get(Booking, booking_id)
         if booking is None or booking.tenant_id != tenant.id:
             raise DomainError("not found")
         booking.status = mapping[status]
+        if booking.status == BookingStatus.COMPLETED.value:
+            from app.domain.services.revisit_service import schedule_revisit_for_completed_booking
+
+            await schedule_revisit_for_completed_booking(
+                db_session, tenant_id=tenant.id, booking_id=booking.id
+            )
         await db_session.commit()
     except DomainError as exc:
         await db_session.rollback()
@@ -133,7 +193,7 @@ async def cmd_sick(
     roles: set[str],
     subscription_read_only: bool,
 ) -> None:
-    if not _is_staff(roles) or staff_member is None:
+    if not is_staff(roles) or staff_member is None:
         await message.answer("Доступно мастерам.")
         return
     kb = InlineKeyboardBuilder()

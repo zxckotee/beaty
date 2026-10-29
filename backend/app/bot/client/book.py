@@ -297,11 +297,29 @@ async def back_services(
 
 
 @client_book_router.callback_query(F.data.startswith("c:mst:"))
-async def pick_specialist(callback: CallbackQuery, state: FSMContext) -> None:
+async def pick_specialist(
+    callback: CallbackQuery,
+    state: FSMContext,
+    tenant: Tenant,
+    db_session: AsyncSession,
+) -> None:
     part = (callback.data or "").split(":", 2)[2]
     any_staff = part == "any"
     await state.update_data(staff_id=None if any_staff else part, any_staff=any_staff)
     await state.set_state(BookFlow.pick_day)
+    if not any_staff and callback.message:
+        st = await db_session.get(StaffMember, UUID(part))
+        if st and st.tenant_id == tenant.id:
+            caption_parts = [st.display_name]
+            if st.specialization:
+                caption_parts.append(st.specialization)
+            if st.bio:
+                caption_parts.append(st.bio[:500])
+            caption = "\n".join(caption_parts)
+            if st.photo_file_id:
+                await callback.message.answer_photo(st.photo_file_id, caption=caption)
+            elif caption:
+                await callback.message.answer(caption)
     kb = InlineKeyboardBuilder()
     today = date.today()
     for i in range(7):
