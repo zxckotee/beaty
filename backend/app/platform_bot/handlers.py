@@ -79,9 +79,11 @@ async def platform_token(message: Message, state: FSMContext) -> None:
     except Exception:
         pass
     await state.clear()
+    bot_line = f"@{bot_info.get('username')}" if bot_info.get("username") else "ваш бот салона"
     await message.answer(
-        f"Бизнес подключён. Public ID: `{public_id}`\n"
-        "Дальше: настройте вебхук и Mini App в админке (скрипт деплоя).",
+        f"Бизнес подключён.\nPublic ID: `{public_id}`\n\n"
+        f"Откройте {bot_line} и нажмите /start — запись идёт через чат и кнопки, "
+        "домен и Mini App не нужны.",
         parse_mode="Markdown",
     )
 

@@ -61,7 +61,7 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 2. собирает `.env.prod` скриптом [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh);
 3. поднимает стек скриптом [scripts/redeploy.sh](scripts/redeploy.sh) (`build` или `nobuild`) через [docker-compose.prod.yml](docker-compose.prod.yml) и ждёт ответа `/health`.
 
-На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api` (при старте применяет миграции), `worker` (напоминания), `platform-bot` (long polling) и `web` (nginx с Mini App, проксирует `/api`, `/tg`, `/health` в API). Наружу открыт только порт `4040`; поменять его можно переменной `WEB_PORT` в `deploy.yml`.
+На сервере работают контейнеры проекта compose `beaty`: `postgres`, `redis`, `api`, `worker` (напоминания), `platform-bot` (онбординг владельца), **`tenant-bots`** (long polling ботов салонов — основной UX записи в чате), и опционально `web` (Mini App при `TENANT_UI_MODE=miniapp|both`). Домен для клиентов **не обязателен**: клиенты пишут боту салона в Telegram.
 
 Секреты репозитория:
 
@@ -73,7 +73,7 @@ Workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml) запус
 
 `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY` и `JWT_SECRET` генерируются на сервере при первом деплое и хранятся в `/root/beaty/.secrets.env`. Не удаляйте этот файл: без `TOKEN_ENCRYPTION_KEY` не расшифруются сохранённые токены ботов, а без `POSTGRES_PASSWORD` не будет доступа к базе.
 
-Webhook-боты салонов и открытие Mini App внутри Telegram требуют HTTPS-домена; до его появления сайт доступен по `http://<SSH_HOST>:4040`, а платформенный бот работает через polling.
+Боты салонов работают через **long polling** (сервис `tenant-bots`), webhook и HTTPS не нужны. Mini App и `web` — только если включён режим `TENANT_UI_MODE=miniapp|both` и настроен HTTPS origin.
 
 ### Логи и состояние на сервере
 

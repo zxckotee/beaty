@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.registry import get_bot_for_tenant
 from app.domain.models import ClientProfile, Notification, NotificationStatus, Tenant
+from app.domain.services.notification_templates import build_notification_message
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,10 @@ async def send_notification(session: AsyncSession, notification: Notification) -
         notification.status = NotificationStatus.FAILED.value
         return
     bot = get_bot_for_tenant(tenant)
-    text = f"Уведомление: {notification.notification_type}"
+    payload = notification.payload or {}
+    if "booking_id" not in payload and notification.booking_id:
+        payload = {**payload, "booking_id": str(notification.booking_id)}
+    text, reply_markup = build_notification_message(notification.notification_type, payload)
     chat_id: int | None = None
     if notification.recipient_type == "client":
         profile = await session.get(ClientProfile, notification.recipient_id)
@@ -30,7 +34,7 @@ async def send_notification(session: AsyncSession, notification: Notification) -
         notification.status = NotificationStatus.FAILED.value
         return
     try:
-        await bot.send_message(chat_id, text)
+        await bot.send_message(chat_id, text, reply_markup=reply_markup)
         notification.status = NotificationStatus.SENT.value
     except TelegramForbiddenError:
         await session.execute(

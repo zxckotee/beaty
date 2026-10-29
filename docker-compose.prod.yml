@@ -66,6 +66,13 @@ services:
         condition: service_healthy
     command: ["python", "-m", "app.platform_bot.run_polling"]
 
+  tenant-bots:
+    <<: *backend
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["python", "-m", "app.bot.run_tenant_polling"]
+
   web:
     build:
       context: ./miniapp
