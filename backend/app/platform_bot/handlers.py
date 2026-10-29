@@ -84,12 +84,6 @@ async def platform_token(message: Message, state: FSMContext) -> None:
     except Exception:
         pass
     async with SessionLocal() as session:
-        if await find_tenant_by_bot_id(session, bot_info["id"]) is not None:
-            await message.answer(
-                "Этот бот уже подключён к другому бизнесу. "
-                "Пришлите токен другого бота из @BotFather."
-            )
-            return
         try:
             owned_tenant_id = data.get("owned_tenant_id")
             if owned_tenant_id:
@@ -108,6 +102,13 @@ async def platform_token(message: Message, state: FSMContext) -> None:
                     business_name=data.get("business_name", "Мой салон"),
                     owner_display_name=message.from_user.full_name,  # type: ignore[union-attr]
                 )
+            linked = await find_tenant_by_bot_id(session, bot_info["id"])
+            if linked is not None and linked.id != tenant.id:
+                await message.answer(
+                    "Этот бот уже подключён к другому бизнесу. "
+                    "Пришлите токен другого бота из @BotFather."
+                )
+                return
             await attach_bot_token(
                 session,
                 tenant,
