@@ -102,7 +102,7 @@ async def platform_token(message: Message, state: FSMContext) -> None:
     await message.answer(
         f"Бизнес подключён.\nPublic ID: `{public_id}`\n\n"
         f"Откройте {bot_line} и нажмите /start — запись идёт через чат и кнопки, "
-        "домен и Mini App не нужны.",
+        "отдельный сайт не нужен.",
         parse_mode="Markdown",
     )
 

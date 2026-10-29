@@ -75,7 +75,7 @@ async def auth_telegram(body: AuthTelegramRequest, session: AsyncSession = Depen
         user_account_id=user.id,
         name=user_data.get("first_name", "Client"),
         phone=str(tg_id),
-        source="miniapp",
+        source="telegram",
     )
     staff = await session.scalar(
         select(StaffMember).where(

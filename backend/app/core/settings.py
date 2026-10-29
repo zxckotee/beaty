@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
 
     sentry_dsn: str = ""
-    miniapp_public_url: str = "http://localhost:5173"
 
     jwt_secret: str = "dev-jwt-secret-change-in-prod"
     jwt_ttl_minutes: int = 60

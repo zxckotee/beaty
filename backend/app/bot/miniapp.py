@@ -7,8 +7,8 @@ from app.core.settings import get_settings
 
 
 def miniapp_enabled() -> bool:
-    mode = get_settings().tenant_ui_mode.lower()
-    return mode in ("miniapp", "both")
+    """Mini App frontend removed; keep helper for call sites, always disabled."""
+    return False
 
 
 def miniapp_book_url(tenant_public_id: str, start_param: str | None = None) -> str:

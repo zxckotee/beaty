@@ -34,4 +34,4 @@
 - [ ] Мастер `/day`, статусы inline; `/sick` форс-мажор
 - [ ] Менеджер `/today`, `/staff`, `/service_add`, `/pending`
 - [ ] Phase2: лист ожидания, отзыв 1–5, `/courses`
-- [ ] `TENANT_UI_MODE=bot` — без WebApp; `both` — кнопка мини-приложения на `/start`
+- [ ] `TENANT_UI_MODE=bot` (по умолчанию) — только чат, без WebApp

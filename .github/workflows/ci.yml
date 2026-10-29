@@ -56,16 +56,3 @@ jobs:
         run: cd backend && alembic upgrade head
       - name: Pytest
         run: cd backend && pytest -q
-
-  miniapp:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - run: cd miniapp && npm install
-      - run: cd miniapp && npm run lint
-      - run: cd miniapp && npm run build

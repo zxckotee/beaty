@@ -29,7 +29,7 @@ jobs:
       ref: ${{ github.event.inputs.branch || github.ref_name }}
 
   deploy:
-    name: Deploy bot and web via SSH
+    name: Deploy bot via SSH
     needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -71,7 +71,7 @@ jobs:
             echo "  Trigger: $TRIGGER"
             echo "  Branch:  $BRANCH"
             echo "  Path:    $DEPLOY_PATH"
-            echo "  Web:     http://${PUBLIC_HOST}:${WEB_PORT}"
+            echo "  API:     http://${PUBLIC_HOST}:${WEB_PORT}"
             echo "============================================"
 
             if [ ! -d "$DEPLOY_PATH/.git" ]; then

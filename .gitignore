@@ -9,6 +9,5 @@ __pycache__/
 *.egg-info/
 .venv/
 node_modules/
-miniapp/dist/
 .DS_Store
 *.egg-info/
