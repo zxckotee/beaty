@@ -14,6 +14,7 @@ from app.domain.exceptions import BotAlreadyLinkedError
 from app.domain.services.provisioning import (
     attach_bot_token,
     create_tenant_for_owner,
+    find_owned_tenant_for_telegram_user,
     find_tenant_by_bot_id,
 )
 
@@ -27,6 +28,21 @@ class OnboardStates(StatesGroup):
 
 @platform_router.message(CommandStart())
 async def platform_start(message: Message, state: FSMContext) -> None:
+    async with SessionLocal() as session:
+        owned = await find_owned_tenant_for_telegram_user(
+            session, message.from_user.id  # type: ignore[union-attr]
+        )
+    if owned:
+        await state.update_data(owned_tenant_id=str(owned.id), business_name=owned.name)
+        await state.set_state(OnboardStates.waiting_token)
+        status_note = ""
+        if owned.bot_status == "revoked":
+            status_note = "\n\n⚠️ Токен бота салона недействителен (Revoke в BotFather?)."
+        await message.answer(
+            f"Салон «{owned.name}» уже подключён.{status_note}\n"
+            "Пришлите актуальный токен из @BotFather одним сообщением."
+        )
+        return
     await state.set_state(OnboardStates.waiting_business_name)
     await message.answer(
         "Beaty — платформа брендированных ботов для записи.\n"
@@ -76,12 +92,23 @@ async def platform_token(message: Message, state: FSMContext) -> None:
             )
             return
         try:
-            tenant = await create_tenant_for_owner(
-                session,
-                owner_telegram_id=message.from_user.id,  # type: ignore[union-attr]
-                business_name=data.get("business_name", "Мой салон"),
-                owner_display_name=message.from_user.full_name,  # type: ignore[union-attr]
-            )
+            owned_tenant_id = data.get("owned_tenant_id")
+            if owned_tenant_id:
+                from uuid import UUID
+
+                from app.domain.models import Tenant
+
+                tenant = await session.get(Tenant, UUID(owned_tenant_id))
+                if tenant is None:
+                    await message.answer("Салон не найден. Начните с /start.")
+                    return
+            else:
+                tenant = await create_tenant_for_owner(
+                    session,
+                    owner_telegram_id=message.from_user.id,  # type: ignore[union-attr]
+                    business_name=data.get("business_name", "Мой салон"),
+                    owner_display_name=message.from_user.full_name,  # type: ignore[union-attr]
+                )
             await attach_bot_token(
                 session,
                 tenant,
