@@ -102,8 +102,29 @@ class StaffMember(Base):
     display_name: Mapped[str] = mapped_column(String(255))
     roles: Mapped[list[str]] = mapped_column(JSONB, default=list)
     photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    photo_file_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specialization: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     payout_rule: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+
+class StaffInvite(Base):
+    __tablename__ = "staff_invite"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    staff_member_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("staff_member.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    intended_roles: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    created_by_user_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ClientProfile(Base):

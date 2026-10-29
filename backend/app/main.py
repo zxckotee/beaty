@@ -38,8 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(webhook_router)
-app.include_router(api_router)
-app.include_router(phase2_router)
+if settings.enable_public_api:
+    app.include_router(api_router)
+    app.include_router(phase2_router)
 
 
 @app.get("/ready")

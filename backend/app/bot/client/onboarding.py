@@ -6,14 +6,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.client.states import ClientOnboarding
-from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply
-from app.bot.miniapp import miniapp_book_keyboard, miniapp_enabled
-from app.domain.models import ClientProfile, Tenant, UserAccount
+from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply, menu_flags
+from app.domain.exceptions import DomainError
+from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
     client_has_phone,
     complete_client_onboarding,
     ensure_user_account,
 )
+from app.domain.services.team_invite_service import accept_invite, parse_invite_token
 
 client_onboarding_router = Router(name="client_onboarding")
 
@@ -25,6 +26,11 @@ def _parse_start_param(text: str | None) -> str | None:
     return parts[1] if len(parts) > 1 else None
 
 
+def _reply_menu(roles: set[str], staff_member: StaffMember | None):
+    mgr, spec, solo = menu_flags(roles, has_staff_profile=staff_member is not None)
+    return main_menu_reply(is_manager=mgr, is_specialist=spec, is_solo=solo)
+
+
 @client_onboarding_router.message(CommandStart())
 async def cmd_start(
     message: Message,
@@ -33,9 +39,35 @@ async def cmd_start(
     db_session: AsyncSession,
     client_profile: ClientProfile | None,
     user_account: UserAccount | None,
+    staff_member: StaffMember | None,
     roles: set[str],
 ) -> None:
     start_param = _parse_start_param(message.text)
+    invite_token = parse_invite_token(start_param)
+    if invite_token and message.from_user:
+        try:
+            staff = await accept_invite(
+                db_session,
+                tenant_id=tenant.id,
+                telegram_user_id=message.from_user.id,
+                raw_token=invite_token,
+            )
+            await db_session.commit()
+            roles.update(staff.roles or [])
+            roles.add("specialist")
+            staff_member = staff
+            mgr, spec, solo = menu_flags(roles, has_staff_profile=True)
+            await state.clear()
+            await message.answer(
+                f"Вы присоединились к {tenant.name} как {staff.display_name}.",
+                reply_markup=main_menu_reply(is_manager=mgr, is_specialist=spec, is_solo=solo),
+            )
+            return
+        except DomainError as exc:
+            await db_session.rollback()
+            await message.answer(f"Не удалось принять приглашение: {exc}")
+            return
+
     await state.update_data(start_param=start_param, book_entry=None)
 
     if start_param:
@@ -47,21 +79,22 @@ async def cmd_start(
             await state.update_data(promo_code=start_param[6:])
 
     if client_profile and client_has_phone(client_profile):
-        greet_markup = main_menu_reply(
-            is_staff=bool(roles.intersection({"specialist", "owner", "manager"})),
-            is_manager=bool(roles.intersection({"owner", "manager", "reception"})),
+        await message.answer(
+            f"Снова здравствуйте! {tenant.name}",
+            reply_markup=_reply_menu(roles, staff_member),
         )
-        await message.answer(f"Снова здравствуйте! {tenant.name}", reply_markup=greet_markup)
-        if miniapp_enabled():
-            await message.answer(
-                "Или откройте запись в мини-приложении:",
-                reply_markup=miniapp_book_keyboard(tenant.public_id, start_param),
-            )
-        if start_param:
+        if start_param and not invite_token:
             from app.bot.client.book import start_book_flow
 
             entry = (await state.get_data()).get("book_entry") or "service"
             await start_book_flow(message, state, entry=entry, tenant=tenant, db_session=db_session)
+        return
+
+    if staff_member is not None and client_profile is None:
+        await message.answer(
+            f"Здравствуйте, {staff_member.display_name}!",
+            reply_markup=_reply_menu(roles, staff_member),
+        )
         return
 
     policy = (tenant.rules or {}).get("privacy_url", "")
@@ -70,9 +103,6 @@ async def cmd_start(
         intro += f"\nПолитика: {policy}"
     intro += "\n\nДля записи нужен номер телефона (кнопка ниже)."
     await state.set_state(ClientOnboarding.waiting_contact)
-    if miniapp_enabled():
-        await message.answer(intro, reply_markup=miniapp_book_keyboard(tenant.public_id, start_param))
-        intro += "\n\nЛибо поделитесь телефоном для записи в чате:"
     await message.answer(intro, reply_markup=contact_request_keyboard())
 
 
@@ -83,6 +113,7 @@ async def got_contact(
     tenant: Tenant,
     db_session: AsyncSession,
     roles: set[str],
+    staff_member: StaffMember | None,
 ) -> None:
     contact = message.contact
     if contact is None or contact.user_id != message.from_user.id:  # type: ignore[union-attr]
@@ -154,6 +185,7 @@ async def marketing_choice(
     db_session: AsyncSession,
     client_profile: ClientProfile | None,
     roles: set[str],
+    staff_member: StaffMember | None,
 ) -> None:
     opt_in = callback.data.endswith(":yes")
     data = await state.get_data()
@@ -166,10 +198,7 @@ async def marketing_choice(
         await callback.message.edit_text(f"Готово! Добро пожаловать в {tenant.name}.")
     await callback.message.answer(  # type: ignore[union-attr]
         "Меню:",
-        reply_markup=main_menu_reply(
-            is_staff=bool(roles.intersection({"specialist", "owner", "manager"})),
-            is_manager=bool(roles.intersection({"owner", "manager", "reception"})),
-        ),
+        reply_markup=_reply_menu(roles, staff_member),
     )
     if book_entry and callback.message:
         from app.bot.client.book import start_book_flow

@@ -46,7 +46,7 @@ Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (T
 1. Скопируйте `.env.example` в `.env` и заполните `PLATFORM_BOT_TOKEN` при работе с Telegram.
 2. `make up` — PostgreSQL, Redis, MinIO.
 3. `make backend-install && make migrate` — зависимости и миграции Alembic.
-4. `make dev-api` — API на http://localhost:8000 (OpenAPI: `/docs`).
+4. `make dev-api` — служебный HTTP (health/ready; публичный REST по умолчанию выключен, см. `ENABLE_PUBLIC_API`).
 5. `make test` / `make lint` — pytest, ruff, mypy.
 6. `make seed` — демо-тенант (после миграций).
 7. Webhook локально: tunnel на `8000`, `POST setWebhook` на `{WEBHOOK_BASE_URL}/tg/{tenant_public_id}` с заголовком secret.
