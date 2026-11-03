@@ -1,28 +1,43 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+
+from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST, UiRole
 
 
-def main_menu_reply(*, is_manager: bool, is_specialist: bool) -> ReplyKeyboardMarkup:
-    """Role-based reply menu. Owner-operator gets manager + specialist rows together."""
+def main_menu_reply(
+    *,
+    active_ui_role: UiRole,
+    can_switch_ui_role: bool,
+) -> ReplyKeyboardMarkup:
+    """Reply menu for the role the user chose to act as right now."""
     builder = ReplyKeyboardBuilder()
-    if is_manager:
+    if active_ui_role == UI_ROLE_MANAGER:
         builder.row(KeyboardButton(text="Сегодня"), KeyboardButton(text="Команда"))
         builder.row(KeyboardButton(text="Услуги"), KeyboardButton(text="Клиенты"))
         builder.row(KeyboardButton(text="Ещё"), KeyboardButton(text="Записать клиента"))
-    if is_specialist:
+    elif active_ui_role == UI_ROLE_SPECIALIST:
         builder.row(KeyboardButton(text="Мой день"))
-    builder.row(KeyboardButton(text="Запись"), KeyboardButton(text="Мои записи"))
-    builder.row(KeyboardButton(text="Повторить прошлую"))
+    elif active_ui_role == UI_ROLE_CLIENT:
+        builder.row(KeyboardButton(text="Запись"), KeyboardButton(text="Мои записи"))
+        builder.row(KeyboardButton(text="Повторить прошлую"))
+    if can_switch_ui_role:
+        builder.row(KeyboardButton(text="Сменить режим"))
     builder.row(KeyboardButton(text="Помощь"))
     return builder.as_markup(resize_keyboard=True)
 
 
-def menu_flags(roles: set[str], *, has_staff_profile: bool) -> tuple[bool, bool]:
-    from app.bot.filters.roles import is_manager, is_staff
-
-    mgr = is_manager(roles)
-    spec = has_staff_profile and is_staff(roles)
-    return mgr, spec
+def role_switch_inline(available: list[UiRole], *, active: UiRole) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for role in available:
+        label = {
+            UI_ROLE_MANAGER: "Управляющий",
+            UI_ROLE_SPECIALIST: "Мастер",
+            UI_ROLE_CLIENT: "Клиент",
+        }[role]
+        prefix = "✓ " if role == active else ""
+        kb.button(text=f"{prefix}{label}".strip(), callback_data=f"ui:role:{role}")
+    kb.adjust(1)
+    return kb.as_markup()
 
 
 def contact_request_keyboard() -> ReplyKeyboardMarkup:

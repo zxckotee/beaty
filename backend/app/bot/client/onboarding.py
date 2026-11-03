@@ -5,9 +5,10 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.active_role import UI_ROLE_LABELS, available_ui_roles, read_stored_ui_role, resolve_active_ui_role
 from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
-from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply, menu_flags
+from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -27,9 +28,20 @@ def _parse_start_param(text: str | None) -> str | None:
     return parts[1] if len(parts) > 1 else None
 
 
-def _reply_menu(roles: set[str], staff_member: StaffMember | None):
-    mgr, spec = menu_flags(roles, has_staff_profile=staff_member is not None)
-    return main_menu_reply(is_manager=mgr, is_specialist=spec)
+def _reply_menu(
+    roles: set[str],
+    staff_member: StaffMember | None,
+    *,
+    active_ui_role: str | None = None,
+    can_switch_ui_role: bool | None = None,
+):
+    avail = available_ui_roles(
+        granted_roles=roles,
+        has_staff_profile=staff_member is not None,
+    )
+    active = active_ui_role or resolve_active_ui_role(read_stored_ui_role(staff_member), avail)
+    can_switch = can_switch_ui_role if can_switch_ui_role is not None else len(avail) > 1
+    return main_menu_reply(active_ui_role=active, can_switch_ui_role=can_switch)  # type: ignore[arg-type]
 
 
 @client_onboarding_router.message(CommandStart())
@@ -42,6 +54,8 @@ async def cmd_start(
     user_account: UserAccount | None,
     staff_member: StaffMember | None,
     roles: set[str],
+    active_ui_role: str,
+    can_switch_ui_role: bool,
 ) -> None:
     start_param = _parse_start_param(message.text)
     invite_token = parse_invite_token(start_param)
@@ -57,11 +71,15 @@ async def cmd_start(
             roles.update(staff.roles or [])
             roles.add("specialist")
             staff_member = staff
-            mgr, spec = menu_flags(roles, has_staff_profile=True)
             await state.clear()
+            avail = available_ui_roles(granted_roles=roles, has_staff_profile=True)
+            active = resolve_active_ui_role(read_stored_ui_role(staff), avail)
             await message.answer(
                 f"Вы присоединились к {tenant.name} как {staff.display_name}.",
-                reply_markup=main_menu_reply(is_manager=mgr, is_specialist=spec),
+                reply_markup=main_menu_reply(
+                    active_ui_role=active,
+                    can_switch_ui_role=len(avail) > 1,
+                ),
             )
             return
         except DomainError as exc:
@@ -82,9 +100,14 @@ async def cmd_start(
     if client_profile and client_has_phone(client_profile):
         await message.answer(
             f"Снова здравствуйте! {tenant.name}",
-            reply_markup=_reply_menu(roles, staff_member),
+            reply_markup=_reply_menu(
+                roles,
+                staff_member,
+                active_ui_role=active_ui_role,
+                can_switch_ui_role=can_switch_ui_role,
+            ),
         )
-        if start_param and not invite_token:
+        if start_param and not invite_token and active_ui_role == "client":
             from app.bot.client.book import start_book_flow
 
             entry = (await state.get_data()).get("book_entry") or "service"
@@ -98,11 +121,21 @@ async def cmd_start(
                 "Вы управляете салоном: добавьте услуги в «Услуги», "
                 "мастеров в «Команда», записи — в «Сегодня»."
             )
+            if can_switch_ui_role:
+                lines.append(
+                    f"Сейчас режим «{UI_ROLE_LABELS.get(active_ui_role, active_ui_role)}». "
+                    "Другие роли — кнопка «Сменить режим»."
+                )
         else:
             lines.append("Ваш рабочий день — кнопка «Мой день».")
         await message.answer(
             "\n".join(lines),
-            reply_markup=_reply_menu(roles, staff_member),
+            reply_markup=_reply_menu(
+                roles,
+                staff_member,
+                active_ui_role=active_ui_role,
+                can_switch_ui_role=can_switch_ui_role,
+            ),
         )
         return
 
@@ -195,6 +228,8 @@ async def marketing_choice(
     client_profile: ClientProfile | None,
     roles: set[str],
     staff_member: StaffMember | None,
+    active_ui_role: str,
+    can_switch_ui_role: bool,
 ) -> None:
     opt_in = callback.data.endswith(":yes")
     data = await state.get_data()
@@ -207,9 +242,14 @@ async def marketing_choice(
         await callback.message.edit_text(f"Готово! Добро пожаловать в {tenant.name}.")
     await callback.message.answer(  # type: ignore[union-attr]
         "Меню:",
-        reply_markup=_reply_menu(roles, staff_member),
+        reply_markup=_reply_menu(
+            roles,
+            staff_member,
+            active_ui_role=active_ui_role,
+            can_switch_ui_role=can_switch_ui_role,
+        ),
     )
-    if book_entry and callback.message:
+    if book_entry and callback.message and active_ui_role == "client":
         from app.bot.client.book import start_book_flow
 
         await start_book_flow(

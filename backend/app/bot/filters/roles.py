@@ -22,10 +22,15 @@ def is_owner(roles: set[str]) -> bool:
 
 
 class HasManagerRole(BaseFilter):
-    async def __call__(self, _event: TelegramObject, roles: set[str]) -> bool:
-        return is_manager(roles)
+    async def __call__(self, _event: TelegramObject, roles: set[str], active_ui_role: str) -> bool:
+        return active_ui_role == "manager" and is_manager(roles)
 
 
 class HasStaffRole(BaseFilter):
-    async def __call__(self, _event: TelegramObject, roles: set[str]) -> bool:
-        return is_staff(roles)
+    async def __call__(self, _event: TelegramObject, roles: set[str], active_ui_role: str) -> bool:
+        return active_ui_role == "specialist" and is_staff(roles)
+
+
+class HasActiveClientRole(BaseFilter):
+    async def __call__(self, _event: TelegramObject, active_ui_role: str) -> bool:
+        return active_ui_role == "client"

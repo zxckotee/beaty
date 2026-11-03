@@ -8,11 +8,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.filters.roles import HasActiveClientRole
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, Tenant
 from app.domain.services.booking_service import cancel_booking
 
 client_my_router = Router(name="client_my")
+client_my_router.message.filter(HasActiveClientRole())
+client_my_router.callback_query.filter(HasActiveClientRole())
 
 
 async def send_my_bookings(
