@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.callbacks.codec import load_payload, store_payload
 from app.bot.client.states import BookFlow
+from app.bot.filters.roles import HasActiveClientRole
 from app.bot.shared import assert_can_write, get_branch
 from app.domain.exceptions import DomainError, SlotTakenError
 from app.domain.models import ClientProfile, Service, SpecialistService, StaffMember, Tenant
@@ -20,6 +21,8 @@ from app.domain.services.booking_service import confirm_hold, hold_slot
 from app.domain.services.slot_repository import list_available_slots
 
 client_book_router = Router(name="client_book")
+client_book_router.message.filter(HasActiveClientRole())
+client_book_router.callback_query.filter(HasActiveClientRole())
 
 PAGE_SIZE = 6
 

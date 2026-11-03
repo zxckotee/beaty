@@ -3,7 +3,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
 
-from app.bot.filters.roles import is_manager, is_staff
+from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
+from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
 from app.domain.models import Tenant  # noqa: TC001 — aiogram DI
 
 common_router = Router(name="common")
@@ -17,7 +18,7 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
 
 @common_router.message(Command("help"))
 @common_router.message(F.text == "Помощь")
-async def cmd_help(message: Message, tenant: Tenant, roles: set[str]) -> None:
+async def cmd_help(message: Message, tenant: Tenant, roles: set[str], active_ui_role: str) -> None:
     bot_user = message.bot
     username = getattr(bot_user, "username", None) or "bot"
     lines = [
@@ -25,23 +26,23 @@ async def cmd_help(message: Message, tenant: Tenant, roles: set[str]) -> None:
         f"Бот: @{username}",
         "",
         "Команды:",
-        "/book — запись",
-        "/my — мои записи",
         "/cancel — отменить текущий шаг",
     ]
-    if is_manager(roles):
+    if active_ui_role == UI_ROLE_MANAGER and is_manager(roles):
         lines.extend(
             [
                 "/today — записи на сегодня",
                 "Команда, Услуги — управление салоном",
             ]
         )
-    if is_staff(roles):
+    if active_ui_role == UI_ROLE_SPECIALIST and is_staff(roles):
         lines.extend(["/day — мой рабочий день", "/sick — форс-мажор"])
+    if active_ui_role == UI_ROLE_CLIENT:
+        lines.extend(["/book — запись", "/my — мои записи"])
     await message.answer("\n".join(lines))
 
 
-@common_router.message(F.text == "Запись")
+@common_router.message(F.text == "Запись", HasActiveClientRole())
 async def text_book(
     message: Message,
     state: FSMContext,
@@ -53,7 +54,7 @@ async def text_book(
     await start_book_flow(message, state, entry="service", tenant=tenant, db_session=db_session)
 
 
-@common_router.message(F.text == "Повторить прошлую")
+@common_router.message(F.text == "Повторить прошлую", HasActiveClientRole())
 async def text_repeat(
     message: Message,
     state: FSMContext,
@@ -96,7 +97,7 @@ async def text_repeat(
     await start_book_flow(message, state, entry="service", tenant=tenant, db_session=db_session)
 
 
-@common_router.message(F.text == "Мои записи")
+@common_router.message(F.text == "Мои записи", HasActiveClientRole())
 async def text_my(
     message: Message,
     state: FSMContext,

@@ -68,10 +68,25 @@ class BotContextMiddleware(BaseMiddleware):
                     if staff_member:
                         roles.add("specialist")
 
+            from app.bot.active_role import (
+                available_ui_roles,
+                read_stored_ui_role,
+                resolve_active_ui_role,
+            )
+
+            ui_available = available_ui_roles(
+                granted_roles=roles,
+                has_staff_profile=staff_member is not None,
+            )
+            active_ui_role = resolve_active_ui_role(read_stored_ui_role(staff_member), ui_available)
+
             data["user_account"] = user_account
             data["client_profile"] = client_profile
             data["staff_member"] = staff_member
             data["roles"] = roles
+            data["active_ui_role"] = active_ui_role
+            data["available_ui_roles"] = ui_available
+            data["can_switch_ui_role"] = len(ui_available) > 1
             data["subscription_read_only"] = tenant.subscription_status in {
                 "expired",
                 "suspended",

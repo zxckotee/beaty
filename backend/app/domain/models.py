@@ -107,6 +107,7 @@ class StaffMember(Base):
     specialization: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     payout_rule: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    ui_prefs: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class StaffInvite(Base):

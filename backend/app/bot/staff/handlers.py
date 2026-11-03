@@ -9,13 +9,15 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
-from app.bot.filters.roles import is_manager, is_staff
+from app.bot.filters.roles import HasStaffRole, is_manager, is_staff
 from app.bot.shared import assert_can_write
 from app.domain.exceptions import DomainError
 from app.domain.models import Booking, BookingItem, BookingStatus, StaffMember, Tenant
 from app.domain.services.force_majeure import declare_unavailable
 
 staff_router = Router(name="staff")
+staff_router.message.filter(HasStaffRole())
+staff_router.callback_query.filter(HasStaffRole())
 
 
 async def _can_update_booking_status(
