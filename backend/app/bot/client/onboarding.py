@@ -27,9 +27,18 @@ def _parse_start_param(text: str | None) -> str | None:
     return parts[1] if len(parts) > 1 else None
 
 
-def _reply_menu(roles: set[str], staff_member: StaffMember | None):
-    mgr, spec = menu_flags(roles, has_staff_profile=staff_member is not None)
-    return main_menu_reply(is_manager=mgr, is_specialist=spec)
+def _reply_menu(
+    roles: set[str],
+    staff_member: StaffMember | None,
+    client_profile: ClientProfile | None,
+):
+    has_client = client_profile is not None and client_has_phone(client_profile)
+    mgr, spec, show_client = menu_flags(
+        roles,
+        has_staff_profile=staff_member is not None,
+        has_client_profile=has_client,
+    )
+    return main_menu_reply(is_manager=mgr, is_specialist=spec, show_client_menu=show_client)
 
 
 @client_onboarding_router.message(CommandStart())
@@ -57,11 +66,10 @@ async def cmd_start(
             roles.update(staff.roles or [])
             roles.add("specialist")
             staff_member = staff
-            mgr, spec = menu_flags(roles, has_staff_profile=True)
             await state.clear()
             await message.answer(
                 f"Вы присоединились к {tenant.name} как {staff.display_name}.",
-                reply_markup=main_menu_reply(is_manager=mgr, is_specialist=spec),
+                reply_markup=_reply_menu(roles, staff_member, client_profile),
             )
             return
         except DomainError as exc:
@@ -82,7 +90,7 @@ async def cmd_start(
     if client_profile and client_has_phone(client_profile):
         await message.answer(
             f"Снова здравствуйте! {tenant.name}",
-            reply_markup=_reply_menu(roles, staff_member),
+            reply_markup=_reply_menu(roles, staff_member, client_profile),
         )
         if start_param and not invite_token:
             from app.bot.client.book import start_book_flow
@@ -102,7 +110,7 @@ async def cmd_start(
             lines.append("Ваш рабочий день — кнопка «Мой день».")
         await message.answer(
             "\n".join(lines),
-            reply_markup=_reply_menu(roles, staff_member),
+            reply_markup=_reply_menu(roles, staff_member, client_profile),
         )
         return
 
@@ -207,7 +215,7 @@ async def marketing_choice(
         await callback.message.edit_text(f"Готово! Добро пожаловать в {tenant.name}.")
     await callback.message.answer(  # type: ignore[union-attr]
         "Меню:",
-        reply_markup=_reply_menu(roles, staff_member),
+        reply_markup=_reply_menu(roles, staff_member, client_profile),
     )
     if book_entry and callback.message:
         from app.bot.client.book import start_book_flow
