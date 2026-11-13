@@ -17,6 +17,7 @@ from app.domain.services.client_onboarding_service import (
     ensure_user_account,
 )
 from app.domain.services.team_invite_service import accept_invite, parse_invite_token
+from app.domain.services.web_auth_service import confirm_login, parse_login_code
 
 client_onboarding_router = Router(name="client_onboarding")
 
@@ -58,6 +59,19 @@ async def cmd_start(
     can_switch_ui_role: bool,
 ) -> None:
     start_param = _parse_start_param(message.text)
+    login_code = parse_login_code(start_param)
+    if login_code and message.from_user:
+        confirmed = await confirm_login(
+            login_code,
+            tenant_public_id=tenant.public_id,
+            telegram_user_id=message.from_user.id,
+            display_name=message.from_user.full_name,
+        )
+        if confirmed:
+            await message.answer("Готово! Вы вошли на сайт. Вернитесь в браузер: страница обновится сама.")
+        else:
+            await message.answer("Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз.")
+        return
     invite_token = parse_invite_token(start_param)
     if invite_token and message.from_user:
         try:

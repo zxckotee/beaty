@@ -2,12 +2,23 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select, text, update
+from sqlalchemy.dialects.postgresql import Range
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
 from app.domain.audit import log_audit
-from app.domain.exceptions import ForbiddenError, NotFoundError, SlotTakenError
+from app.domain.cells import chain_items, first_fit_start, free_segments, price_total, total_block_minutes
+from app.domain.exceptions import DoesNotFitError, ForbiddenError, NotFoundError, SlotTakenError
 from app.domain.models import Booking, BookingEvent, BookingItem, BookingStatus, Service, Tenant
+from app.domain.services.cell_service import (
+    cell_allows,
+    eligible_staff_needs,
+    get_cell,
+    lead_time_earliest,
+    load_services,
+    staff_busy,
+)
 from app.domain.services.notification_planner import (
     cancel_booking_notifications,
     plan_booking_notifications,
@@ -78,28 +89,11 @@ async def hold_slot(
         service_id=service_id,
         price_cents=service.price_cents,
         duration_minutes=duration,
+        during=Range(start_at, end_at, bounds="[)"),
+        blocked_during=Range(start_at, blocked_end, bounds="[)"),
         is_active=True,
     )
     session.add(item)
-    await session.flush()
-
-    await session.execute(
-        text(
-            """
-            UPDATE booking_item
-            SET during = tstzrange(:during_start, :during_end, '[)'),
-                blocked_during = tstzrange(:blocked_start, :blocked_end, '[)')
-            WHERE id = :item_id
-            """
-        ),
-        {
-            "item_id": str(item.id),
-            "during_start": start_at,
-            "during_end": end_at,
-            "blocked_start": start_at,
-            "blocked_end": blocked_end,
-        },
-    )
 
     try:
         await session.flush()
@@ -221,27 +215,11 @@ async def reschedule_booking(
         service_id=item.service_id,
         price_cents=item.price_cents,
         duration_minutes=duration,
+        during=Range(new_start_at, end_at, bounds="[)"),
+        blocked_during=Range(new_start_at, blocked_end, bounds="[)"),
         is_active=True,
     )
     session.add(new_item)
-    await session.flush()
-    await session.execute(
-        text(
-            """
-            UPDATE booking_item
-            SET during = tstzrange(:during_start, :during_end, '[)'),
-                blocked_during = tstzrange(:blocked_start, :blocked_end, '[)')
-            WHERE id = :item_id
-            """
-        ),
-        {
-            "item_id": str(new_item.id),
-            "during_start": new_start_at,
-            "during_end": end_at,
-            "blocked_start": new_start_at,
-            "blocked_end": blocked_end,
-        },
-    )
     try:
         await session.flush()
     except Exception as exc:
@@ -342,4 +320,105 @@ async def cancel_booking(
             service_id=items[0].service_id,
             staff_member_id=items[0].staff_member_id,
         )
+    return booking
+
+
+async def book_services_in_cell(
+    session: AsyncSession,
+    *,
+    tenant: Tenant,
+    cell_id: UUID,
+    client_profile_id: UUID,
+    service_ids: list[UUID],
+    comment: str | None = None,
+    actor_user_id: UUID | None = None,
+    source: str = "web",
+    enforce_lead_time: bool = True,
+) -> Booking:
+    """Book several services back to back inside one manager-defined cell.
+
+    The cell row is locked so concurrent bookings of the same window are serialized; the
+    database exclusion constraint on booking_item remains the last line of defence.
+    """
+    cell = await get_cell(session, tenant.id, cell_id, for_update=True)
+    services = await load_services(session, tenant.id, service_ids)
+    ids = [s.id for s in services]
+    if not cell_allows(cell, ids):
+        raise DoesNotFitError("cell does not offer these services")
+    needs_by_staff = await eligible_staff_needs(
+        session, tenant_id=tenant.id, services=services, staff_member_id=cell.staff_member_id
+    )
+    needs = needs_by_staff.get(cell.staff_member_id)
+    if needs is None:
+        raise DoesNotFitError("specialist does not perform all selected services")
+
+    await _expire_overlapping_holds(session, cell.staff_member_id, cell.starts_at, cell.ends_at)
+    busy = (
+        await staff_busy(
+            session,
+            tenant_id=tenant.id,
+            staff_ids=[cell.staff_member_id],
+            range_start=cell.starts_at,
+            range_end=cell.ends_at + timedelta(days=1),
+        )
+    )[cell.staff_member_id]
+    segments = free_segments(cell.starts_at, cell.ends_at, busy)
+    now = datetime.now(UTC)
+    earliest = lead_time_earliest(tenant, now) if enforce_lead_time else now
+    start = first_fit_start(segments, total_block_minutes(needs), earliest)
+    if start is None:
+        raise DoesNotFitError("selected services do not fit into the free time of this cell")
+
+    planned = chain_items(start, needs)
+    booking = Booking(
+        tenant_id=tenant.id,
+        branch_id=cell.branch_id,
+        client_profile_id=client_profile_id,
+        status=BookingStatus.BOOKED.value,
+        source=source,
+        comment=(comment or "").strip() or None,
+        total_price_cents=price_total(needs, cell.price_cents),
+    )
+    session.add(booking)
+    await session.flush()
+    for item in planned:
+        session.add(
+            BookingItem(
+                tenant_id=tenant.id,
+                booking_id=booking.id,
+                staff_member_id=cell.staff_member_id,
+                service_id=item.service_id,
+                cell_id=cell.id,
+                price_cents=item.price_cents,
+                duration_minutes=item.duration_minutes,
+                during=Range(item.start, item.end, bounds="[)"),
+                blocked_during=Range(item.start, item.blocked_end, bounds="[)"),
+                is_active=True,
+            )
+        )
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        if "no_specialist_overlap" in str(exc):
+            raise SlotTakenError("slot already taken") from exc
+        raise
+
+    await plan_booking_notifications(session, booking, start_at=planned[0].start, tenant_rules=tenant.rules)
+    session.add(
+        BookingEvent(
+            tenant_id=tenant.id,
+            booking_id=booking.id,
+            event_type="booked_in_cell",
+            payload={"cell_id": str(cell.id), "start": planned[0].start.isoformat(), "source": source},
+            actor_user_id=actor_user_id,
+        )
+    )
+    await log_audit(
+        session,
+        tenant_id=tenant.id,
+        action="booking.created_in_cell",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user_id=actor_user_id,
+    )
     return booking

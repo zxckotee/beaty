@@ -45,3 +45,30 @@ def decode_refresh_token(token: str) -> dict[str, object]:
     if payload.get("typ") != "refresh":
         raise ValueError("not a refresh token")
     return payload
+
+
+WEB_TOKEN_TYPE = "web"
+
+
+def create_web_session_token(
+    *,
+    tenant_public_id: str,
+    user_account_id: UUID,
+    name: str | None,
+    days: int,
+) -> str:
+    payload = {
+        "sub": str(user_account_id),
+        "tenant": tenant_public_id,
+        "typ": WEB_TOKEN_TYPE,
+        "name": name or "",
+        "exp": datetime.now(UTC) + timedelta(days=days),
+    }
+    return jwt.encode(payload, get_settings().jwt_secret, algorithm="HS256")
+
+
+def decode_web_session_token(token: str) -> dict[str, object]:
+    payload = decode_access_token(token)
+    if payload.get("typ") != WEB_TOKEN_TYPE:
+        raise ValueError("not a web session token")
+    return payload

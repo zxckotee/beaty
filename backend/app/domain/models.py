@@ -175,6 +175,8 @@ class Service(Base):
     revisit_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     resource_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 
 class SpecialistService(Base):
@@ -213,6 +215,25 @@ class ScheduleException(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class TimeCell(Base):
+    """Open window set by a manager: a free-length slice of one specialist's day."""
+
+    __tablename__ = "time_cell"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    branch_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("branch.id", ondelete="CASCADE"))
+    staff_member_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("staff_member.id", ondelete="CASCADE"))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    price_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allowed_service_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Booking(Base):
     __tablename__ = "booking"
 
@@ -246,6 +267,9 @@ class BookingItem(Base):
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    cell_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("time_cell.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     booking: Mapped["Booking"] = relationship(back_populates="items")
 

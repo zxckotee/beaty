@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.exceptions import ValidationError
 from app.domain.models import ClientProfile, UserAccount
 
 
@@ -56,3 +57,48 @@ async def register_client(
     session.add(profile)
     await session.flush()
     return profile
+
+
+async def upsert_client_profile(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    user_account_id: UUID,
+    name: str,
+    phone: str | None,
+    source: str | None = None,
+) -> ClientProfile:
+    """Create or update the client card of a signed-in user (one card per user per tenant)."""
+    own = await session.scalar(
+        select(ClientProfile).where(
+            ClientProfile.tenant_id == tenant_id,
+            ClientProfile.user_account_id == user_account_id,
+        )
+    )
+    if own is None:
+        if not phone:
+            raise ValidationError("phone is required")
+        return await register_client(
+            session,
+            tenant_id=tenant_id,
+            user_account_id=user_account_id,
+            name=name,
+            phone=phone,
+            source=source,
+        )
+    if name:
+        own.name = name
+    if phone:
+        normalized = normalize_phone(phone)
+        taken = await session.scalar(
+            select(ClientProfile).where(
+                ClientProfile.tenant_id == tenant_id,
+                ClientProfile.phone == normalized,
+                ClientProfile.id != own.id,
+            )
+        )
+        if taken is None:
+            own.phone = normalized
+    own.consents = {**own.consents, "pd_consent": True}
+    await session.flush()
+    return own
