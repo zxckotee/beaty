@@ -94,7 +94,7 @@ async def _tenant_choices(session: AsyncSession) -> list[tuple[str, str]]:
     return [(pid, name or pid) for pid, name in rows]
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_model=None)
 async def root_login(session: AsyncSession = Depends(get_session)) -> HTMLResponse | RedirectResponse:
     settings = get_settings()
     dev = dev_login_enabled()
@@ -130,7 +130,7 @@ async def login_get(
     return HTMLResponse(_page(tenants=tenants, selected=selected, error=error, dev_enabled=dev_login_enabled()))
 
 
-@router.post("/login")
+@router.post("/login", response_model=None)
 async def login_post(
     tenant_public_id: str = Form(...),
     identifier: str = Form(...),
