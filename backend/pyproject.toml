@@ -62,3 +62,4 @@ packages = ["app.domain", "app.core"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+pythonpath = ["."]

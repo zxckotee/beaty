@@ -36,6 +36,8 @@ fi
 
 WEB_PORT="$(grep -E '^WEB_PORT=' .env.prod | cut -d= -f2)"
 WEB_PORT="${WEB_PORT:-4040}"
+WEB_UI_PORT="$(grep -E '^WEB_UI_PORT=' .env.prod | cut -d= -f2 || true)"
+WEB_UI_PORT="${WEB_UI_PORT:-3030}"
 
 case "$MODE" in
   build)
@@ -54,17 +56,25 @@ esac
 
 docker image prune -f >/dev/null || true
 
-echo "Waiting for http://127.0.0.1:${WEB_PORT}/health"
-for attempt in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${WEB_PORT}/health" >/dev/null 2>&1; then
-    echo "Healthcheck passed (attempt $attempt)"
-    "${COMPOSE[@]}" ps
-    exit 0
-  fi
-  sleep 3
-done
+wait_health() {
+  local port="$1"
+  echo "Waiting for http://127.0.0.1:${port}/health"
+  for attempt in $(seq 1 30); do
+    if curl -fsS "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
+      echo "Healthcheck passed on :${port} (attempt $attempt)"
+      return 0
+    fi
+    sleep 3
+  done
+  return 1
+}
+
+if wait_health "$WEB_PORT" && wait_health "$WEB_UI_PORT"; then
+  "${COMPOSE[@]}" ps
+  exit 0
+fi
 
 echo "Healthcheck failed" >&2
 "${COMPOSE[@]}" ps >&2 || true
-"${COMPOSE[@]}" logs --tail 100 api platform-bot worker >&2 || true
+"${COMPOSE[@]}" logs --tail 100 api web platform-bot worker >&2 || true
 exit 1

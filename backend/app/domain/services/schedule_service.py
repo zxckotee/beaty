@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import Range
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.audit import log_audit
@@ -74,13 +75,10 @@ async def add_exception(
         staff_member_id=staff_member_id,
         kind=kind,
         note=note,
+        during=Range(start, end, bounds="[)"),
     )
     session.add(exc)
     await session.flush()
-    await session.execute(
-        text("UPDATE schedule_exception SET during = tstzrange(:s, :e, '[)') WHERE id = :id"),
-        {"s": start, "e": end, "id": str(exc.id)},
-    )
     await invalidate_slots_for_staff(tenant_id, staff_member_id)
     await log_audit(
         session,

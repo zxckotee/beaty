@@ -1,4 +1,4 @@
-.PHONY: up down migrate test lint backend-install
+.PHONY: up down migrate test lint backend-install dev-web
 
 up:
 	docker compose up -d postgres redis minio
@@ -20,6 +20,9 @@ lint:
 
 dev-api:
 	cd backend && uvicorn app.main:app --reload --port 8000
+
+dev-web:
+	cd backend && uvicorn app.web.main:app --reload --port 3030
 
 seed:
 	cd backend && python -m scripts.seed

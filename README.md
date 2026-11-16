@@ -51,7 +51,19 @@ Python 3.12, aiogram 3, FastAPI, PostgreSQL, Redis, очередь задач (T
 6. `make seed` — демо-тенант (после миграций).
 7. Webhook локально: tunnel на `8000`, `POST setWebhook` на `{WEBHOOK_BASE_URL}/tg/{tenant_public_id}` с заголовком secret.
 
-Структура кода: `backend/app/` (domain, api, bot, platform_bot, workers), [docs/pilot-checklist.md](docs/pilot-checklist.md).
+Структура кода: `backend/app/` (domain, api, bot, platform_bot, workers, web), [docs/pilot-checklist.md](docs/pilot-checklist.md).
+
+## Веб-кабинет (порт 3030)
+
+Отдельный сервис `web` (`app.web.main:app`, только HTTP) — три роли в одном интерфейсе, mobile-first. Использует тот же модуль `app/domain`, что и бот; фронтенд — статический ES-модульный SPA без сборки (`backend/app/web/static`).
+
+- `make dev-web` или `docker compose up web` — запуск на `http://localhost:3030`; адрес салона: `/t/<tenant_public_id>/` (если салон один или задан `WEB_DEFAULT_TENANT`, работает и `/`).
+- **Менеджер** (owner/manager): бар рабочего дня из ячеек свободной длительности, «+» создаёт ячейку (специалист, время, корректировка цены, описание, допустимые услуги), карточки специалистов и услуг с фото.
+- **Специалист**: тот же бар без создания и удаления.
+- **Клиент**: каталог услуг, выбор нескольких услуг, система показывает окна, в которые они укладываются (длительность + буфер), с карточками специалистов; бронь занимает только нужное время ячейки.
+- Вход через бота: сайт создаёт одноразовый код, пользователь открывает `t.me/<bot>?start=web_<code>`, сайт получает сессию (cookie `bs_<public_id>`). Демо-вход `/auth/dev` доступен при `ENVIRONMENT != production` или `WEB_DEV_LOGIN=true`.
+- Переменные: `WEB_UI_PORT`, `WEB_DEFAULT_TENANT`, `MEDIA_DIR` (загрузки фото), `WEB_COOKIE_SECURE` (включить за HTTPS).
+- Демо-данные: `make seed` добавляет специалистов, услуги и ячейки в тенант `demo`.
 
 ## Деплой
 

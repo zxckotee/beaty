@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     tenant_ui_mode: str = "bot"  # bot | miniapp | both (miniapp disabled in code)
     enable_public_api: bool = False
 
+    web_ui_port: int = 3030
+    media_dir: str = "./media"
+    web_default_tenant: str = ""
+    web_cookie_secure: bool = False
+    web_session_days: int = 14
+    web_dev_login: bool = False
+    web_max_upload_bytes: int = 5 * 1024 * 1024
+
 
 @lru_cache
 def get_settings() -> Settings:
