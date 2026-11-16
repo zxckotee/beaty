@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -18,7 +18,6 @@ from app.core.db import SessionLocal
 from app.core.logging_config import setup_logging
 from app.core.redis_client import close_redis
 from app.core.sentry_init import init_sentry
-from app.core.settings import get_settings
 from app.domain.exceptions import (
     CellInUseError,
     CellOverlapError,
@@ -30,7 +29,7 @@ from app.domain.exceptions import (
     ValidationError,
 )
 from app.domain.models import StaffMember, Tenant
-from app.web.routes import auth, client, manager, schedule
+from app.web.routes import auth, client, manager, schedule, test_login
 from app.web.uploads import media_root
 
 logger = logging.getLogger(__name__)
@@ -82,6 +81,7 @@ async def domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse({"detail": str(exc), "code": type(exc).__name__}, status_code=status)
 
 
+app.include_router(test_login.router)
 app.include_router(auth.router)
 app.include_router(schedule.router)
 app.include_router(manager.router)
@@ -132,13 +132,3 @@ async def spa(tenant_public_id: str) -> FileResponse:
     return _index()
 
 
-@app.get("/")
-async def root() -> Response:
-    settings = get_settings()
-    if settings.web_default_tenant:
-        return RedirectResponse(f"/t/{settings.web_default_tenant}/")
-    async with SessionLocal() as session:
-        ids = list((await session.scalars(select(Tenant.public_id).limit(2))).all())
-    if len(ids) == 1:
-        return RedirectResponse(f"/t/{ids[0]}/")
-    return JSONResponse({"detail": "open /t/<tenant_public_id>/"}, status_code=404)

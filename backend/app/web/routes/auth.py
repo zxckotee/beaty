@@ -16,6 +16,7 @@ from app.domain.services.cell_service import get_default_branch, work_day_hours
 from app.domain.services.client_service import get_or_create_user_account, upsert_client_profile
 from app.domain.services.web_auth_service import create_login_request, poll_login, start_param_for
 from app.web.deps import WebContext, cookie_name, get_context, get_tenant, require_auth, writable
+from app.web.dev_login import resolve_telegram_user_id
 from app.web.ratelimit import limit_by_ip
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["auth"])
@@ -107,7 +108,8 @@ async def auth_poll(
 
 
 class DevLogin(BaseModel):
-    telegram_user_id: int
+    telegram_user_id: int | None = None
+    identifier: str | None = None
     name: str | None = None
 
 
@@ -120,9 +122,17 @@ async def auth_dev(
 ) -> dict[str, str]:
     if not dev_login_enabled():
         raise HTTPException(status_code=404, detail="not found")
-    user = await get_or_create_user_account(session, body.telegram_user_id)
+    if body.telegram_user_id is not None and not body.identifier:
+        telegram_user_id, auto_name = body.telegram_user_id, None
+    elif body.identifier:
+        telegram_user_id, auto_name = await resolve_telegram_user_id(tenant, body.identifier)
+    elif body.telegram_user_id is not None:
+        telegram_user_id, auto_name = body.telegram_user_id, None
+    else:
+        raise HTTPException(status_code=400, detail="telegram_user_id or identifier required")
+    user = await get_or_create_user_account(session, telegram_user_id)
     await session.commit()
-    _set_session_cookie(response, tenant, user.id, body.name)
+    _set_session_cookie(response, tenant, user.id, body.name or auto_name)
     return {"state": "confirmed"}
 
 
