@@ -22,11 +22,12 @@ from app.domain.models import (
     StaffMember,
     Tenant,
 )
-from app.domain.services.booking_service import book_services_in_cell, cancel_booking
-from app.domain.services.cell_service import find_offers, get_default_branch, load_services
+from app.domain.services.availability_service import find_schedule_offers
+from app.domain.services.booking_service import book_services_at_start, book_services_in_cell, cancel_booking
+from app.domain.services.cell_service import get_default_branch, load_services
 from app.domain.services.client_service import normalize_phone, upsert_client_profile
 from app.web.deps import WebContext, get_tenant, require_auth, writable
-from app.web.serializers import hhmm, local_date, offer_dict, service_card, staff_card
+from app.web.serializers import hhmm, local_date, schedule_offer_dict, service_card, staff_card
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}/client", tags=["client"])
 
@@ -84,9 +85,11 @@ async def availability(
     tz = ZoneInfo(branch.timezone)
     services = await load_services(session, tenant.id, body.service_ids)
     now = datetime.now(UTC)
-    offers = await find_offers(
+    branch = await get_default_branch(session, tenant)
+    offers = await find_schedule_offers(
         session,
         tenant=tenant,
+        branch=branch,
         service_ids=body.service_ids,
         range_start=now,
         range_end=now + timedelta(days=366),
@@ -94,8 +97,12 @@ async def availability(
         now=now,
     )
     by_day: dict[str, list[dict[str, object]]] = defaultdict(list)
+    from app.web.serializers import schedule_offer_dict
+
     for offer in offers:
-        by_day[local_date(offer.start_at, tz).isoformat()].append(offer_dict(offer, tz, tenant.public_id))
+        by_day[local_date(offer.start_at, tz).isoformat()].append(
+            schedule_offer_dict(offer, tz, tenant.public_id)
+        )
     return {
         "summary": {
             "total_minutes": sum(s.duration_minutes for s in services),
@@ -107,7 +114,9 @@ async def availability(
 
 
 class BookingBody(BaseModel):
-    cell_id: UUID
+    cell_id: UUID | None = None
+    staff_member_id: UUID | None = None
+    start_at: datetime | None = None
     service_ids: list[UUID] = Field(min_length=1, max_length=10)
     comment: str | None = Field(default=None, max_length=500)
     name: str | None = Field(default=None, max_length=120)
@@ -139,16 +148,31 @@ async def create_booking(
         assert ctx.client is not None
         profile = ctx.client
     ctx.client = profile
-    booking = await book_services_in_cell(
-        session,
-        tenant=tenant,
-        cell_id=body.cell_id,
-        client_profile_id=profile.id,
-        service_ids=body.service_ids,
-        comment=body.comment,
-        actor_user_id=ctx.user.id,
-        source="web",
-    )
+    if body.cell_id is not None:
+        booking = await book_services_in_cell(
+            session,
+            tenant=tenant,
+            cell_id=body.cell_id,
+            client_profile_id=profile.id,
+            service_ids=body.service_ids,
+            comment=body.comment,
+            actor_user_id=ctx.user.id,
+            source="web",
+        )
+    elif body.staff_member_id is not None and body.start_at is not None:
+        booking = await book_services_at_start(
+            session,
+            tenant=tenant,
+            staff_member_id=body.staff_member_id,
+            start_at=body.start_at,
+            client_profile_id=profile.id,
+            service_ids=body.service_ids,
+            comment=body.comment,
+            actor_user_id=ctx.user.id,
+            source="web",
+        )
+    else:
+        raise ValidationError("cell_id or (staff_member_id and start_at) required")
     await session.commit()
     mine = await _my_bookings(session, ctx, only=booking.id)
     return mine[0]

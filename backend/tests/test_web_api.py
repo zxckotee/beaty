@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models import StaffMember, UserAccount
 from app.domain.services.card_service import ServiceLink, create_service, set_specialist_services
 from app.domain.services.provisioning import create_tenant_for_owner
+from app.domain.services.schedule_service import ensure_default_schedule
 from app.web.main import app
 from tests.conftest import random_telegram_id, tomorrow_at
 
@@ -42,6 +43,7 @@ async def salon(session: AsyncSession) -> Salon:
     await set_specialist_services(
         session, tenant=tenant, staff_member_id=spec.id, links=[ServiceLink(service_id=svc.id)]
     )
+    await ensure_default_schedule(session, tenant_id=tenant.id, staff_member_id=spec.id)
     await session.commit()
     s.public_id = tenant.public_id
     s.specialist_id = str(spec.id)
@@ -102,18 +104,22 @@ async def test_permissions_by_role(salon: Salon, client_factory) -> None:  # typ
     assert (await owner.delete(f"{base}/manager/cells/{cell_id}")).status_code == 200
 
 
-async def test_client_books_in_cell(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+async def test_client_books_on_schedule(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
-    owner = client_factory()
-    await login(owner, salon, salon.owner_tg)
-    cell = (await owner.post(f"{base}/manager/cells", json=cell_body(salon, "10:00", "11:00"))).json()
-
     client = client_factory()
     avail = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
+    assert avail.status_code == 200, avail.text
     offers = [o for d in avail.json()["days"] for o in d["offers"]]
-    assert any(o["cell_id"] == cell["id"] for o in offers)
+    assert offers, "expected schedule-based slots"
+    offer = offers[0]
 
-    body = {"cell_id": cell["id"], "service_ids": [salon.service_id], "name": "Anna", "phone": "+79001112233"}
+    body = {
+        "staff_member_id": offer["staff_member_id"],
+        "start_at": offer["start_at"],
+        "service_ids": [salon.service_id],
+        "name": "Anna",
+        "phone": "+79001112233",
+    }
     assert (await client.post(f"{base}/client/bookings", json=body)).status_code == 401
 
     await login(client, salon, salon.client_tg)
@@ -122,6 +128,6 @@ async def test_client_books_in_cell(salon: Salon, client_factory) -> None:  # ty
     mine = await client.get(f"{base}/client/bookings")
     assert len(mine.json()) == 1
 
-    avail = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
-    offers = [o for d in avail.json()["days"] for o in d["offers"]]
-    assert all(o["cell_id"] != cell["id"] for o in offers), "15 minutes left cannot fit a 45 minute service"
+    avail2 = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
+    offers2 = [o for d in avail2.json()["days"] for o in d["offers"]]
+    assert all(o["start_at"] != offer["start_at"] for o in offers2)

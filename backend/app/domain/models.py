@@ -216,7 +216,7 @@ class ScheduleException(Base):
 
 
 class TimeCell(Base):
-    """Open window set by a manager: a free-length slice of one specialist's day."""
+    """Legacy optional slot overlay; default booking path uses schedule minus bookings."""
 
     __tablename__ = "time_cell"
 
