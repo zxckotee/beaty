@@ -113,6 +113,14 @@ async def cmd_start(
 
     await state.update_data(start_param=start_param, book_entry=None)
 
+    if not start_param:
+        await message.answer(
+            "Для входа на сайт: нажмите на сайте «Войти через Telegram», откроется этот чат — "
+            "там же нажмите START BOT. Если открыли @"
+            + (tenant.bot_username or "бота")
+            + " из поиска, к сайту это не привязано."
+        )
+
     if start_param:
         if start_param.startswith("service_"):
             await state.update_data(book_entry="service", pre_service_id=start_param[8:])

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.exceptions import HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.jwt_auth import create_web_session_token
+from app.core.redis_client import get_redis
 from app.core.settings import get_settings
 from app.domain.active_role import UI_ROLE_LABELS, write_stored_ui_role
 from app.domain.models import Branch, Tenant
@@ -84,12 +88,44 @@ async def info(
     return await _tenant_info(session, tenant)
 
 
+def _telegram_deep_link(tenant: Tenant, code: str) -> str | None:
+    if not tenant.bot_username:
+        return None
+    payload = quote(start_param_for(code), safe="")
+    return f"https://t.me/{tenant.bot_username}?start={payload}"
+
+
 @router.post("/auth/start")
 async def auth_start(request: Request, tenant: Tenant = Depends(get_tenant)) -> dict[str, object]:
     await limit_by_ip(request, "auth_start", limit=20)
     code = await create_login_request(tenant.public_id)
-    bot_url = f"https://t.me/{tenant.bot_username}?start={start_param_for(code)}" if tenant.bot_username else None
-    return {"code": code, "bot_url": bot_url, "expires_in": 300}
+    bot_url = _telegram_deep_link(tenant, code)
+    return {
+        "code": code,
+        "bot_url": bot_url,
+        "telegram_go": f"/api/t/{tenant.public_id}/auth/telegram-go?code={quote(code, safe='')}",
+        "expires_in": 300,
+    }
+
+
+@router.get("/auth/telegram-go")
+async def telegram_go(
+    code: str = Query(min_length=8, max_length=64),
+    tenant: Tenant = Depends(get_tenant),
+) -> Response:
+    """Redirect into Telegram with the one-time login payload (open from the site, then START BOT)."""
+    if not tenant.bot_username:
+        raise HTTPException(status_code=503, detail="bot not linked")
+    redis = await get_redis()
+    raw = await redis.get(f"weblogin:{code}")
+    if raw is None:
+        raise HTTPException(status_code=410, detail="login code expired; start again from the website")
+    data = json.loads(raw)
+    if data.get("tenant") != tenant.public_id or data.get("status") not in {"pending", "confirmed"}:
+        raise HTTPException(status_code=410, detail="login code expired; start again from the website")
+    url = _telegram_deep_link(tenant, code)
+    assert url is not None
+    return RedirectResponse(url, status_code=302)
 
 
 @router.get("/auth/poll")

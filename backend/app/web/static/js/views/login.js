@@ -30,17 +30,21 @@ export function loginPanel({ onSuccess, compact = false }) {
   async function start(button) {
     button.disabled = true;
     try {
-      const { code, bot_url: botUrl } = await api.post('/auth/start');
-      if (!botUrl) {
+      const { code, telegram_go: goPath, bot_url: botUrl } = await api.post('/auth/start');
+      if (!goPath && !botUrl) {
         toast('Бот ещё не подключён к этому бизнесу', true);
         button.disabled = false;
         return;
       }
       stopped = false;
-      const link = h('a', { class: 'btn primary block', href: botUrl, target: '_blank', rel: 'noopener' }, icon('send'), 'Открыть Telegram');
-      const status = h('p', { class: 'small muted' }, 'Нажмите «Start» в боте. Страница обновится сама.');
+      const tgOpen = goPath || botUrl;
+      const link = h('a', { class: 'btn primary block', href: tgOpen, target: '_blank', rel: 'noopener' }, icon('send'), 'Открыть Telegram');
+      const status = h('p', { class: 'small muted' }, '');
+      status.textContent =
+        'Это нормально: на экране Barber нажмите синюю кнопку START BOT. '
+        + 'Если заходили в бота из поиска без сайта — сначала снова «Войти» здесь.';
       root.replaceChildren(link, status);
-      window.open(botUrl, '_blank', 'noopener');
+      window.open(tgOpen, '_blank', 'noopener');
       let ticks = 0;
       timer = setInterval(async () => {
         if (stopped) return;
