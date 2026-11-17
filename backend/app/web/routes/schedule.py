@@ -9,14 +9,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.domain.services.cell_service import (
-    get_default_branch,
-    list_cells,
-    local_day_bounds,
-    work_day_hours,
-)
+from app.domain.services.availability_service import list_schedule_day_windows
+from app.domain.services.cell_service import get_default_branch, work_day_hours
 from app.web.deps import WebContext, require_manager, require_staff
-from app.web.serializers import booking_dict, cell_dict, local_date
+from app.web.serializers import booking_dict, schedule_window_dict
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["schedule"])
 
@@ -31,14 +27,14 @@ async def day_payload(
     tenant = ctx.tenant
     branch = await get_default_branch(session, tenant)
     tz = ZoneInfo(branch.timezone)
-    start, end = local_day_bounds(day, branch.timezone)
     staff_filter = ctx.staff.id if own_only and ctx.staff else None
-    views = await list_cells(
-        session, tenant_id=tenant.id, range_start=start, range_end=end, staff_member_id=staff_filter
+    windows = await list_schedule_day_windows(
+        session, tenant=tenant, branch=branch, day=day, staff_member_id=staff_filter
     )
     own_id = ctx.staff.id if ctx.staff else None
     cells = [
-        cell_dict(v, tz, tenant.public_id, reveal_clients=ctx.is_manager or v.staff.id == own_id) for v in views
+        schedule_window_dict(w, tz, tenant.public_id, reveal_clients=ctx.is_manager or w.staff.id == own_id)
+        for w in windows
     ]
     work_start, work_end = work_day_hours(tenant)
     return {
@@ -49,8 +45,9 @@ async def day_payload(
         "cells": cells,
         "stats": {
             "cells": len(cells),
-            "bookings": sum(len(v.bookings) for v in views),
-            "free_minutes": sum(v.free_minutes for v in views),
+            "shifts": len(cells),
+            "bookings": sum(len(w.bookings) for w in windows),
+            "free_minutes": sum(w.free_minutes for w in windows),
         },
     }
 
@@ -60,21 +57,16 @@ async def counts_payload(
 ) -> dict[str, int]:
     branch = await get_default_branch(session, ctx.tenant)
     tz = ZoneInfo(branch.timezone)
-    range_start, _ = local_day_bounds(start_day, branch.timezone)
-    _, range_end = local_day_bounds(start_day + timedelta(days=days - 1), branch.timezone)
     staff_filter = ctx.staff.id if own_only and ctx.staff else None
-    views = await list_cells(
-        session,
-        tenant_id=ctx.tenant.id,
-        range_start=range_start,
-        range_end=range_end,
-        staff_member_id=staff_filter,
-        with_bookings=False,
-    )
     counts: dict[str, int] = {}
-    for v in views:
-        key = local_date(v.cell.starts_at, tz).isoformat()
-        counts[key] = counts.get(key, 0) + 1
+    for offset in range(days):
+        d = start_day + timedelta(days=offset)
+        windows = await list_schedule_day_windows(
+            session, tenant=ctx.tenant, branch=branch, day=d, staff_member_id=staff_filter
+        )
+        if windows:
+            key = d.isoformat()
+            counts[key] = len(windows)
     return counts
 
 
@@ -128,10 +120,9 @@ async def specialist_bookings(
     assert ctx.staff is not None
     branch = await get_default_branch(session, ctx.tenant)
     tz = ZoneInfo(branch.timezone)
-    start, end = local_day_bounds(day, branch.timezone)
-    views = await list_cells(
-        session, tenant_id=ctx.tenant.id, range_start=start, range_end=end, staff_member_id=ctx.staff.id
+    windows = await list_schedule_day_windows(
+        session, tenant=ctx.tenant, branch=branch, day=day, staff_member_id=ctx.staff.id
     )
-    rows = [booking_dict(b, tz, reveal=True) for v in views for b in v.bookings]
+    rows = [booking_dict(b, tz, reveal=True) for w in windows for b in w.bookings]
     rows.sort(key=lambda r: str(r["start"]))
     return rows

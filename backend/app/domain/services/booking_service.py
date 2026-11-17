@@ -11,14 +11,20 @@ from app.domain.audit import log_audit
 from app.domain.cells import chain_items, first_fit_start, free_segments, price_total, total_block_minutes
 from app.domain.exceptions import DoesNotFitError, ForbiddenError, NotFoundError, SlotTakenError
 from app.domain.models import Booking, BookingEvent, BookingItem, BookingStatus, Service, Tenant
+from app.domain.services.availability_service import (
+    _busy_for_staff,
+    _work_for_staff_range,
+)
 from app.domain.services.cell_service import (
     cell_allows,
     eligible_staff_needs,
+    get_default_branch,
     get_cell,
     lead_time_earliest,
     load_services,
     staff_busy,
 )
+from app.domain.slots import subtract_busy
 from app.domain.services.notification_planner import (
     cancel_booking_notifications,
     plan_booking_notifications,
@@ -417,6 +423,116 @@ async def book_services_in_cell(
         session,
         tenant_id=tenant.id,
         action="booking.created_in_cell",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user_id=actor_user_id,
+    )
+    return booking
+
+
+async def book_services_at_start(
+    session: AsyncSession,
+    *,
+    tenant: Tenant,
+    staff_member_id: UUID,
+    start_at: datetime,
+    client_profile_id: UUID,
+    service_ids: list[UUID],
+    comment: str | None = None,
+    actor_user_id: UUID | None = None,
+    source: str = "web",
+    enforce_lead_time: bool = True,
+) -> Booking:
+    """Book services at a schedule-derived start time (free window = shift minus bookings)."""
+    if start_at.tzinfo is None:
+        raise DoesNotFitError("start_at must be timezone-aware")
+    start_at = start_at.astimezone(UTC)
+    services = await load_services(session, tenant.id, service_ids)
+    needs_by_staff = await eligible_staff_needs(
+        session, tenant_id=tenant.id, services=services, staff_member_id=staff_member_id
+    )
+    needs = needs_by_staff.get(staff_member_id)
+    if needs is None:
+        raise DoesNotFitError("specialist does not perform all selected services")
+
+    branch = await get_default_branch(session, tenant)
+    planned = chain_items(start_at, needs)
+    block_end = planned[-1].blocked_end
+    day_start = start_at
+    day_end = block_end + timedelta(hours=1)
+    work = await _work_for_staff_range(
+        session,
+        tenant=tenant,
+        branch=branch,
+        staff_id=staff_member_id,
+        range_start=day_start,
+        range_end=day_end,
+    )
+    busy = await _busy_for_staff(
+        session, tenant_id=tenant.id, staff_id=staff_member_id, range_start=day_start, range_end=day_end
+    )
+    free = subtract_busy(work, busy)
+    block = total_block_minutes(needs)
+    now = datetime.now(UTC)
+    earliest = lead_time_earliest(tenant, now) if enforce_lead_time else now
+    if start_at < earliest:
+        raise DoesNotFitError("booking is too soon")
+    fits = False
+    for seg in free:
+        if seg.start <= start_at and start_at + timedelta(minutes=block) <= seg.end:
+            fits = True
+            break
+    if not fits:
+        raise DoesNotFitError("selected time is no longer available")
+
+    await _expire_overlapping_holds(session, staff_member_id, start_at, block_end)
+    booking = Booking(
+        tenant_id=tenant.id,
+        branch_id=branch.id,
+        client_profile_id=client_profile_id,
+        status=BookingStatus.BOOKED.value,
+        source=source,
+        comment=(comment or "").strip() or None,
+        total_price_cents=price_total(needs),
+    )
+    session.add(booking)
+    await session.flush()
+    for item in planned:
+        session.add(
+            BookingItem(
+                tenant_id=tenant.id,
+                booking_id=booking.id,
+                staff_member_id=staff_member_id,
+                service_id=item.service_id,
+                cell_id=None,
+                price_cents=item.price_cents,
+                duration_minutes=item.duration_minutes,
+                during=Range(item.start, item.end, bounds="[)"),
+                blocked_during=Range(item.start, item.blocked_end, bounds="[)"),
+                is_active=True,
+            )
+        )
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        if "no_specialist_overlap" in str(exc):
+            raise SlotTakenError("slot already taken") from exc
+        raise
+
+    await plan_booking_notifications(session, booking, start_at=planned[0].start, tenant_rules=tenant.rules)
+    session.add(
+        BookingEvent(
+            tenant_id=tenant.id,
+            booking_id=booking.id,
+            event_type="booked",
+            payload={"start": planned[0].start.isoformat(), "source": source},
+            actor_user_id=actor_user_id,
+        )
+    )
+    await log_audit(
+        session,
+        tenant_id=tenant.id,
+        action="booking.created",
         entity_type="booking",
         entity_id=booking.id,
         actor_user_id=actor_user_id,

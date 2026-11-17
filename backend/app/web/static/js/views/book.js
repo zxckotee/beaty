@@ -178,7 +178,7 @@ async function timesView(catalog) {
     h(
       'div',
       { class: 'page-head' },
-      h('div', null, h('h1', null, 'Выберите время'), h('p', null, 'Показаны окна, в которые уместятся все выбранные услуги.')),
+      h('div', null, h('h1', null, 'Выберите время'), h('p', null, 'Свободные интервалы по графику мастера (минус уже занятые записи).')),
       h('button', { class: 'btn sm', type: 'button', onclick: () => { location.hash = '#/book'; } }, icon('chevL'), 'Услуги'),
     ),
     body,
@@ -258,7 +258,7 @@ function offerCard(offer, refresh) {
     'article',
     { class: 'card offer' },
     h('div', { class: 'row between' }, h('div', { class: 'time' }, `${offer.start} – ${offer.end}`), h('span', { class: 'chip ok' }, icon('check'), 'Уместится')),
-    h('div', { class: 'who' }, avatar(offer.staff, 'lg'), h('div', { class: 'grow' }, h('h3', null, offer.staff.name), offer.staff.specialization ? h('div', { class: 'small muted' }, offer.staff.specialization) : null, h('div', { class: 'tiny muted' }, `Окно мастера ${offer.cell_start}–${offer.cell_end}`))),
+    h('div', { class: 'who' }, avatar(offer.staff, 'lg'), h('div', { class: 'grow' }, h('h3', null, offer.staff.name), offer.staff.specialization ? h('div', { class: 'small muted' }, offer.staff.specialization) : null, h('div', { class: 'tiny muted' }, `Свободно ${offer.window_start || offer.cell_start}–${offer.window_end || offer.cell_end}`))),
     h('div', null, offer.services.map((s) => h('div', { class: 'svc-line' }, h('span', null, `${s.name} · ${duration(s.duration_minutes)}`), h('span', { class: 'num' }, money(s.price_cents))))),
     offer.price_adjust_cents ? h('div', { class: 'svc-line small' }, h('span', null, 'Доплата за окно'), h('span', { class: 'num' }, signedMoney(offer.price_adjust_cents))) : null,
     offer.description || offer.title ? h('p', { class: 'small muted' }, [offer.title, offer.description].filter(Boolean).join(' · ')) : null,
@@ -313,7 +313,7 @@ function renderConfirm(sheet, offer, refresh) {
       }
       try {
         const booking = await api.post('/client/bookings', {
-          cell_id: offer.cell_id,
+          ...(offer.cell_id ? { cell_id: offer.cell_id } : { staff_member_id: offer.staff_member_id, start_at: offer.start_at }),
           service_ids: offer.services.map((s) => s.id),
           comment: comment.value.trim() || null,
           ...(needsPhone ? { name: name.value.trim() || null, phone: phone.value.trim() } : {}),

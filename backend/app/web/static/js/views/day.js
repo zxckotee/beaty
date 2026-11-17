@@ -62,7 +62,7 @@ export function dayView({ manager }) {
         h(
           'div',
           { class: 'chips', style: { width: '100%' } },
-          h('button', { class: `chip ${scope === 'own' ? 'active' : ''}`, type: 'button', onclick: () => setScope('own') }, 'Мои окна'),
+          h('button', { class: `chip ${scope === 'own' ? 'active' : ''}`, type: 'button', onclick: () => setScope('own') }, 'Моё расписание'),
           h('button', { class: `chip ${scope === 'all' ? 'active' : ''}`, type: 'button', onclick: () => setScope('all') }, 'Весь салон'),
           h('span', { class: 'chip' }, 'Только просмотр'),
         ),
@@ -98,7 +98,7 @@ export function dayView({ manager }) {
   function renderStats() {
     const s = data.stats;
     statsEl.replaceChildren(
-      statBox(s.cells, plural(s.cells, 'ячейка', 'ячейки', 'ячеек')),
+      statBox(s.shifts != null ? s.shifts : s.cells, plural(s.shifts != null ? s.shifts : s.cells, 'смена', 'смены', 'смен')),
       statBox(s.bookings, plural(s.bookings, 'запись', 'записи', 'записей')),
       statBox(duration(s.free_minutes), 'свободно'),
     );
@@ -177,7 +177,8 @@ export function dayView({ manager }) {
       lanesEl.append(el);
     }
 
-    if (manager) {
+    const legacyCells = cells.some((c) => !c.schedule_window);
+    if (manager && legacyCells) {
       const add = h(
         'button',
         {
@@ -208,7 +209,7 @@ export function dayView({ manager }) {
       scroller.scrollLeft = Math.max(0, target);
     });
     if (!cells.length && !manager) {
-      barCard.replaceChildren(emptyState('🗓️', 'В этот день ячеек нет', scope === 'own' ? 'Менеджер ещё не добавил для вас окна.' : 'На этот день ничего не запланировано.'));
+      barCard.replaceChildren(emptyState('🗓️', 'В этот день смены нет', scope === 'own' ? 'По графику вы не работаете в этот день.' : 'Никто из мастеров не работает в этот день.'));
     }
   }
 
@@ -250,7 +251,7 @@ export function dayView({ manager }) {
     const cat = await loadCatalog().catch(() => ({ services: [] }));
     const nameById = new Map(cat.services.map((s) => [s.id, s.name]));
     openSheet({
-      title: 'Ячейка',
+      title: cell.schedule_window ? 'Смена' : 'Ячейка',
       build: (sheet) => {
         const s = cell.staff;
         const booked = cell.minutes - cell.free_minutes;
@@ -281,7 +282,7 @@ export function dayView({ manager }) {
             : h('p', { class: 'small muted' }, 'Доступны все услуги специалиста.'),
           h('div', { class: 'col' }, h('span', { class: 'label' }, `Записи (${cell.bookings.length})`), bookingList(cell)),
         );
-        if (manager) {
+        if (manager && !cell.schedule_window) {
           sheet.setFooter(
             h('button', { class: 'btn danger', type: 'button', onclick: () => removeCell(cell, sheet) }, icon('trash'), 'Удалить'),
             h('button', { class: 'btn primary', type: 'button', onclick: () => { sheet.close(); openCellForm(cell); } }, icon('edit'), 'Изменить'),

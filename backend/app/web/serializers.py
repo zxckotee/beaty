@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 from zoneinfo import ZoneInfo
 
 from app.domain.models import Service, StaffMember, TimeCell
+from app.domain.services.availability_service import ScheduleDayWindow, ScheduleOffer
 from app.domain.services.cell_service import CellBooking, CellOffer, CellView
 
 
@@ -94,6 +95,62 @@ def cell_dict(view: CellView, tz: ZoneInfo, tenant_public_id: str, *, reveal_cli
         "title": cell.title,
         "description": cell.description,
         "allowed_service_ids": list(cell.allowed_service_ids or []),
+        "staff": staff_card(view.staff, tenant_public_id),
+        "bookings": [booking_dict(b, tz, reveal=reveal_clients) for b in view.bookings],
+    }
+
+
+def schedule_offer_dict(offer: ScheduleOffer, tz: ZoneInfo, tenant_public_id: str) -> dict[str, object]:
+    return {
+        "staff_member_id": str(offer.staff.id),
+        "start_at": offer.start_at.isoformat(),
+        "date": local_date(offer.start_at, tz).isoformat(),
+        "start": hhmm(offer.start_at, tz),
+        "end": hhmm(offer.end_at, tz),
+        "window_start": hhmm(offer.free_window_start, tz),
+        "window_end": hhmm(offer.free_window_end, tz),
+        "cell_id": None,
+        "cell_start": hhmm(offer.free_window_start, tz),
+        "cell_end": hhmm(offer.free_window_end, tz),
+        "title": None,
+        "description": None,
+        "price_adjust_cents": None,
+        "free_minutes": int((offer.free_window_end - offer.free_window_start).total_seconds() // 60),
+        "staff": staff_card(offer.staff, tenant_public_id),
+        "services": [
+            {
+                "id": str(n.service_id),
+                "name": n.name,
+                "duration_minutes": n.duration_minutes,
+                "price_cents": n.price_cents,
+            }
+            for n in offer.needs
+        ],
+        "total_price_cents": offer.total_price_cents,
+        "total_minutes": offer.total_duration_minutes,
+    }
+
+
+def schedule_window_dict(
+    view: ScheduleDayWindow, tz: ZoneInfo, tenant_public_id: str, *, reveal_clients: bool = True
+) -> dict[str, object]:
+    window_id = uuid5(NAMESPACE_URL, f"schedule:{view.staff.id}:{view.day.isoformat()}")
+    booked_minutes = view.total_minutes - view.free_minutes
+    status = "free" if booked_minutes <= 0 else "partial" if view.free_minutes > 0 else "full"
+    return {
+        "id": str(window_id),
+        "schedule_window": True,
+        "date": view.day.isoformat(),
+        "start": hhmm(view.work_start, tz),
+        "end": hhmm(view.work_end, tz) if view.work_end - view.work_start < timedelta(days=1) else "24:00",
+        "end_next_day": view.work_end.astimezone(tz).date() != view.day,
+        "minutes": view.total_minutes,
+        "free_minutes": view.free_minutes,
+        "status": status,
+        "price_cents": None,
+        "title": None,
+        "description": None,
+        "allowed_service_ids": [],
         "staff": staff_card(view.staff, tenant_public_id),
         "bookings": [booking_dict(b, tz, reveal=reveal_clients) for b in view.bookings],
     }

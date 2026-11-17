@@ -1,6 +1,6 @@
-"""Manager-defined open time cells and the "which cells fit these services" search.
+"""Legacy manager-defined time cells (optional price overlay).
 
-Shared by the Telegram bot and the web cabinet: neither one knows about the other.
+Client web availability uses schedule minus bookings (see availability_service).
 """
 
 from __future__ import annotations
