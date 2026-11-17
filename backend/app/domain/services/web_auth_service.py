@@ -21,6 +21,7 @@ CONFIRMED_TTL_SECONDS = 120
 _CODE_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 
 LoginState = Literal["pending", "confirmed", "expired"]
+ConfirmReason = Literal["ok", "already_ok", "missing", "wrong_tenant", "used", "bad_state"]
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,12 @@ class LoginPoll:
     state: LoginState
     telegram_user_id: int | None = None
     display_name: str | None = None
+
+
+@dataclass(frozen=True)
+class ConfirmLoginResult:
+    ok: bool
+    reason: ConfirmReason
 
 
 def _key(code: str) -> str:
@@ -59,18 +66,46 @@ async def confirm_login(
     tenant_public_id: str,
     telegram_user_id: int,
     display_name: str | None = None,
-) -> bool:
-    """Called by the bot. Returns False for unknown, expired, foreign-tenant or reused codes."""
+) -> ConfirmLoginResult:
+    """Called by the bot when the user opens the deep link from the web cabinet."""
     redis = await get_redis()
     raw = await redis.get(_key(code))
     if raw is None:
-        return False
+        return ConfirmLoginResult(False, "missing")
     data = json.loads(raw)
-    if data.get("tenant") != tenant_public_id or data.get("status") != "pending":
-        return False
+    if data.get("tenant") != tenant_public_id:
+        return ConfirmLoginResult(False, "wrong_tenant")
+    status = data.get("status")
+    if status == "confirmed":
+        if int(data.get("telegram_user_id", 0)) == telegram_user_id:
+            return ConfirmLoginResult(True, "already_ok")
+        return ConfirmLoginResult(False, "used")
+    if status != "pending":
+        return ConfirmLoginResult(False, "bad_state")
     data.update({"status": "confirmed", "telegram_user_id": telegram_user_id, "name": display_name})
     await redis.set(_key(code), json.dumps(data), ex=CONFIRMED_TTL_SECONDS)
-    return True
+    return ConfirmLoginResult(True, "ok")
+
+
+def bot_message_for_confirm(result: ConfirmLoginResult, *, bot_username: str | None) -> str:
+    if result.ok and result.reason == "ok":
+        return "Готово! Вы вошли на сайт. Вернитесь в браузер — страница обновится сама."
+    if result.ok and result.reason == "already_ok":
+        return "Вход уже подтверждён. Вернитесь на сайт в браузере — если не пускает, нажмите «Войти» и Start ещё раз."
+    if result.reason == "wrong_tenant":
+        salon = f"@{bot_username}" if bot_username else "бота этого салона"
+        return (
+            f"Эта ссылка от другого салона. На сайте нажмите «Войти через Telegram» и откройте {salon}."
+        )
+    if result.reason == "used":
+        return (
+            "Эту ссылку уже использовали с другого Telegram. "
+            "На сайте нажмите «Войти через Telegram» и получите новую."
+        )
+    return (
+        "Не удалось подтвердить вход: код не найден или истёк. На сайте нажмите «Войти через Telegram» ещё раз "
+        "и в открывшемся чате кнопку Start (не вводите /start вручную из меню команд)."
+    )
 
 
 async def poll_login(code: str, *, tenant_public_id: str) -> LoginPoll:

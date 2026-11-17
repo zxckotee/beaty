@@ -73,8 +73,8 @@ export function loginPanel({ onSuccess, compact = false }) {
         'div',
         { class: 'steps-list' },
         h('div', null, '1. Откроется бот нашего салона в Telegram.'),
-        h('div', null, '2. Нажмите «Start»: бот подтвердит вход.'),
-        h('div', null, '3. Вернитесь сюда: вы уже вошли.'),
+        h('div', null, '2. В чате нажмите кнопку Start внизу (не команду /start из меню).'),
+        h('div', null, '3. Вернитесь в браузер: вход подтвердится сам.'),
       ),
     );
   }

@@ -1,5 +1,6 @@
 from aiogram import F, Router
 from aiogram.filters import CommandStart
+from aiogram.filters.command import CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -17,7 +18,12 @@ from app.domain.services.client_onboarding_service import (
     ensure_user_account,
 )
 from app.domain.services.team_invite_service import accept_invite, parse_invite_token
-from app.domain.services.web_auth_service import confirm_login, parse_login_code
+from app.domain.services.web_auth_service import (
+    LOGIN_PREFIX,
+    bot_message_for_confirm,
+    confirm_login,
+    parse_login_code,
+)
 
 client_onboarding_router = Router(name="client_onboarding")
 
@@ -48,6 +54,7 @@ def _reply_menu(
 @client_onboarding_router.message(CommandStart())
 async def cmd_start(
     message: Message,
+    command: CommandObject,
     state: FSMContext,
     tenant: Tenant,
     db_session: AsyncSession,
@@ -58,19 +65,22 @@ async def cmd_start(
     active_ui_role: str,
     can_switch_ui_role: bool,
 ) -> None:
-    start_param = _parse_start_param(message.text)
-    login_code = parse_login_code(start_param)
-    if login_code and message.from_user:
-        confirmed = await confirm_login(
+    start_param = command.args or _parse_start_param(message.text)
+    if start_param and start_param.startswith(LOGIN_PREFIX) and message.from_user:
+        login_code = parse_login_code(start_param)
+        if not login_code:
+            await message.answer(
+                "Ссылка входа неполная. На сайте нажмите «Войти через Telegram» и откройте чат по кнопке, "
+                "затем Start внизу."
+            )
+            return
+        result = await confirm_login(
             login_code,
             tenant_public_id=tenant.public_id,
             telegram_user_id=message.from_user.id,
             display_name=message.from_user.full_name,
         )
-        if confirmed:
-            await message.answer("Готово! Вы вошли на сайт. Вернитесь в браузер: страница обновится сама.")
-        else:
-            await message.answer("Ссылка для входа устарела. Откройте сайт и нажмите «Войти» ещё раз.")
+        await message.answer(bot_message_for_confirm(result, bot_username=tenant.bot_username))
         return
     invite_token = parse_invite_token(start_param)
     if invite_token and message.from_user:
