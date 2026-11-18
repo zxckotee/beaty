@@ -145,14 +145,15 @@ async def manual_booking(
             raise HTTPException(status_code=404, detail="client not found")
         client_id = profile.id
     else:
-        profile = ClientProfile(
+        from app.domain.services.client_service import get_or_create_manual_client
+
+        profile = await get_or_create_manual_client(
+            session,
             tenant_id=tenant.id,
             name=body.client_name,
             phone=body.client_phone,
             source="manual",
         )
-        session.add(profile)
-        await session.flush()
         client_id = profile.id
 
     try:

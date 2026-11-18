@@ -18,6 +18,7 @@ from app.domain.models import (
     BookingItem,
     Branch,
     ClientProfile,
+    ScheduleException,
     ScheduleTemplate,
     Service,
     StaffMember,
@@ -32,6 +33,7 @@ from app.domain.services.cell_service import (
 )
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.domain.services.slot_repository import (
+    WORK_OVERRIDE_KIND,
     _busy_intervals,
     _exception_busy,
     _slot_rules_from_tenant,
@@ -111,13 +113,24 @@ async def _work_for_staff_range(
     templates = await _load_templates(session, tenant.id, staff_id)
 
   tz = ZoneInfo(branch.timezone or "Europe/Moscow")
+  work_overrides = list(
+    (
+      await session.scalars(
+        select(ScheduleException).where(
+          ScheduleException.tenant_id == tenant.id,
+          ScheduleException.staff_member_id == staff_id,
+          ScheduleException.kind == WORK_OVERRIDE_KIND,
+        )
+      )
+    ).all()
+  )
   start_day = range_start.astimezone(tz).date()
   end_day = range_end.astimezone(tz).date()
   work: list[TimeInterval] = []
   day = start_day
   holidays = branch.holidays or []
   while day <= end_day:
-    work.extend(_work_intervals_for_day(day, tz, templates, holidays))
+    work.extend(_work_intervals_for_day(day, tz, templates, holidays, work_overrides))
     day += timedelta(days=1)
   return [w for w in work if w.end > range_start and w.start < range_end]
 
@@ -299,3 +312,140 @@ async def list_schedule_day_windows(
     )
   windows.sort(key=lambda w: (w.work_start, w.staff.display_name))
   return windows
+
+
+def _hhmm(dt: datetime, tz: ZoneInfo) -> str:
+  return dt.astimezone(tz).strftime("%H:%M")
+
+
+def _timeline_for_window(window: ScheduleDayWindow, tz: ZoneInfo) -> tuple[list[dict[str, str]], list[str]]:
+  segments: list[dict[str, str]] = []
+  for seg in window.free:
+    segments.append({"start": _hhmm(seg.start, tz), "end": _hhmm(seg.end, tz), "state": "free"})
+  for b in window.bookings:
+    segments.append({"start": _hhmm(b.start, tz), "end": _hhmm(b.end, tz), "state": "busy"})
+  segments.sort(key=lambda s: s["start"])
+  marks = {
+    _hhmm(window.work_start, tz),
+    _hhmm(window.work_end, tz),
+    *(s["start"] for s in segments),
+    *(s["end"] for s in segments),
+  }
+  return segments, sorted(marks)
+
+
+async def _day_fits_services(
+  session: AsyncSession,
+  *,
+  tenant: Tenant,
+  branch: Branch,
+  staff_id: UUID,
+  day: date,
+  block_minutes: int,
+  rules: SlotRules,
+  now: datetime,
+) -> bool:
+  tz = ZoneInfo(branch.timezone or "Europe/Moscow")
+  day_start = datetime.combine(day, time.min, tzinfo=tz).astimezone(UTC)
+  day_end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+  work = await _work_for_staff_range(
+    session, tenant=tenant, branch=branch, staff_id=staff_id, range_start=day_start, range_end=day_end
+  )
+  if not work:
+    return False
+  busy = await _busy_for_staff(
+    session, tenant_id=tenant.id, staff_id=staff_id, range_start=day_start, range_end=day_end
+  )
+  free = subtract_busy(work, busy)
+  earliest = lead_time_earliest(tenant, now)
+  slots = compute_slots(free, [], block_minutes, rules, now=now)
+  return any(s.start >= earliest for s in slots)
+
+
+async def staff_options_for_services(
+  session: AsyncSession,
+  *,
+  tenant: Tenant,
+  branch: Branch,
+  service_ids: Sequence[UUID],
+  now: datetime | None = None,
+) -> list[dict[str, object]]:
+  now = now or datetime.now(UTC)
+  tz = ZoneInfo(branch.timezone or "Europe/Moscow")
+  today = now.astimezone(tz).date()
+  horizon = int((tenant.rules or {}).get("booking_horizon_days", 30))
+  services = await load_services(session, tenant.id, service_ids)
+  needs_by_staff = await eligible_staff_needs(session, tenant_id=tenant.id, services=services, staff_member_id=None)
+  rules = _slot_rules_from_tenant(tenant.rules or {})
+  options: list[dict[str, object]] = []
+
+  for staff_id, needs in needs_by_staff.items():
+    staff = await session.get(StaffMember, staff_id)
+    if staff is None:
+      continue
+    block_minutes = total_block_minutes(needs)
+    duration_minutes = sum(n.duration_minutes for n in needs)
+    display_date = today
+    fits_today = await _day_fits_services(
+      session,
+      tenant=tenant,
+      branch=branch,
+      staff_id=staff_id,
+      day=today,
+      block_minutes=block_minutes,
+      rules=rules,
+      now=now,
+    )
+    if not fits_today:
+      found = False
+      for offset in range(1, horizon + 1):
+        candidate = today + timedelta(days=offset)
+        if await _day_fits_services(
+          session,
+          tenant=tenant,
+          branch=branch,
+          staff_id=staff_id,
+          day=candidate,
+          block_minutes=block_minutes,
+          rules=rules,
+          now=now,
+        ):
+          display_date = candidate
+          found = True
+          break
+      if not found:
+        display_date = today
+
+    windows = await list_schedule_day_windows(
+      session, tenant=tenant, branch=branch, day=display_date, staff_member_id=staff_id
+    )
+    timeline: list[dict[str, str]] = []
+    marks: list[str] = []
+    work_start = work_end = None
+    if windows:
+      timeline, marks = _timeline_for_window(windows[0], tz)
+      work_start = _hhmm(windows[0].work_start, tz)
+      work_end = _hhmm(windows[0].work_end, tz)
+
+    options.append(
+      {
+        "staff_member_id": str(staff.id),
+        "staff": {
+          "id": str(staff.id),
+          "name": staff.display_name,
+          "specialization": staff.specialization,
+          "bio": staff.bio,
+        },
+        "total_price_cents": price_total(needs),
+        "total_duration_minutes": duration_minutes,
+        "display_date": display_date.isoformat(),
+        "fits_today": fits_today,
+        "work_start": work_start,
+        "work_end": work_end,
+        "timeline": timeline,
+        "marks": marks,
+      }
+    )
+
+  options.sort(key=lambda o: int(str(o.get("total_price_cents", 0))), reverse=True)
+  return options

@@ -306,6 +306,22 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .steps .s.on { color: var(--text); } .steps .s.on i { background: var(--accent); color: var(--accent-ink); }
 .steps .sep { flex: 0 0 18px; height: 2px; background: var(--line); border-radius: 2px; }
 
+.staff-preview-wrap { margin: 20px 0 8px; display: flex; flex-direction: column; gap: 10px; }
+.staff-preview-title { font-size: 1.15rem; margin: 0; }
+.staff-preview-list { display: flex; flex-direction: column; gap: 12px; }
+.staff-preview-card {
+  text-align: left; width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--card); cursor: pointer;
+}
+.staff-preview-card:hover { border-color: var(--accent-line); }
+.avail-rail { display: flex; align-items: stretch; gap: 4px; height: 14px; margin-top: 4px; }
+.rail-edge { flex: 0 0 auto; font-size: .65rem; align-self: center; }
+.rail-seg { border-radius: 4px; min-width: 4px; }
+.rail-seg.free { background: var(--ok); }
+.rail-seg.busy { background: var(--bad); }
+.schedule-week { display: grid; gap: 10px; }
+.schedule-day { padding: 12px 14px; }
+
 /* ---------- overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: rgba(14, 10, 22, .52); backdrop-filter: blur(3px); animation: fade .2s ease; }
 @keyframes fade { from { opacity: 0; } }

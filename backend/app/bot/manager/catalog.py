@@ -97,19 +97,31 @@ async def svc_buffer(
         await message.answer("Введите число.")
         return
     data = await state.get_data()
+    from app.domain.exceptions import ConflictError
+    from app.domain.services.card_service import create_service
+
     try:
         assert_tenant_can_write(tenant)
         assert_can_write(tenant, subscription_read_only)
-        svc = Service(
-            tenant_id=tenant.id,
-            name=data["svc_name"],
+        svc = await create_service(
+            db_session,
+            tenant=tenant,
+            name=str(data["svc_name"]),
             price_cents=int(data["svc_price_rub"]) * 100,
             duration_minutes=int(data["svc_duration"]),
             buffer_minutes=buf,
-            is_active=True,
+            replace_existing=False,
         )
-        db_session.add(svc)
         await db_session.commit()
+    except ConflictError:
+        await db_session.rollback()
+        await message.answer(
+            f"Услуга «{data['svc_name']}» уже есть. "
+            "В веб-кабинете при создании можно выбрать «Заменить», "
+            "или отправьте /cancel и измените существующую услугу."
+        )
+        await state.clear()
+        return
     except Exception as exc:
         await db_session.rollback()
         await message.answer(f"Ошибка: {exc}")

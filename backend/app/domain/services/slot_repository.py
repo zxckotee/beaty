@@ -28,6 +28,8 @@ ACTIVE_STATUSES = {
 }
 
 DEFAULT_WEEKDAY_HOURS = (time(9, 0), time(18, 0))
+WORK_OVERRIDE_KIND = "work_override"
+BLOCK_EXCEPTION_KINDS = frozenset({"block", "vacation", "sick", "force_majeure"})
 
 
 def _slot_rules_from_tenant(rules: dict[str, Any]) -> SlotRules:
@@ -73,33 +75,95 @@ def _templates_for_weekday(
     return rows
 
 
+def _exception_covers_local_day(exc: ScheduleException, day: date, tz: ZoneInfo) -> bool:
+    during = exc.during
+    if during is None or during.lower is None:
+        return False
+    local = during.lower.astimezone(tz)
+    return bool(local.date() == day)
+
+
+def _intervals_from_local_times(
+    day: date,
+    tz: ZoneInfo,
+    start_t: time,
+    end_t: time,
+    br_s: time | None,
+    br_e: time | None,
+) -> list[TimeInterval]:
+    w_start = _combine_local(day, start_t, tz)
+    w_end = _combine_local(day, end_t, tz)
+    if w_end <= w_start:
+        return []
+    if br_s and br_e:
+        return [
+            TimeInterval(w_start, _combine_local(day, br_s, tz)),
+            TimeInterval(_combine_local(day, br_e, tz), w_end),
+        ]
+    return [TimeInterval(w_start, w_end)]
+
+
+def _work_override_for_day(
+    day: date,
+    tz: ZoneInfo,
+    overrides: list[ScheduleException],
+) -> list[TimeInterval] | None:
+    """work_override for this day, or None to use the weekly template."""
+    day_overrides = [
+        exc
+        for exc in overrides
+        if exc.kind == WORK_OVERRIDE_KIND and _exception_covers_local_day(exc, day, tz)
+    ]
+    if not day_overrides:
+        return None
+    exc = day_overrides[0]
+    during = exc.during
+    if during is None or during.lower is None or during.upper is None:
+        return []
+    start_local = during.lower.astimezone(tz)
+    end_local = during.upper.astimezone(tz)
+    br_s = br_e = None
+    if exc.note and exc.note.startswith("{"):
+        try:
+            import json
+
+            meta = json.loads(exc.note)
+            if meta.get("break_start"):
+                br_s = time.fromisoformat(str(meta["break_start"]))
+            if meta.get("break_end"):
+                br_e = time.fromisoformat(str(meta["break_end"]))
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return _intervals_from_local_times(day, tz, start_local.time(), end_local.time(), br_s, br_e)
+
+
 def _work_intervals_for_day(
     day: date,
     tz: ZoneInfo,
     templates: list[ScheduleTemplate],
     holidays: list[Any],
+    work_overrides: list[ScheduleException] | None = None,
 ) -> list[TimeInterval]:
     day_iso = day.isoformat()
     if any(h.get("date") == day_iso for h in holidays if isinstance(h, dict)):
         return []
 
+    if work_overrides:
+        overridden = _work_override_for_day(day, tz, work_overrides)
+        if overridden is not None:
+            return overridden
+
     weekday = day.weekday()
     tpl_rows = _templates_for_weekday(templates, weekday)
     if not tpl_rows:
+        if templates:
+            return []
         start_t, end_t = DEFAULT_WEEKDAY_HOURS
         tpl_rows = [(start_t, end_t, None, None)]
 
     intervals: list[TimeInterval] = []
     for start_t, end_t, br_s, br_e in tpl_rows:
-        w_start = _combine_local(day, start_t, tz)
-        w_end = _combine_local(day, end_t, tz)
-        if w_end <= w_start:
-            continue
-        if br_s and br_e:
-            intervals.append(TimeInterval(w_start, _combine_local(day, br_s, tz)))
-            intervals.append(TimeInterval(_combine_local(day, br_e, tz), w_end))
-        else:
-            intervals.append(TimeInterval(w_start, w_end))
+        intervals.extend(_intervals_from_local_times(day, tz, start_t, end_t, br_s, br_e))
     return intervals
 
 
@@ -157,7 +221,7 @@ async def _exception_busy(
     ).all()
     busy: list[TimeInterval] = []
     for exc in rows:
-        if exc.kind not in ("block", "vacation", "sick", "force_majeure"):
+        if exc.kind not in BLOCK_EXCEPTION_KINDS:
             continue
         row = await session.execute(
             text(
@@ -234,13 +298,23 @@ async def list_available_slots(
                 )
             )
         ).all()
+        work_overrides = (
+            await session.scalars(
+                select(ScheduleException).where(
+                    ScheduleException.tenant_id == tenant_id,
+                    ScheduleException.staff_member_id == sid,
+                    ScheduleException.kind == WORK_OVERRIDE_KIND,
+                )
+            )
+        ).all()
 
         work: list[TimeInterval] = []
         day = now.astimezone(tz).date()
         last_day = range_end.astimezone(tz).date()
+        holidays = branch.holidays or []
         while day <= last_day:
             work.extend(
-                _work_intervals_for_day(day, tz, list(templates), branch.holidays or [])
+                _work_intervals_for_day(day, tz, list(templates), holidays, list(work_overrides))
             )
             day += timedelta(days=1)
 

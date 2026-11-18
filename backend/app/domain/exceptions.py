@@ -32,3 +32,7 @@ class CellInUseError(DomainError):
 
 class DoesNotFitError(DomainError):
     """The selected services do not fit into the free part of the cell."""
+
+
+class ConflictError(DomainError):
+    """Resource already exists or operation conflicts with current state."""

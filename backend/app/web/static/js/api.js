@@ -18,6 +18,7 @@ const MESSAGES = {
   NotFoundError: 'Не найдено. Обновите страницу.',
   ValidationError: 'Проверьте введённые данные.',
   ForbiddenError: 'Действие недоступно.',
+  ConflictError: 'Такая запись уже существует.',
 };
 
 const DETAIL_MESSAGES = {
