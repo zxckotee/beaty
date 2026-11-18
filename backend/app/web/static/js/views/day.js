@@ -57,6 +57,20 @@ export function dayView({ manager }) {
       h('p', null, `${longDayLabel(date)}${date === today ? ' · сегодня' : ''}`),
     );
     head.replaceChildren(title, nav);
+    if (manager && data && shiftCells().length) {
+      nav.append(
+        h(
+          'button',
+          {
+            class: 'btn primary sm',
+            type: 'button',
+            onclick: () => loadCatalog().then((cat) => openManualBooking(null, cat)),
+          },
+          icon('plus'),
+          'Ручная запись',
+        ),
+      );
+    }
     if (!manager) {
       head.append(
         h(
@@ -299,28 +313,163 @@ export function dayView({ manager }) {
     });
   }
 
+  function shiftCells() {
+    return (data?.cells || []).filter((c) => c.schedule_window && c.free_minutes > 0);
+  }
+
+  function shiftForStaff(staffId) {
+    return shiftCells().find((c) => c.staff.id === staffId);
+  }
+
+  function freeIntervals(cell) {
+    const start = toMin(cell.start);
+    const end = cell.end === '24:00' ? 1440 : toMin(cell.end);
+    let segs = [{ s: start, e: end }];
+    for (const b of cell.bookings || []) {
+      const bs = toMin(b.start);
+      const be = toMin(b.end);
+      const next = [];
+      for (const seg of segs) {
+        if (be <= seg.s || bs >= seg.e) {
+          next.push(seg);
+          continue;
+        }
+        if (bs > seg.s) next.push({ s: seg.s, e: bs });
+        if (be < seg.e) next.push({ s: be, e: seg.e });
+      }
+      segs = next;
+    }
+    return segs.filter((seg) => seg.e > seg.s);
+  }
+
+  function slotStartsForCell(cell, step, needMin) {
+    const slots = [];
+    for (const { s, e } of freeIntervals(cell)) {
+      let t = s;
+      if (step > 1) t = Math.ceil(t / step) * step;
+      for (; t + needMin <= e; t += step) slots.push(fromMin(t));
+    }
+    return slots;
+  }
+
+  function totalMinutesForIds(catalog, ids) {
+    return catalog.services.filter((s) => ids.has(s.id)).reduce((n, s) => n + (s.duration_minutes || 0), 0);
+  }
+
+  function servicesForStaff(catalog, staffId) {
+    return catalog.services.filter(
+      (s) => s.is_active && (!s.staff_ids?.length || s.staff_ids.includes(staffId)),
+    );
+  }
+
   function openManualBooking(cell, catalog) {
-    const services = catalog.services.filter((s) => s.is_active);
+    const shifts = shiftCells();
+    if (!shifts.length) {
+      toast('На этот день нет свободного времени у мастеров');
+      return;
+    }
+    const gridStep = store.info?.grid_step_minutes || 30;
     const chosen = new Set();
     const name = h('input', { class: 'input', type: 'text', maxlength: '120', placeholder: 'ФИО клиента' });
     const phone = h('input', { class: 'input', type: 'tel', inputmode: 'tel', placeholder: '+7 900 000-00-00' });
-    const time = h('input', { class: 'input', type: 'time', value: `${cell.start}:00`.slice(0, 5) });
     const comment = h('textarea', { class: 'textarea', maxlength: '500', placeholder: 'Комментарий' });
     const error = h('p', { class: 'small', style: { color: 'var(--bad)' } });
+    const staffSelect = h('select', { class: 'input select' });
+    const startSelect = h('select', { class: 'input select' });
+    const intervalHint = h('p', { class: 'small muted' });
+    const shiftHint = h('p', { class: 'small muted' });
     const svcWrap = h('div', { class: 'col' });
-    for (const s of services) {
-      const on = h('input', { class: 'check', type: 'checkbox' });
-      on.addEventListener('change', () => { if (on.checked) chosen.add(s.id); else chosen.delete(s.id); });
-      svcWrap.append(h('label', { class: 'row' }, on, h('span', null, s.name)));
+    let activeStaffId = cell?.staff?.id || shifts[0].staff.id;
+
+    for (const c of shifts) {
+      staffSelect.append(h('option', { value: c.staff.id }, c.staff.name));
     }
+
+    const dateChip = h('span', { class: 'chip active' }, dayLabel(date));
+
+    function activeShift() {
+      return shiftForStaff(activeStaffId);
+    }
+
+    function refreshServices() {
+      chosen.forEach((id) => {
+        const ok = servicesForStaff(catalog, activeStaffId).some((s) => s.id === id);
+        if (!ok) chosen.delete(id);
+      });
+      svcWrap.replaceChildren();
+      for (const s of servicesForStaff(catalog, activeStaffId)) {
+        const on = h('input', { class: 'check', type: 'checkbox', checked: chosen.has(s.id) });
+        on.addEventListener('change', () => {
+          if (on.checked) chosen.add(s.id);
+          else chosen.delete(s.id);
+          refreshTiming();
+        });
+        svcWrap.append(
+          h(
+            'label',
+            { class: 'row' },
+            on,
+            h('span', null, s.name),
+            h('span', { class: 'small muted' }, duration(s.duration_minutes)),
+          ),
+        );
+      }
+      if (!svcWrap.childNodes.length) {
+        svcWrap.append(h('p', { class: 'small muted' }, 'Нет услуг для выбранного мастера.'));
+      }
+    }
+
+    function refreshTiming() {
+      const shift = activeShift();
+      if (!shift) return;
+      const need = Math.max(totalMinutesForIds(catalog, chosen), gridStep);
+      const slots = slotStartsForCell(shift, gridStep, need);
+      const prev = startSelect.value;
+      startSelect.replaceChildren();
+      if (!slots.length) {
+        startSelect.append(h('option', { value: '' }, 'Нет слотов под выбранные услуги'));
+        startSelect.disabled = true;
+      } else {
+        startSelect.disabled = false;
+        for (const t of slots) startSelect.append(h('option', { value: t }, t));
+        let pick = prev;
+        if (cell && cell.staff.id === activeStaffId && slots.includes(cell.start)) pick = cell.start;
+        if (!pick || !slots.includes(pick)) pick = slots[0];
+        startSelect.value = pick;
+      }
+      shiftHint.textContent = `Смена мастера: ${shift.start}–${shift.end}`;
+      const start = startSelect.value;
+      if (start && chosen.size) {
+        const endMin = toMin(start) + totalMinutesForIds(catalog, chosen);
+        intervalHint.textContent = `Интервал записи: ${start}–${fromMin(endMin)} (${duration(totalMinutesForIds(catalog, chosen))})`;
+      } else if (start) {
+        intervalHint.textContent = 'Выберите услуги — покажем длительность и конец записи.';
+      } else {
+        intervalHint.textContent = '';
+      }
+    }
+
+    staffSelect.value = activeStaffId;
+    staffSelect.addEventListener('change', () => {
+      activeStaffId = staffSelect.value;
+      refreshServices();
+      refreshTiming();
+    });
+    startSelect.addEventListener('change', () => refreshTiming());
+
     openSheet({
       title: 'Ручная запись',
       build: (sheet) => {
+        refreshServices();
+        refreshTiming();
         sheet.body.append(
+          field('Дата', dateChip),
+          field('Мастер', staffSelect),
+          field('Начало', startSelect),
+          h('div', { class: 'col', style: { gap: '4px' } }, intervalHint, shiftHint),
+          field('Услуги', svcWrap),
           field('Клиент', name),
           field('Телефон', phone),
-          field('Время', time),
-          field('Услуги', svcWrap),
           field('Комментарий', comment),
           error,
         );
@@ -328,6 +477,11 @@ export function dayView({ manager }) {
         save.addEventListener('click', () =>
           withBusy(save, async () => {
             error.textContent = '';
+            const shift = activeShift();
+            if (!shift) {
+              error.textContent = 'Выберите мастера со свободной сменой.';
+              return;
+            }
             if (!name.value.trim() || phone.value.replace(/\D/g, '').length < 10) {
               error.textContent = 'Укажите имя и полный телефон.';
               return;
@@ -336,12 +490,15 @@ export function dayView({ manager }) {
               error.textContent = 'Выберите хотя бы одну услугу.';
               return;
             }
-            const [hh, mm] = (time.value || '10:00').split(':');
-            const startTime = `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+            const startTime = startSelect.value;
+            if (!startTime) {
+              error.textContent = 'Выберите время начала в свободном окне смены.';
+              return;
+            }
             try {
               await api.post('/manager/bookings/manual', {
-                staff_member_id: cell.staff.id,
-                date: cell.date,
+                staff_member_id: activeStaffId,
+                date: shift.date,
                 start_time: startTime,
                 service_ids: [...chosen],
                 client_name: name.value.trim(),
