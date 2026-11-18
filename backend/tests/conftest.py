@@ -18,6 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+async def _reset_redis_between_tests() -> AsyncIterator[None]:
+    """Redis client is process-global; pytest-asyncio uses a new loop per test."""
+    yield
+    from app.core.redis_client import close_redis
+
+    await close_redis()
+
+
 @pytest.fixture
 async def session() -> AsyncIterator[AsyncSession]:
     """Real Postgres session (NullPool: every test runs in its own event loop); skipped when the DB is down."""
