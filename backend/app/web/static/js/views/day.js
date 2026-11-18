@@ -16,6 +16,8 @@ const PX_PER_MIN_MOBILE = 2.55;
 const PX_PER_MIN_DESKTOP = 2.85;
 const APPT_COMPACT_W = 92;
 const ROW_TRACK_H = 72;
+/** Левая колонка имён — шкала времени начинается справа от неё */
+const TIMELINE_LABEL_W = 148;
 
 const STATUS_LABEL = { free: 'Свободна', partial: 'Частично занята', full: 'Занята' };
 const BOOKING_STATUS = { booked: 'Записан', confirmed: 'Подтверждён', held: 'Удержание', arrived: 'Пришёл' };
@@ -213,11 +215,12 @@ export function dayView({ manager }) {
     const baseWidth = (endMin - startMin) * pxm;
     const width = Math.max(baseWidth, 320);
 
-    const ticks = h('div', { class: 'ticks' });
+    const ticks = h('div', { class: 'ticks staff-ticks' });
     for (let m = startMin; m <= endMin; m += 60) {
       const x = (m - startMin) * pxm;
       ticks.append(h('span', { class: `tick ${m === startMin ? 'first' : ''}`, style: { left: `${x}px` } }, fromMin(m % 1440 === 0 && m > 0 ? 0 : m)));
     }
+    const tickStrip = h('div', { class: 'tick-strip' }, h('span', { class: 'tick-gutter', 'aria-hidden': 'true' }), ticks);
 
     const rows = h('div', { class: 'staff-rows' });
     for (const cell of scheduleCells) {
@@ -271,7 +274,18 @@ export function dayView({ manager }) {
       rows.append(legacyWrap);
     }
 
-    const timeline = h('div', { class: 'timeline timeline-staff', style: { minWidth: `${width + 32}px` } }, ticks, rows);
+    const timeline = h(
+      'div',
+      {
+        class: 'timeline timeline-staff',
+        style: {
+          minWidth: `${width + TIMELINE_LABEL_W + 40}px`,
+          '--timeline-label-w': `${TIMELINE_LABEL_W}px`,
+        },
+      },
+      tickStrip,
+      rows,
+    );
     const scroller = h('div', { class: 'timeline-scroll' }, timeline);
     const legend = h(
       'div',
