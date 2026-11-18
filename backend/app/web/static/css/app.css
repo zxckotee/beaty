@@ -258,12 +258,38 @@ button.chip { cursor: pointer; }
   background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 70%, white), var(--accent));
 }
 
-.timeline-staff { --pxm: 2.85; }
-.timeline-staff .ticks { margin-bottom: 14px; min-height: 28px; }
-.staff-rows { display: flex; flex-direction: column; gap: 18px; padding-bottom: 12px; }
-.staff-row { display: flex; flex-direction: column; gap: 8px; }
-.staff-row-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 6px; }
-.staff-row-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.timeline-staff {
+  --pxm: 2.85;
+  --timeline-label-w: 148px;
+  padding: 0 16px 0 12px;
+}
+.tick-strip {
+  display: grid;
+  grid-template-columns: var(--timeline-label-w) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 6px;
+}
+.tick-strip .staff-ticks {
+  margin-bottom: 0;
+  min-height: 28px;
+  border-bottom: 1px dashed var(--line);
+}
+.tick-gutter { display: block; }
+.staff-rows { display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
+.staff-row {
+  display: grid;
+  grid-template-columns: var(--timeline-label-w) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.staff-row-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 8px 6px 4px; min-width: 0;
+}
+.staff-row-head .row { width: 100%; margin-left: 0 !important; }
+.staff-row-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.staff-row-meta b { font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .staff-track {
   position: relative; border-radius: 16px;
   background: color-mix(in srgb, var(--card) 88%, var(--line));
