@@ -287,9 +287,76 @@ export function dayView({ manager }) {
             h('button', { class: 'btn danger', type: 'button', onclick: () => removeCell(cell, sheet) }, icon('trash'), 'Удалить'),
             h('button', { class: 'btn primary', type: 'button', onclick: () => { sheet.close(); openCellForm(cell); } }, icon('edit'), 'Изменить'),
           );
+        } else if (manager && cell.schedule_window && cell.free_minutes > 0) {
+          sheet.setFooter(
+            h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'),
+            h('button', { class: 'btn primary', type: 'button', onclick: () => { sheet.close(); openManualBooking(cell, cat); } }, icon('plus'), 'Записать клиента'),
+          );
         } else {
           sheet.setFooter(h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'));
         }
+      },
+    });
+  }
+
+  function openManualBooking(cell, catalog) {
+    const services = catalog.services.filter((s) => s.is_active);
+    const chosen = new Set();
+    const name = h('input', { class: 'input', type: 'text', maxlength: '120', placeholder: 'ФИО клиента' });
+    const phone = h('input', { class: 'input', type: 'tel', inputmode: 'tel', placeholder: '+7 900 000-00-00' });
+    const time = h('input', { class: 'input', type: 'time', value: `${cell.start}:00`.slice(0, 5) });
+    const comment = h('textarea', { class: 'textarea', maxlength: '500', placeholder: 'Комментарий' });
+    const error = h('p', { class: 'small', style: { color: 'var(--bad)' } });
+    const svcWrap = h('div', { class: 'col' });
+    for (const s of services) {
+      const on = h('input', { class: 'check', type: 'checkbox' });
+      on.addEventListener('change', () => { if (on.checked) chosen.add(s.id); else chosen.delete(s.id); });
+      svcWrap.append(h('label', { class: 'row' }, on, h('span', null, s.name)));
+    }
+    openSheet({
+      title: 'Ручная запись',
+      build: (sheet) => {
+        sheet.body.append(
+          field('Клиент', name),
+          field('Телефон', phone),
+          field('Время', time),
+          field('Услуги', svcWrap),
+          field('Комментарий', comment),
+          error,
+        );
+        const save = h('button', { class: 'btn primary', type: 'button' }, 'Создать запись');
+        save.addEventListener('click', () =>
+          withBusy(save, async () => {
+            error.textContent = '';
+            if (!name.value.trim() || phone.value.replace(/\D/g, '').length < 10) {
+              error.textContent = 'Укажите имя и полный телефон.';
+              return;
+            }
+            if (!chosen.size) {
+              error.textContent = 'Выберите хотя бы одну услугу.';
+              return;
+            }
+            const [hh, mm] = (time.value || '10:00').split(':');
+            const startTime = `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+            try {
+              await api.post('/manager/bookings/manual', {
+                staff_member_id: cell.staff.id,
+                date: cell.date,
+                start_time: startTime,
+                service_ids: [...chosen],
+                client_name: name.value.trim(),
+                client_phone: phone.value.trim(),
+                comment: comment.value.trim() || null,
+              });
+              sheet.close();
+              toast('Запись создана');
+              load();
+            } catch (e) {
+              error.textContent = friendly(e);
+            }
+          }),
+        );
+        sheet.setFooter(h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Отмена'), save);
       },
     });
   }

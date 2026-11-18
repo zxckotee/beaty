@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.audit import log_audit
-from app.domain.exceptions import NotFoundError, ValidationError
+from app.domain.exceptions import ConflictError, NotFoundError, ValidationError
 from app.domain.models import Service, SpecialistService, StaffMember, StaffRole, Tenant
 
 
@@ -50,6 +50,21 @@ async def get_specialist(session: AsyncSession, tenant_id: UUID, staff_member_id
     return staff
 
 
+def _normalized_service_name(name: str) -> str:
+    return name.strip().lower()
+
+
+async def find_service_by_name(
+    session: AsyncSession, *, tenant_id: UUID, name: str
+) -> Service | None:
+    target = _normalized_service_name(name)
+    rows = await session.scalars(select(Service).where(Service.tenant_id == tenant_id))
+    for svc in rows:
+        if _normalized_service_name(svc.name) == target:
+            return svc
+    return None
+
+
 async def create_service(
     session: AsyncSession,
     *,
@@ -62,10 +77,32 @@ async def create_service(
     photo_url: str | None = None,
     category_id: UUID | None = None,
     actor_user_id: UUID | None = None,
+    replace_existing: bool = False,
 ) -> Service:
     if not name.strip():
         raise ValidationError("name is required")
     _check_service_values(price_cents, duration_minutes, buffer_minutes)
+    existing = await find_service_by_name(session, tenant_id=tenant.id, name=name)
+    if existing is not None:
+        if not replace_existing:
+            raise ConflictError(f"service '{existing.name}' already exists")
+        service = await update_service(
+            session,
+            tenant=tenant,
+            service_id=existing.id,
+            changes={
+                "name": name.strip(),
+                "price_cents": price_cents,
+                "duration_minutes": duration_minutes,
+                "buffer_minutes": buffer_minutes,
+                "description": description,
+                "photo_url": photo_url,
+                "category_id": category_id,
+                "is_active": True,
+            },
+            actor_user_id=actor_user_id,
+        )
+        return service
     service = Service(
         tenant_id=tenant.id,
         category_id=category_id,

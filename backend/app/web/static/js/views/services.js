@@ -1,6 +1,6 @@
 import { api, friendly } from '../api.js';
 import { duration, h, hueFor, icon, initials, money } from '../util.js';
-import { emptyState, field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
+import { confirmDialog, emptyState, field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 
 export async function servicesView() {
   const root = h('div');
@@ -98,7 +98,26 @@ export async function servicesView() {
               return;
             }
             try {
-              const saved = editing ? await api.patch(`/manager/services/${service.id}`, { ...payload, is_active: active.checked }) : await api.post('/manager/services', payload);
+              let saved;
+              if (editing) {
+                saved = await api.patch(`/manager/services/${service.id}`, { ...payload, is_active: active.checked });
+              } else {
+                try {
+                  saved = await api.post('/manager/services', { ...payload, on_duplicate: 'reject' });
+                } catch (e) {
+                  if (e.status === 409 && e.code === 'ConflictError') {
+                    const ok = await confirmDialog({
+                      title: 'Услуга уже есть',
+                      text: `«${payload.name}» уже в каталоге. Заменить цену и параметры существующей?`,
+                      confirmLabel: 'Заменить',
+                    });
+                    if (!ok) return;
+                    saved = await api.post('/manager/services', { ...payload, on_duplicate: 'replace' });
+                  } else {
+                    throw e;
+                  }
+                }
+              }
               const file = photo.getFile();
               if (file) await api.upload(`/manager/services/${saved.id}/photo`, file);
               sheet.close();

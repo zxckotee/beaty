@@ -15,6 +15,44 @@ def normalize_phone(phone: str) -> str:
     return digits
 
 
+async def get_or_create_manual_client(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    name: str,
+    phone: str,
+    source: str = "manual",
+) -> ClientProfile:
+    """Offline / manager-entered client card keyed by phone; bot registration later links user_account."""
+    cleaned_name = name.strip() or "Клиент"
+    normalized = normalize_phone(phone)
+    if len(normalized) < 10:
+        raise ValidationError("phone is required")
+    existing = await session.scalar(
+        select(ClientProfile).where(
+            ClientProfile.tenant_id == tenant_id,
+            ClientProfile.phone == normalized,
+        )
+    )
+    if existing is not None:
+        existing.name = cleaned_name
+        if not existing.source:
+            existing.source = source
+        await session.flush()
+        return existing
+    profile = ClientProfile(
+        tenant_id=tenant_id,
+        user_account_id=None,
+        name=cleaned_name,
+        phone=normalized,
+        source=source,
+        consents={},
+    )
+    session.add(profile)
+    await session.flush()
+    return profile
+
+
 async def get_or_create_user_account(session: AsyncSession, telegram_user_id: int) -> UserAccount:
     user = await session.scalar(select(UserAccount).where(UserAccount.telegram_user_id == telegram_user_id))
     if user is None:

@@ -131,3 +131,66 @@ async def test_client_books_on_schedule(salon: Salon, client_factory) -> None:  
     avail2 = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
     offers2 = [o for d in avail2.json()["days"] for o in d["offers"]]
     assert all(o["start_at"] != offer["start_at"] for o in offers2)
+
+
+async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    owner = client_factory()
+    await login(owner, salon, salon.owner_tg)
+    sched = await owner.get(f"{base}/manager/staff/{salon.specialist_id}/schedule")
+    assert sched.status_code == 200
+    days = sched.json()["days"]
+    updated = [
+        {
+            "weekday": d["weekday"],
+            "enabled": d["weekday"] < 5,
+            "start_time": "10:00",
+            "end_time": "17:00",
+        }
+        for d in days
+    ]
+    put_sched = await owner.put(
+        f"{base}/manager/staff/{salon.specialist_id}/schedule",
+        json={"days": updated},
+    )
+    assert put_sched.status_code == 200
+
+    day = (tomorrow_at("12:00").astimezone(TZ)).date().isoformat()
+    phone = "+79001234567"
+    manual = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": day,
+            "start_time": "11:00",
+            "service_ids": [salon.service_id],
+            "client_name": "Иван Тест",
+            "client_phone": phone,
+        },
+    )
+    assert manual.status_code == 201, manual.text
+    pid1 = manual.json()["client_profile_id"]
+    manual2 = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": day,
+            "start_time": "12:00",
+            "service_ids": [salon.service_id],
+            "client_name": "Иван Другое",
+            "client_phone": phone,
+        },
+    )
+    assert manual2.status_code == 201, manual2.text
+    assert manual2.json()["client_profile_id"] == pid1
+
+
+async def test_staff_options(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    anon = client_factory()
+    res = await anon.post(f"{base}/client/staff-options", json={"service_ids": [salon.service_id]})
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert len(items) == 1
+    assert items[0]["staff_member_id"] == salon.specialist_id
+    assert items[0]["timeline"]

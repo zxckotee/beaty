@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date as Date
+from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.domain.exceptions import ValidationError
 from app.domain.models import Service, ServiceCategory, StaffMember
+from app.domain.services.booking_service import book_services_at_start
 from app.domain.services.card_service import (
     ServiceLink,
     create_service,
@@ -31,6 +33,7 @@ from app.domain.services.cell_service import (
     list_cells,
     update_cell,
 )
+from app.domain.services.client_service import get_or_create_manual_client
 from app.web.deps import WebContext, require_manager, writable
 from app.web.serializers import cell_dict, parse_local, service_card, staff_card
 from app.web.uploads import save_image
@@ -49,6 +52,16 @@ class CellCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     allowed_service_ids: list[UUID] = Field(default_factory=list)
+
+
+class ManualBookingIn(BaseModel):
+    staff_member_id: UUID
+    date: Date
+    start_time: str = Field(pattern=HHMM)
+    service_ids: list[UUID] = Field(min_length=1, max_length=10)
+    client_name: str = Field(min_length=1, max_length=120)
+    client_phone: str = Field(min_length=5, max_length=32)
+    comment: str | None = Field(default=None, max_length=500)
 
 
 class CellPatch(BaseModel):
@@ -277,6 +290,7 @@ class ServiceCreate(BaseModel):
     description: str | None = Field(default=None, max_length=4000)
     photo_url: str | None = Field(default=None, max_length=512)
     category_id: UUID | None = None
+    on_duplicate: str = Field(default="reject", pattern="^(reject|replace)$")
 
 
 class ServicePatch(BaseModel):
@@ -309,6 +323,46 @@ async def list_services(
     return [service_card(s, categories.get(s.category_id) if s.category_id else None) for s in rows]
 
 
+@router.post("/bookings/manual", status_code=201)
+async def post_manual_booking(
+    body: ManualBookingIn,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    tenant = writable(ctx)
+    assert ctx.user is not None
+    tz = await _tz(session, ctx)
+    start_at: datetime = parse_local(body.date, body.start_time, tz)
+    profile = await get_or_create_manual_client(
+        session,
+        tenant_id=tenant.id,
+        name=body.client_name.strip(),
+        phone=body.client_phone,
+        source="manual",
+    )
+    booking = await book_services_at_start(
+        session,
+        tenant=tenant,
+        staff_member_id=body.staff_member_id,
+        start_at=start_at,
+        client_profile_id=profile.id,
+        service_ids=body.service_ids,
+        comment=body.comment,
+        actor_user_id=ctx.user.id,
+        source="manual",
+        enforce_lead_time=False,
+    )
+    await session.commit()
+    return {
+        "booking_id": str(booking.id),
+        "client_profile_id": str(profile.id),
+        "client_name": profile.name,
+        "client_phone": profile.phone,
+        "status": booking.status,
+        "start_at": start_at.isoformat(),
+    }
+
+
 @router.post("/services", status_code=201)
 async def post_service(
     body: ServiceCreate,
@@ -328,6 +382,7 @@ async def post_service(
         photo_url=body.photo_url,
         category_id=body.category_id,
         actor_user_id=ctx.user.id,
+        replace_existing=body.on_duplicate == "replace",
     )
     await session.commit()
     return service_card(service)

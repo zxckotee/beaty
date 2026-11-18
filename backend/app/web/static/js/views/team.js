@@ -35,19 +35,25 @@ export async function teamView() {
       if (s.photo_url) cover.append(h('img', { src: s.photo_url, alt: s.name, loading: 'lazy' }));
       if (!s.is_active) cover.append(h('span', { class: 'chip warn badge-off' }, 'Скрыт'));
       const n = s.services.length;
+      const body = h(
+        'div',
+        { class: 'body' },
+        h('h3', null, s.name),
+        s.specialization ? h('div', { class: 'small', style: { color: 'var(--accent)', fontWeight: 650 } }, s.specialization) : null,
+        s.bio ? h('p', { class: 'small muted clamp2' }, s.bio) : null,
+        h('div', { class: 'chips', style: { marginTop: 'auto' } }, h('span', { class: 'chip' }, n ? `${n} ${plural(n, 'услуга', 'услуги', 'услуг')}` : 'Все услуги')),
+        h(
+          'div',
+          { class: 'row', style: { marginTop: '10px', gap: '8px' } },
+          h('button', { class: 'btn sm', type: 'button', onclick: (e) => { e.stopPropagation(); location.hash = `#/team-schedule/${s.id}`; } }, icon('calendar'), 'График'),
+        ),
+      );
       cards.append(
         h(
           'button',
           { class: 'card pcard', type: 'button', onclick: () => openForm(s) },
           cover,
-          h(
-            'div',
-            { class: 'body' },
-            h('h3', null, s.name),
-            s.specialization ? h('div', { class: 'small', style: { color: 'var(--accent)', fontWeight: 650 } }, s.specialization) : null,
-            s.bio ? h('p', { class: 'small muted clamp2' }, s.bio) : null,
-            h('div', { class: 'chips', style: { marginTop: 'auto' } }, h('span', { class: 'chip' }, n ? `${n} ${plural(n, 'услуга', 'услуги', 'услуг')}` : 'Все услуги')),
-          ),
+          body,
         ),
       );
     }

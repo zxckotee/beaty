@@ -8,6 +8,7 @@ import { teamView } from './views/team.js';
 import { servicesView } from './views/services.js';
 import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
+import { scheduleEditView } from './views/schedule-edit.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -29,6 +30,7 @@ const NAV = {
 const ROUTES = {
   day: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
   team: { roles: ['manager'], view: () => teamView() },
+  'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
   services: { roles: ['manager'], view: () => servicesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },

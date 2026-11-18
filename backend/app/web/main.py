@@ -21,6 +21,7 @@ from app.core.sentry_init import init_sentry
 from app.domain.exceptions import (
     CellInUseError,
     CellOverlapError,
+    ConflictError,
     DoesNotFitError,
     DomainError,
     ForbiddenError,
@@ -29,7 +30,7 @@ from app.domain.exceptions import (
     ValidationError,
 )
 from app.domain.models import StaffMember, Tenant
-from app.web.routes import auth, client, manager, schedule, test_login
+from app.web.routes import auth, client, manager, schedule, staff_schedule, test_login
 from app.web.uploads import media_root
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[DomainError], int], ...] = (
     (CellInUseError, 409),
     (SlotTakenError, 409),
     (DoesNotFitError, 409),
+    (ConflictError, 409),
 )
 
 CSP = (
@@ -85,6 +87,7 @@ app.include_router(test_login.router)
 app.include_router(auth.router)
 app.include_router(schedule.router)
 app.include_router(manager.router)
+app.include_router(staff_schedule.router)
 app.include_router(client.router)
 
 

@@ -22,7 +22,7 @@ from app.domain.models import (
     StaffMember,
     Tenant,
 )
-from app.domain.services.availability_service import find_schedule_offers
+from app.domain.services.availability_service import find_schedule_offers, staff_options_for_services
 from app.domain.services.booking_service import book_services_at_start, book_services_in_cell, cancel_booking
 from app.domain.services.cell_service import get_default_branch, load_services
 from app.domain.services.client_service import normalize_phone, upsert_client_profile
@@ -73,6 +73,23 @@ async def catalog(
 class AvailabilityBody(BaseModel):
     service_ids: list[UUID] = Field(min_length=1, max_length=10)
     staff_member_id: UUID | None = None
+
+
+class StaffOptionsBody(BaseModel):
+    service_ids: list[UUID] = Field(min_length=1, max_length=10)
+
+
+@router.post("/staff-options")
+async def staff_options(
+    body: StaffOptionsBody,
+    tenant: Tenant = Depends(get_tenant),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    branch = await get_default_branch(session, tenant)
+    items = await staff_options_for_services(
+        session, tenant=tenant, branch=branch, service_ids=body.service_ids
+    )
+    return {"items": items}
 
 
 @router.post("/availability")

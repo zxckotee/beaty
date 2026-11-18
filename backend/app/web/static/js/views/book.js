@@ -11,6 +11,7 @@ const SEL_KEY = 'beaty.sel';
 let selected = new Set(JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]'));
 let staffFilter = null;
 let pickedDate = null;
+let previewTimer = null;
 
 const saveSel = () => sessionStorage.setItem(SEL_KEY, JSON.stringify([...selected]));
 
@@ -47,6 +48,7 @@ function catalogView(catalog) {
   const root = h('div');
   const listEl = h('div', { class: 'list two' });
   const cartSlot = h('div');
+  const staffPreviewSlot = h('div', { class: 'staff-preview-wrap' });
   let category = null;
 
   const categories = [...new Set(catalog.services.map((s) => s.category).filter(Boolean))];
@@ -106,6 +108,7 @@ function catalogView(catalog) {
               saveSel();
               drawList();
               drawCart();
+              scheduleStaffPreview(catalog, staffPreviewSlot);
             },
           },
           thumb,
@@ -120,6 +123,7 @@ function catalogView(catalog) {
         );
       }),
     );
+    scheduleStaffPreview(catalog, staffPreviewSlot);
   }
 
   function drawCart() {
@@ -142,8 +146,97 @@ function catalogView(catalog) {
 
   drawList();
   drawCart();
-  root.append(listEl, cartSlot, h('div', { style: { height: '90px' } }));
+  root.append(listEl, staffPreviewSlot, cartSlot, h('div', { style: { height: '90px' } }));
   return root;
+}
+
+function scheduleStaffPreview(catalog, slot) {
+  clearTimeout(previewTimer);
+  if (!selected.size) {
+    slot.replaceChildren();
+    return;
+  }
+  previewTimer = setTimeout(() => loadStaffPreview(catalog, slot), 280);
+}
+
+async function loadStaffPreview(catalog, slot) {
+  slot.replaceChildren(spinner());
+  try {
+    const res = await api.post('/client/staff-options', { service_ids: [...selected] });
+    drawStaffPreview(catalog, slot, res.items || []);
+  } catch (e) {
+    slot.replaceChildren(h('p', { class: 'small muted' }, friendly(e)));
+  }
+}
+
+function drawStaffPreview(catalog, slot, items) {
+  const byId = new Map(catalog.specialists.map((s) => [s.id, s]));
+  if (!items.length) {
+    slot.replaceChildren(emptyState('🧑‍🔧', 'Нет подходящих мастеров', 'Эти услуги не выполняет один специалист.'));
+    return;
+  }
+  slot.replaceChildren(
+    h('h2', { class: 'staff-preview-title' }, 'Специалисты'),
+    h(
+      'p',
+      { class: 'small muted' },
+      'Сортировка по цене. Полоса: зелёное — свободно, красное — занято.',
+    ),
+    h(
+      'div',
+      { class: 'staff-preview-list' },
+      items.map((item) => staffPreviewCard(item, byId.get(item.staff_member_id))),
+    ),
+  );
+}
+
+function staffPreviewCard(item, sp) {
+  const staff = sp || item.staff;
+  const title = staff ? staff.name : 'Мастер';
+  const dayNote = item.fits_today ? 'Сегодня' : `Ближайший день: ${item.display_date}`;
+  const rail = h('div', { class: 'avail-rail', 'aria-label': `Занятость ${title}` });
+  if (item.work_start && item.work_end) {
+    rail.append(h('span', { class: 'rail-edge muted tiny' }, item.work_start));
+    for (const seg of item.timeline) {
+      const el = h('span', { class: `rail-seg ${seg.state}` });
+      const total = toMin(item.work_end) - toMin(item.work_start) || 1;
+      const w = Math.max(4, ((toMin(seg.end) - toMin(seg.start)) / total) * 100);
+      el.style.flex = `${w} 1 0`;
+      el.title = `${seg.start}–${seg.end}`;
+      rail.append(el);
+    }
+    rail.append(h('span', { class: 'rail-edge muted tiny' }, item.work_end));
+  }
+  return h(
+    'button',
+    {
+      class: 'card staff-preview-card',
+      type: 'button',
+      onclick: () => {
+        staffFilter = item.staff_member_id;
+        location.hash = '#/book/times';
+      },
+    },
+    h(
+      'div',
+      { class: 'row' },
+      avatar(staff, 'lg'),
+      h(
+        'div',
+        { class: 'grow' },
+        h('h3', null, title),
+        staff && staff.specialization ? h('div', { class: 'small muted' }, staff.specialization) : null,
+      ),
+    ),
+    h('div', { class: 'row between' }, h('b', null, money(item.total_price_cents)), h('span', { class: 'chip' }, duration(item.total_duration_minutes))),
+    h('div', { class: 'tiny muted' }, dayNote),
+    rail,
+  );
+}
+
+function toMin(hhmm) {
+  const [hPart, m] = hhmm.split(':').map(Number);
+  return hPart * 60 + m;
 }
 
 function openSpecialist(sp, catalog) {
