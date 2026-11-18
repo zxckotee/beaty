@@ -438,6 +438,7 @@ async def book_services_at_start(
     start_at: datetime,
     client_profile_id: UUID,
     service_ids: list[UUID],
+    end_at: datetime | None = None,
     comment: str | None = None,
     actor_user_id: UUID | None = None,
     source: str = "web",
@@ -457,7 +458,18 @@ async def book_services_at_start(
 
     branch = await get_default_branch(session, tenant)
     planned = chain_items(start_at, needs)
-    block_end = planned[-1].blocked_end
+    chain_block_end = planned[-1].blocked_end
+    if end_at is not None:
+        if end_at.tzinfo is None:
+            raise DoesNotFitError("end_at must be timezone-aware")
+        end_at = end_at.astimezone(UTC)
+        if end_at <= start_at:
+            raise DoesNotFitError("end time must be after start")
+        if end_at < chain_block_end:
+            raise DoesNotFitError("end time is too early for selected services")
+        block_end = end_at
+    else:
+        block_end = chain_block_end
     day_start = start_at
     day_end = block_end + timedelta(hours=1)
     work = await _work_for_staff_range(
@@ -472,7 +484,7 @@ async def book_services_at_start(
         session, tenant_id=tenant.id, staff_id=staff_member_id, range_start=day_start, range_end=day_end
     )
     free = subtract_busy(work, busy)
-    block = total_block_minutes(needs)
+    block = int((block_end - start_at).total_seconds() // 60)
     now = datetime.now(UTC)
     earliest = lead_time_earliest(tenant, now) if enforce_lead_time else now
     if start_at < earliest:
@@ -497,7 +509,8 @@ async def book_services_at_start(
     )
     session.add(booking)
     await session.flush()
-    for item in planned:
+    for idx, item in enumerate(planned):
+        item_block_end = block_end if idx == len(planned) - 1 else item.blocked_end
         session.add(
             BookingItem(
                 tenant_id=tenant.id,
@@ -508,7 +521,7 @@ async def book_services_at_start(
                 price_cents=item.price_cents,
                 duration_minutes=item.duration_minutes,
                 during=Range(item.start, item.end, bounds="[)"),
-                blocked_during=Range(item.start, item.blocked_end, bounds="[)"),
+                blocked_during=Range(item.start, item_block_end, bounds="[)"),
                 is_active=True,
             )
         )
