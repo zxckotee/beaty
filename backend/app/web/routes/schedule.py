@@ -56,7 +56,6 @@ async def counts_payload(
     session: AsyncSession, ctx: WebContext, start_day: date, days: int, *, own_only: bool
 ) -> dict[str, int]:
     branch = await get_default_branch(session, ctx.tenant)
-    tz = ZoneInfo(branch.timezone)
     staff_filter = ctx.staff.id if own_only and ctx.staff else None
     counts: dict[str, int] = {}
     for offset in range(days):

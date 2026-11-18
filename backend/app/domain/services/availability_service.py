@@ -16,9 +16,9 @@ from app.domain.cells import ServiceNeed, price_total, total_block_minutes
 from app.domain.models import (
     Booking,
     BookingItem,
-    BookingStatus,
     Branch,
     ClientProfile,
+    ScheduleTemplate,
     Service,
     StaffMember,
     Tenant,
@@ -29,7 +29,6 @@ from app.domain.services.cell_service import (
     eligible_staff_needs,
     lead_time_earliest,
     load_services,
-    staff_busy,
 )
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.domain.services.slot_repository import (
@@ -84,9 +83,7 @@ def _segment_containing(segments: Sequence[TimeInterval], moment: datetime) -> T
   return None
 
 
-async def _load_templates(session: AsyncSession, tenant_id: UUID, staff_id: UUID):
-  from app.domain.models import ScheduleTemplate
-
+async def _load_templates(session: AsyncSession, tenant_id: UUID, staff_id: UUID) -> list[ScheduleTemplate]:
   return list(
     (
       await session.scalars(
