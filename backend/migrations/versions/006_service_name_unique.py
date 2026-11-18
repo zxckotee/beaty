@@ -109,7 +109,7 @@ def upgrade() -> None:
                     ) AS rn
                 FROM service
             ) z
-            WHERE z.rn > 1 AND z.id = s.id
+            WHERE z.rn > 1
         ) doomed
         WHERE s.id = doomed.id
         """
