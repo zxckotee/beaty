@@ -140,8 +140,20 @@ async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None
     sched = await owner.get(f"{base}/manager/staff/{salon.specialist_id}/schedule")
     assert sched.status_code == 200
     days = sched.json()["days"]
-    updated = [{"weekday": d["weekday"], "enabled": d["weekday"] < 5, "start_time": "10:00", "end_time": "17:00"} for d in days]
-    assert (await owner.put(f"{base}/manager/staff/{salon.specialist_id}/schedule", json={"days": updated})).status_code == 200
+    updated = [
+        {
+            "weekday": d["weekday"],
+            "enabled": d["weekday"] < 5,
+            "start_time": "10:00",
+            "end_time": "17:00",
+        }
+        for d in days
+    ]
+    put_sched = await owner.put(
+        f"{base}/manager/staff/{salon.specialist_id}/schedule",
+        json={"days": updated},
+    )
+    assert put_sched.status_code == 200
 
     day = (tomorrow_at("12:00").astimezone(TZ)).date().isoformat()
     phone = "+79001234567"
