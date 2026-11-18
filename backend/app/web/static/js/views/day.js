@@ -11,7 +11,11 @@ const STRIP_DAYS = 28;
 const CELL_H = 84;
 const LANE_GAP = 10;
 const ADD_W = 84;
-const ROW_TRACK_H = 56;
+/** px per minute on timeline: 1ч ≈ 168px (2.8), 45м ≈ 126px, 30м ≈ 84px — readable on scroll */
+const PX_PER_MIN_MOBILE = 2.55;
+const PX_PER_MIN_DESKTOP = 2.85;
+const APPT_COMPACT_W = 92;
+const ROW_TRACK_H = 72;
 
 const STATUS_LABEL = { free: 'Свободна', partial: 'Частично занята', full: 'Занята' };
 const BOOKING_STATUS = { booked: 'Записан', confirmed: 'Подтверждён', held: 'Удержание', arrived: 'Пришёл' };
@@ -164,7 +168,36 @@ export function dayView({ manager }) {
       startMin = Math.min(startMin, Math.floor(toMin(c.start) / 60) * 60);
       endMin = Math.max(endMin, Math.ceil(cellEndMin(c) / 60) * 60);
     }
-    return { startMin, endMin, pxm: (window.innerWidth < 820 ? 88 : 124) / 60 };
+    const pxm = window.innerWidth < 720 ? PX_PER_MIN_MOBILE : PX_PER_MIN_DESKTOP;
+    return { startMin, endMin, pxm };
+  }
+
+  function buildApptBlock(b, cell, startMin, pxm) {
+    const bs = toMin(b.start);
+    const be = toMin(b.end);
+    const bw = Math.max((be - bs) * pxm - 3, 24);
+    const bl = (bs - startMin) * pxm;
+    const title = `${b.start}–${b.end} · ${b.client_name || 'Клиент'} · ${(b.service_names || []).join(', ')}`;
+    const compact = bw < APPT_COMPACT_W;
+    const mid = !compact && bw < APPT_COMPACT_W + 48;
+    const kids = compact
+      ? [h('span', { class: 'appt-glyph', 'aria-hidden': 'true' }, '📋')]
+      : [
+          h('span', { class: 'appt-time num' }, `${b.start}–${b.end}`),
+          mid ? null : h('span', { class: 'appt-who' }, b.client_name || 'Клиент'),
+        ];
+    return h(
+      'button',
+      {
+        class: `appt-block${compact ? ' compact' : mid ? ' slim' : ''}`,
+        type: 'button',
+        style: { left: `${bl}px`, width: `${bw}px` },
+        title,
+        'aria-label': title,
+        onclick: () => openBookingDetail(b, cell),
+      },
+      kids,
+    );
   }
 
   function renderBar() {
@@ -226,29 +259,10 @@ export function dayView({ manager }) {
       }
 
       for (const b of cell.bookings || []) {
-        const bs = toMin(b.start);
-        const be = toMin(b.end);
-        const bw = Math.max((be - bs) * pxm - 2, 28);
-        const bl = (bs - startMin) * pxm;
-        const title = `${b.start}–${b.end} · ${b.client_name || 'Клиент'} · ${(b.service_names || []).join(', ')}`;
-        track.append(
-          h(
-            'button',
-            {
-              class: 'appt-block',
-              type: 'button',
-              style: { left: `${bl}px`, width: `${bw}px` },
-              title,
-              'aria-label': title,
-              onclick: () => openBookingDetail(b, cell),
-            },
-            h('span', { class: 'appt-time num' }, `${b.start}–${b.end}`),
-            h('span', { class: 'appt-who' }, b.client_name || 'Клиент'),
-          ),
-        );
+        track.append(buildApptBlock(b, cell, startMin, pxm));
       }
 
-      rows.append(h('section', { class: 'staff-row' }, rowHead, h('div', { class: 'staff-track-scroll' }, track)));
+      rows.append(h('section', { class: 'staff-row' }, rowHead, track));
     }
 
     if (legacyCells.length) {
@@ -321,15 +335,15 @@ export function dayView({ manager }) {
   }
 
   function openBookingDetail(booking, cell) {
+    const mins = Math.max(0, toMin(booking.end) - toMin(booking.start));
     openSheet({
       title: 'Запись',
       build: (sheet) => {
         sheet.body.append(
+          h('div', { class: 'hero' }, avatar(cell.staff, 'lg'), h('h2', null, booking.client_name || 'Клиент'), h('p', { class: 'num muted' }, `${booking.start}–${booking.end} · ${duration(mins)}`)),
           h('dl', { class: 'kv' },
             h('dt', null, 'Мастер'), h('dd', null, cell.staff.name),
-            h('dt', null, 'Время'), h('dd', { class: 'num' }, `${booking.start}–${booking.end}`),
-            h('dt', null, 'Клиент'), h('dd', null, booking.client_name || '—'),
-            h('dt', null, 'Услуги'), h('dd', null, (booking.service_names || []).join(', ')),
+            h('dt', null, 'Услуги'), h('dd', null, (booking.service_names || []).join(', ') || '—'),
             booking.client_phone ? h('dt', null, 'Телефон') : null,
             booking.client_phone ? h('dd', null, h('a', { href: `tel:+${booking.client_phone}` }, `+${booking.client_phone}`)) : null,
             booking.comment ? h('dt', null, 'Комментарий') : null,
