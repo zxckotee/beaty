@@ -6,7 +6,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,10 +58,17 @@ class ManualBookingIn(BaseModel):
     staff_member_id: UUID
     date: Date
     start_time: str = Field(pattern=HHMM)
+    end_time: str | None = Field(default=None, pattern=HHMM)
     service_ids: list[UUID] = Field(min_length=1, max_length=10)
     client_name: str = Field(min_length=1, max_length=120)
     client_phone: str = Field(min_length=5, max_length=32)
     comment: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> ManualBookingIn:
+        if self.end_time is not None and self.end_time <= self.start_time and self.end_time != "24:00":
+            raise ValueError("end_time must be after start_time")
+        return self
 
 
 class CellPatch(BaseModel):
@@ -333,6 +340,9 @@ async def post_manual_booking(
     assert ctx.user is not None
     tz = await _tz(session, ctx)
     start_at: datetime = parse_local(body.date, body.start_time, tz)
+    end_at: datetime | None = None
+    if body.end_time is not None:
+        end_at = parse_local(body.date, body.end_time, tz)
     profile = await get_or_create_manual_client(
         session,
         tenant_id=tenant.id,
@@ -345,6 +355,7 @@ async def post_manual_booking(
         tenant=tenant,
         staff_member_id=body.staff_member_id,
         start_at=start_at,
+        end_at=end_at,
         client_profile_id=profile.id,
         service_ids=body.service_ids,
         comment=body.comment,
@@ -360,6 +371,7 @@ async def post_manual_booking(
         "client_phone": profile.phone,
         "status": booking.status,
         "start_at": start_at.isoformat(),
+        "end_time": body.end_time,
     }
 
 

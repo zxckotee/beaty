@@ -5,11 +5,13 @@ import {
 } from '../util.js';
 import { store } from '../store.js';
 import { avatar, confirmDialog, emptyState, field, openSheet, spinner, toast, withBusy } from '../ui.js';
+import { openScheduleEditor, openScheduleRulesPicker } from '../schedule-editor.js';
 
 const STRIP_DAYS = 28;
 const CELL_H = 84;
 const LANE_GAP = 10;
 const ADD_W = 84;
+const ROW_TRACK_H = 56;
 
 const STATUS_LABEL = { free: 'Свободна', partial: 'Частично занята', full: 'Занята' };
 const BOOKING_STATUS = { booked: 'Записан', confirmed: 'Подтверждён', held: 'Удержание', arrived: 'Пришёл' };
@@ -57,19 +59,32 @@ export function dayView({ manager }) {
       h('p', null, `${longDayLabel(date)}${date === today ? ' · сегодня' : ''}`),
     );
     head.replaceChildren(title, nav);
-    if (manager && data && shiftCells().length) {
-      nav.append(
-        h(
-          'button',
-          {
-            class: 'btn primary sm',
-            type: 'button',
-            onclick: () => loadCatalog().then((cat) => openManualBooking(null, cat)),
-          },
-          icon('plus'),
-          'Ручная запись',
-        ),
-      );
+    if (manager && data) {
+      const schedCells = (data.cells || []).filter((c) => c.schedule_window);
+      if (schedCells.length) {
+        nav.append(
+          h(
+            'button',
+            { class: 'btn sm', type: 'button', onclick: () => openRulesPicker(schedCells) },
+            icon('calendar'),
+            'Смены и правила',
+          ),
+        );
+      }
+      if (shiftCells().length) {
+        nav.append(
+          h(
+            'button',
+            {
+              class: 'btn primary sm',
+              type: 'button',
+              onclick: () => loadCatalog().then((cat) => openManualBooking(null, cat)),
+            },
+            icon('plus'),
+            'Ручная запись',
+          ),
+        );
+      }
     }
     if (!manager) {
       head.append(
@@ -138,93 +153,194 @@ export function dayView({ manager }) {
     return { placed, lanes: Math.max(laneEnds.length, 1) };
   }
 
-  function renderBar() {
-    const pxh = window.innerWidth < 820 ? 88 : 124;
-    const pxm = pxh / 60;
-    const cells = data.cells;
+  function cellEndMin(c) {
+    return c.end === '24:00' ? 1440 : toMin(c.end);
+  }
+
+  function timeScale(cells) {
     let startMin = Math.floor(toMin(data.work_start) / 60) * 60;
     let endMin = Math.ceil(toMin(data.work_end) / 60) * 60;
     for (const c of cells) {
       startMin = Math.min(startMin, Math.floor(toMin(c.start) / 60) * 60);
-      endMin = Math.max(endMin, Math.ceil((c.end === '24:00' ? 1440 : toMin(c.end)) / 60) * 60);
+      endMin = Math.max(endMin, Math.ceil(cellEndMin(c) / 60) * 60);
     }
-    const { placed, lanes } = layoutLanes(cells);
-    const lastEnd = placed.reduce((m, p) => Math.max(m, p.e), 0);
-    const addLeft = (Math.max(lastEnd, startMin) - startMin) * pxm + 10;
-    const baseWidth = (endMin - startMin) * pxm;
-    const width = Math.max(baseWidth, manager ? addLeft + ADD_W + 16 : baseWidth);
-    const lanesHeight = lanes * (CELL_H + LANE_GAP) - LANE_GAP;
+    return { startMin, endMin, pxm: (window.innerWidth < 820 ? 88 : 124) / 60 };
+  }
 
-    const timeline = h('div', { class: 'timeline', style: { width: `${width + 32}px`, paddingLeft: '16px', paddingRight: '16px' } });
+  function renderBar() {
+    const cells = data.cells || [];
+    const scheduleCells = cells.filter((c) => c.schedule_window).sort((a, b) => a.staff.name.localeCompare(b.staff.name, 'ru'));
+    const legacyCells = cells.filter((c) => !c.schedule_window);
+    if (!cells.length && !manager) {
+      barCard.replaceChildren(emptyState('🗓️', 'В этот день смены нет', scope === 'own' ? 'По графику вы не работаете в этот день.' : 'Никто из мастеров не работает в этот день.'));
+      return;
+    }
+
+    const { startMin, endMin, pxm } = timeScale(cells);
+    const baseWidth = (endMin - startMin) * pxm;
+    const width = Math.max(baseWidth, 320);
+
     const ticks = h('div', { class: 'ticks' });
-    const lanesEl = h('div', { class: 'lanes', style: { height: `${lanesHeight}px` } });
     for (let m = startMin; m <= endMin; m += 60) {
       const x = (m - startMin) * pxm;
       ticks.append(h('span', { class: `tick ${m === startMin ? 'first' : ''}`, style: { left: `${x}px` } }, fromMin(m % 1440 === 0 && m > 0 ? 0 : m)));
-      lanesEl.append(h('i', { class: 'gridline', style: { left: `${x}px` } }));
-    }
-    if (date === today) {
-      const nowMin = nowMinutesIn(tz);
-      if (nowMin >= startMin && nowMin <= endMin) lanesEl.append(h('i', { class: 'now-line', style: { left: `${(nowMin - startMin) * pxm}px` }, title: 'Сейчас' }));
     }
 
-    for (const { cell, lane, s, e } of placed) {
-      const w = (e - s) * pxm - 4;
-      const left = (s - startMin) * pxm;
-      const booked = cell.minutes ? Math.round(((cell.minutes - cell.free_minutes) / cell.minutes) * 100) : 0;
-      const label = `${cell.start}–${cell.end}, ${cell.staff.name}, ${STATUS_LABEL[cell.status]}`;
-      const timeText = w >= 150 ? `${cell.start}–${cell.end}` : w >= 90 ? cell.start : '';
-      const el = h(
-        'button',
-        {
-          class: `cell s-${cell.status} ${w < 70 ? 'compact' : ''} ${w < 130 ? 'tiny-time' : ''}`,
-          type: 'button',
-          style: { left: `${left}px`, top: `${lane * (CELL_H + LANE_GAP)}px`, width: `${w}px` },
-          title: label,
-          'aria-label': label,
-          onclick: () => openCellModal(cell),
-        },
-        h('div', { class: 'c-time' }, timeText),
-        h('div', { class: 'c-who' }, avatar(cell.staff, 'sm'), h('span', null, cell.staff.name)),
-        h('div', { class: 'c-fill' }, h('i', { style: { width: `${booked}%` } })),
+    const rows = h('div', { class: 'staff-rows' });
+    for (const cell of scheduleCells) {
+      const s = toMin(cell.start);
+      const e = cellEndMin(cell);
+      const rowHead = h(
+        'div',
+        { class: 'staff-row-head' },
+        avatar(cell.staff, 'sm'),
+        h('div', { class: 'staff-row-meta' }, h('b', null, cell.staff.name), h('span', { class: 'small muted num' }, `${cell.start}–${cell.end} · свободно ${duration(cell.free_minutes)}`)),
+        manager
+          ? h(
+              'div',
+              { class: 'row wrap', style: { gap: '6px', marginLeft: 'auto' } },
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openScheduleEditor(cell.staff.id, { anchorDate: date, onSaved: () => load() }) }, icon('calendar'), 'График'),
+              cell.free_minutes > 0
+                ? h('button', { class: 'btn sm primary', type: 'button', onclick: () => loadCatalog().then((cat) => openManualBooking(cell, cat)) }, icon('plus'), 'Запись')
+                : null,
+            )
+          : null,
       );
-      lanesEl.append(el);
-    }
 
-    const legacyCells = cells.some((c) => !c.schedule_window);
-    if (manager && legacyCells) {
-      const add = h(
-        'button',
-        {
-          class: `cell-add ${cells.length ? '' : 'wide'}`,
-          type: 'button',
-          style: cells.length ? { left: `${addLeft}px`, top: '0px' } : { top: '0px' },
-          'aria-label': 'Добавить ячейку',
-          title: 'Добавить ячейку',
-          onclick: () => openCellForm(null, { suggestStart: Math.max(lastEnd, toMin(data.work_start)) }),
-        },
-        cells.length ? icon('plus') : h('span', { class: 'row', style: { justifyContent: 'center', gap: '8px', fontWeight: 700 } }, icon('plus'), 'Добавить первую ячейку'),
+      const track = h('div', { class: 'staff-track', style: { height: `${ROW_TRACK_H}px`, width: `${width}px` } });
+      track.append(
+        h('i', {
+          class: 'shift-band',
+          style: { left: `${(s - startMin) * pxm}px`, width: `${(e - s) * pxm}px` },
+          'aria-hidden': 'true',
+        }),
       );
-      lanesEl.append(add);
+      if (date === today) {
+        const nowMin = nowMinutesIn(tz);
+        if (nowMin >= startMin && nowMin <= endMin) {
+          track.append(h('i', { class: 'now-line', style: { left: `${(nowMin - startMin) * pxm}px` } }));
+        }
+      }
+      for (let m = startMin; m <= endMin; m += 60) {
+        track.append(h('i', { class: 'gridline', style: { left: `${(m - startMin) * pxm}px` } }));
+      }
+
+      for (const b of cell.bookings || []) {
+        const bs = toMin(b.start);
+        const be = toMin(b.end);
+        const bw = Math.max((be - bs) * pxm - 2, 28);
+        const bl = (bs - startMin) * pxm;
+        const title = `${b.start}–${b.end} · ${b.client_name || 'Клиент'} · ${(b.service_names || []).join(', ')}`;
+        track.append(
+          h(
+            'button',
+            {
+              class: 'appt-block',
+              type: 'button',
+              style: { left: `${bl}px`, width: `${bw}px` },
+              title,
+              'aria-label': title,
+              onclick: () => openBookingDetail(b, cell),
+            },
+            h('span', { class: 'appt-time num' }, `${b.start}–${b.end}`),
+            h('span', { class: 'appt-who' }, b.client_name || 'Клиент'),
+          ),
+        );
+      }
+
+      rows.append(h('section', { class: 'staff-row' }, rowHead, h('div', { class: 'staff-track-scroll' }, track)));
     }
 
-    timeline.append(ticks, lanesEl);
+    if (legacyCells.length) {
+      rows.append(h('h3', { class: 'legacy-day-title', style: { marginTop: '16px' } }, 'Ручные ячейки'));
+      const legacyWrap = renderLegacyLanes(legacyCells, startMin, endMin, pxm);
+      rows.append(legacyWrap);
+    }
+
+    const timeline = h('div', { class: 'timeline timeline-staff', style: { minWidth: `${width + 32}px` } }, ticks, rows);
     const scroller = h('div', { class: 'timeline-scroll' }, timeline);
     const legend = h(
       'div',
       { class: 'legend' },
-      ['free', 'partial', 'full'].map((k) =>
-        h('span', null, h('i', { style: { background: k === 'free' ? 'var(--ok)' : k === 'partial' ? 'var(--warn)' : 'var(--bad)' } }), STATUS_LABEL[k]),
-      ),
+      h('span', null, h('i', { class: 'leg-shift' }), 'Рабочее окно'),
+      h('span', null, h('i', { class: 'leg-appt' }), 'Запись'),
     );
     barCard.replaceChildren(scroller, legend);
     requestAnimationFrame(() => {
-      const target = date === today ? (nowMinutesIn(tz) - startMin) * pxm - 80 : placed.length ? (placed[0].s - startMin) * pxm - 20 : 0;
+      const target = date === today ? (nowMinutesIn(tz) - startMin) * pxm - 80 : 0;
       scroller.scrollLeft = Math.max(0, target);
     });
-    if (!cells.length && !manager) {
-      barCard.replaceChildren(emptyState('🗓️', 'В этот день смены нет', scope === 'own' ? 'По графику вы не работаете в этот день.' : 'Никто из мастеров не работает в этот день.'));
+  }
+
+  function renderLegacyLanes(legacyCells, startMin, endMin, pxm) {
+    const { placed, lanes } = layoutLanes(legacyCells);
+    const lanesHeight = lanes * (CELL_H + LANE_GAP) - LANE_GAP;
+    const wrap = h('div', { class: 'lanes legacy-lanes', style: { height: `${lanesHeight}px`, width: `${(endMin - startMin) * pxm}px`, position: 'relative' } });
+    for (const { cell, lane, s, e } of placed) {
+      const w = (e - s) * pxm - 4;
+      const left = (s - startMin) * pxm;
+      wrap.append(
+        h(
+          'button',
+          {
+            class: `cell s-${cell.status}`,
+            type: 'button',
+            style: { left: `${left}px`, top: `${lane * (CELL_H + LANE_GAP)}px`, width: `${w}px` },
+            title: `${cell.start}–${cell.end}, ${cell.staff.name}`,
+            onclick: () => openCellModal(cell),
+          },
+          h('div', { class: 'c-time' }, `${cell.start}–${cell.end}`),
+          h('div', { class: 'c-who' }, avatar(cell.staff, 'sm'), h('span', null, cell.staff.name)),
+        ),
+      );
     }
+    if (manager) {
+      const lastEnd = placed.reduce((m, p) => Math.max(m, p.e), 0);
+      wrap.append(
+        h('button', {
+          class: 'cell-add',
+          type: 'button',
+          style: { left: `${(Math.max(lastEnd, startMin) - startMin) * pxm + 10}px`, top: '0' },
+          onclick: () => openCellForm(null, { suggestStart: Math.max(lastEnd, toMin(data.work_start)) }),
+        }, icon('plus')),
+      );
+    }
+    return wrap;
+  }
+
+  function openRulesPicker(schedCells) {
+    const uniq = [];
+    const seen = new Set();
+    for (const c of schedCells) {
+      if (!seen.has(c.staff.id)) {
+        seen.add(c.staff.id);
+        uniq.push({ id: c.staff.id, name: c.staff.name });
+      }
+    }
+    openScheduleRulesPicker(uniq, { anchorDate: date, onSaved: () => load() });
+  }
+
+  function openBookingDetail(booking, cell) {
+    openSheet({
+      title: 'Запись',
+      build: (sheet) => {
+        sheet.body.append(
+          h('dl', { class: 'kv' },
+            h('dt', null, 'Мастер'), h('dd', null, cell.staff.name),
+            h('dt', null, 'Время'), h('dd', { class: 'num' }, `${booking.start}–${booking.end}`),
+            h('dt', null, 'Клиент'), h('dd', null, booking.client_name || '—'),
+            h('dt', null, 'Услуги'), h('dd', null, (booking.service_names || []).join(', ')),
+            booking.client_phone ? h('dt', null, 'Телефон') : null,
+            booking.client_phone ? h('dd', null, h('a', { href: `tel:+${booking.client_phone}` }, `+${booking.client_phone}`)) : null,
+            booking.comment ? h('dt', null, 'Комментарий') : null,
+            booking.comment ? h('dd', null, booking.comment) : null,
+            h('dt', null, 'Сумма'), h('dd', null, money(booking.total_price_cents)),
+            h('dt', null, 'Статус'), h('dd', null, BOOKING_STATUS[booking.status] || booking.status),
+          ),
+        );
+        sheet.setFooter(h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'));
+      },
+    });
   }
 
   async function load() {
@@ -318,7 +434,7 @@ export function dayView({ manager }) {
   }
 
   function shiftForStaff(staffId) {
-    return shiftCells().find((c) => c.staff.id === staffId);
+    return (data?.cells || []).find((c) => c.schedule_window && c.staff.id === staffId);
   }
 
   function freeIntervals(cell) {
@@ -356,6 +472,26 @@ export function dayView({ manager }) {
     return catalog.services.filter((s) => ids.has(s.id)).reduce((n, s) => n + (s.duration_minutes || 0), 0);
   }
 
+  function totalBlockMinutesForIds(catalog, ids) {
+    return catalog.services
+      .filter((s) => ids.has(s.id))
+      .reduce((n, s) => n + (s.duration_minutes || 0) + (s.buffer_minutes || 0), 0);
+  }
+
+  function endSlotsForStart(cell, start, minBlock, step) {
+    if (!start) return [];
+    const startM = toMin(start);
+    const interval = freeIntervals(cell).find((seg) => startM >= seg.s && startM < seg.e);
+    if (!interval) return [];
+    const minEnd = startM + minBlock;
+    const slots = [];
+    let t = minEnd;
+    if (step > 1) t = Math.ceil(t / step) * step;
+    if (t < minEnd) t = minEnd;
+    for (; t <= interval.e; t += step) slots.push(fromMin(t));
+    return slots;
+  }
+
   function servicesForStaff(catalog, staffId) {
     return catalog.services.filter(
       (s) => s.is_active && (!s.staff_ids?.length || s.staff_ids.includes(staffId)),
@@ -376,10 +512,12 @@ export function dayView({ manager }) {
     const error = h('p', { class: 'small', style: { color: 'var(--bad)' } });
     const staffSelect = h('select', { class: 'input select' });
     const startSelect = h('select', { class: 'input select' });
+    const endSelect = h('select', { class: 'input select' });
     const intervalHint = h('p', { class: 'small muted' });
     const shiftHint = h('p', { class: 'small muted' });
     const svcWrap = h('div', { class: 'col' });
     let activeStaffId = cell?.staff?.id || shifts[0].staff.id;
+    let endTouched = false;
 
     for (const c of shifts) {
       staffSelect.append(h('option', { value: c.staff.id }, c.staff.name));
@@ -419,43 +557,74 @@ export function dayView({ manager }) {
       }
     }
 
+    function defaultEndForStart(start) {
+      const block = chosen.size ? totalBlockMinutesForIds(catalog, chosen) : gridStep;
+      return fromMin(toMin(start) + Math.max(block, gridStep));
+    }
+
     function refreshTiming() {
       const shift = activeShift();
       if (!shift) return;
-      const need = Math.max(totalMinutesForIds(catalog, chosen), gridStep);
-      const slots = slotStartsForCell(shift, gridStep, need);
-      const prev = startSelect.value;
+      const block = Math.max(chosen.size ? totalBlockMinutesForIds(catalog, chosen) : gridStep, gridStep);
+      const slots = slotStartsForCell(shift, gridStep, block);
+      const prevStart = startSelect.value;
+      const prevEnd = endSelect.value;
       startSelect.replaceChildren();
       if (!slots.length) {
         startSelect.append(h('option', { value: '' }, 'Нет слотов под выбранные услуги'));
         startSelect.disabled = true;
+        endSelect.disabled = true;
+        endSelect.replaceChildren(h('option', { value: '' }, '—'));
       } else {
         startSelect.disabled = false;
         for (const t of slots) startSelect.append(h('option', { value: t }, t));
-        let pick = prev;
+        let pick = prevStart;
         if (cell && cell.staff.id === activeStaffId && slots.includes(cell.start)) pick = cell.start;
         if (!pick || !slots.includes(pick)) pick = slots[0];
         startSelect.value = pick;
       }
       shiftHint.textContent = `Смена мастера: ${shift.start}–${shift.end}`;
       const start = startSelect.value;
-      if (start && chosen.size) {
-        const endMin = toMin(start) + totalMinutesForIds(catalog, chosen);
-        intervalHint.textContent = `Интервал записи: ${start}–${fromMin(endMin)} (${duration(totalMinutesForIds(catalog, chosen))})`;
-      } else if (start) {
-        intervalHint.textContent = 'Выберите услуги — покажем длительность и конец записи.';
-      } else {
+      if (!start) {
         intervalHint.textContent = '';
+        return;
+      }
+      const endSlots = endSlotsForStart(shift, start, chosen.size ? totalBlockMinutesForIds(catalog, chosen) : gridStep, gridStep);
+      endSelect.replaceChildren();
+      if (!endSlots.length) {
+        endSelect.append(h('option', { value: '' }, 'Нет места до конца смены'));
+        endSelect.disabled = true;
+      } else {
+        endSelect.disabled = false;
+        for (const t of endSlots) endSelect.append(h('option', { value: t }, t));
+        let endPick = endTouched && prevEnd && endSlots.includes(prevEnd) ? prevEnd : defaultEndForStart(start);
+        if (!endSlots.includes(endPick)) endPick = endSlots[endSlots.length - 1];
+        endSelect.value = endPick;
+      }
+      const end = endSelect.value;
+      if (end && chosen.size) {
+        const mins = toMin(end) - toMin(start);
+        intervalHint.textContent = `Интервал: ${start}–${end} (${duration(mins)}; услуги ${duration(totalMinutesForIds(catalog, chosen))})`;
+      } else if (start) {
+        intervalHint.textContent = 'Выберите услуги — подставим конец по каталогу, можно удлинить.';
       }
     }
 
     staffSelect.value = activeStaffId;
     staffSelect.addEventListener('change', () => {
       activeStaffId = staffSelect.value;
+      endTouched = false;
       refreshServices();
       refreshTiming();
     });
-    startSelect.addEventListener('change', () => refreshTiming());
+    startSelect.addEventListener('change', () => {
+      endTouched = false;
+      refreshTiming();
+    });
+    endSelect.addEventListener('change', () => {
+      endTouched = true;
+      refreshTiming();
+    });
 
     openSheet({
       title: 'Ручная запись',
@@ -465,7 +634,7 @@ export function dayView({ manager }) {
         sheet.body.append(
           field('Дата', dateChip),
           field('Мастер', staffSelect),
-          field('Начало', startSelect),
+          h('div', { class: 'grid2' }, field('Начало', startSelect), field('Конец', endSelect)),
           h('div', { class: 'col', style: { gap: '4px' } }, intervalHint, shiftHint),
           field('Услуги', svcWrap),
           field('Клиент', name),
@@ -491,8 +660,13 @@ export function dayView({ manager }) {
               return;
             }
             const startTime = startSelect.value;
+            const endTime = endSelect.value;
             if (!startTime) {
               error.textContent = 'Выберите время начала в свободном окне смены.';
+              return;
+            }
+            if (!endTime || toMin(endTime) <= toMin(startTime)) {
+              error.textContent = 'Выберите конец интервала позже начала.';
               return;
             }
             try {
@@ -500,6 +674,7 @@ export function dayView({ manager }) {
                 staff_member_id: activeStaffId,
                 date: shift.date,
                 start_time: startTime,
+                end_time: endTime,
                 service_ids: [...chosen],
                 client_name: name.value.trim(),
                 client_phone: phone.value.trim(),

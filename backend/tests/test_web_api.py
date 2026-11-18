@@ -184,6 +184,34 @@ async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None
     assert manual2.status_code == 201, manual2.text
     assert manual2.json()["client_profile_id"] == pid1
 
+    manual3 = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": day,
+            "start_time": "14:00",
+            "end_time": "15:30",
+            "service_ids": [salon.service_id],
+            "client_name": "Длинный слот",
+            "client_phone": "+79009999999",
+        },
+    )
+    assert manual3.status_code == 201, manual3.text
+
+    bad = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": day,
+            "start_time": "15:00",
+            "end_time": "15:10",
+            "service_ids": [salon.service_id],
+            "client_name": "Слишком коротко",
+            "client_phone": "+79008888888",
+        },
+    )
+    assert bad.status_code == 409
+
 
 async def test_staff_options(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
