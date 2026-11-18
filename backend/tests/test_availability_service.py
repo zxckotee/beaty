@@ -3,8 +3,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-import pytest
-
 from app.domain.slots import SlotRules, TimeInterval, compute_slots, subtract_busy
 
 

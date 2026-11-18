@@ -18,17 +18,17 @@ from app.domain.services.availability_service import (
 from app.domain.services.cell_service import (
     cell_allows,
     eligible_staff_needs,
-    get_default_branch,
     get_cell,
+    get_default_branch,
     lead_time_earliest,
     load_services,
     staff_busy,
 )
-from app.domain.slots import subtract_busy
 from app.domain.services.notification_planner import (
     cancel_booking_notifications,
     plan_booking_notifications,
 )
+from app.domain.slots import subtract_busy
 
 
 async def _expire_overlapping_holds(

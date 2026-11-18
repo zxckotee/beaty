@@ -97,7 +97,6 @@ async def availability(
         now=now,
     )
     by_day: dict[str, list[dict[str, object]]] = defaultdict(list)
-    from app.web.serializers import schedule_offer_dict
 
     for offer in offers:
         by_day[local_date(offer.start_at, tz).isoformat()].append(
