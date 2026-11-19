@@ -17,10 +17,16 @@ from app.domain.services.schedule_service import (
     WEEKDAY_LABELS,
     add_day_off,
     add_work_override,
+    apply_rule_to_tenant,
+    create_rule,
     delete_exception,
+    delete_rule,
+    get_rule,
     list_exceptions,
+    list_rules,
     list_templates,
-    replace_weekly_template,
+    set_staff_weekly_from_days,
+    update_rule,
     weekly_template_payload,
 )
 from app.web.deps import WebContext, require_manager, require_staff, writable
@@ -34,10 +40,34 @@ HHMM = r"^([01]\d|2[0-3]):[0-5]\d$|^24:00$"
 class ScheduleDayIn(BaseModel):
     weekday: int = Field(ge=0, le=6)
     enabled: bool = True
+    rule_id: UUID | None = None
     start_time: str = Field(default="09:00", pattern=HHMM)
     end_time: str = Field(default="18:00", pattern=HHMM)
     break_start: str | None = Field(default=None, pattern=HHMM)
     break_end: str | None = Field(default=None, pattern=HHMM)
+
+
+class ScheduleRuleIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    start_time: str = Field(pattern=HHMM)
+    end_time: str = Field(pattern=HHMM)
+    break_start: str | None = Field(default=None, pattern=HHMM)
+    break_end: str | None = Field(default=None, pattern=HHMM)
+    sort_order: int = 0
+
+
+class ScheduleRulePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    start_time: str | None = Field(default=None, pattern=HHMM)
+    end_time: str | None = Field(default=None, pattern=HHMM)
+    break_start: str | None = Field(default=None, pattern=HHMM)
+    break_end: str | None = Field(default=None, pattern=HHMM)
+    sort_order: int | None = None
+
+
+class ApplyRuleBody(BaseModel):
+    staff_member_ids: list[UUID] | None = None
+    weekdays: list[int] | None = Field(default=None, min_length=1, max_length=7)
 
 
 class SchedulePutBody(BaseModel):
@@ -79,6 +109,117 @@ async def _ensure_staff(session: AsyncSession, ctx: WebContext, staff_id: UUID) 
     return await get_specialist(session, ctx.tenant.id, staff_id)
 
 
+def _rule_dict(rule) -> dict[str, object]:
+    return {
+        "id": str(rule.id),
+        "name": rule.name,
+        "start_time": rule.start_time,
+        "end_time": rule.end_time,
+        "break_start": rule.break_start,
+        "break_end": rule.break_end,
+        "sort_order": rule.sort_order,
+        "label": f"{rule.name} ({rule.start_time}–{rule.end_time})",
+    }
+
+
+@router.get("/manager/schedule-rules")
+async def get_schedule_rules(
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    rules = await list_rules(session, tenant_id=ctx.tenant.id)
+    return {"items": [_rule_dict(r) for r in rules], "weekday_labels": list(WEEKDAY_LABELS)}
+
+
+@router.post("/manager/schedule-rules", status_code=201)
+async def post_schedule_rule(
+    body: ScheduleRuleIn,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    writable(ctx)
+    rule = await create_rule(
+        session,
+        tenant_id=ctx.tenant.id,
+        name=body.name,
+        start_time=body.start_time,
+        end_time=body.end_time,
+        break_start=body.break_start,
+        break_end=body.break_end,
+        sort_order=body.sort_order,
+        actor_user_id=ctx.user.id if ctx.user else None,
+    )
+    await session.commit()
+    return _rule_dict(rule)
+
+
+@router.patch("/manager/schedule-rules/{rule_id}")
+async def patch_schedule_rule(
+    rule_id: UUID,
+    body: ScheduleRulePatch,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    writable(ctx)
+    rule = await update_rule(
+        session,
+        tenant_id=ctx.tenant.id,
+        rule_id=rule_id,
+        name=body.name,
+        start_time=body.start_time,
+        end_time=body.end_time,
+        break_start=body.break_start,
+        break_end=body.break_end,
+        sort_order=body.sort_order,
+        actor_user_id=ctx.user.id if ctx.user else None,
+    )
+    await session.commit()
+    return _rule_dict(rule)
+
+
+@router.delete("/manager/schedule-rules/{rule_id}")
+async def remove_schedule_rule(
+    rule_id: UUID,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    writable(ctx)
+    await delete_rule(
+        session,
+        tenant_id=ctx.tenant.id,
+        rule_id=rule_id,
+        actor_user_id=ctx.user.id if ctx.user else None,
+    )
+    await session.commit()
+    return {"status": "deleted"}
+
+
+@router.post("/manager/schedule-rules/{rule_id}/apply")
+async def apply_schedule_rule(
+    rule_id: UUID,
+    body: ApplyRuleBody,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    writable(ctx)
+    await get_rule(session, tenant_id=ctx.tenant.id, rule_id=rule_id)
+    weekdays = body.weekdays
+    if weekdays is not None:
+        for wd in weekdays:
+            if not 0 <= wd <= 6:
+                raise ValidationError("weekday must be 0..6")
+    count = await apply_rule_to_tenant(
+        session,
+        tenant_id=ctx.tenant.id,
+        rule_id=rule_id,
+        staff_member_ids=body.staff_member_ids,
+        weekdays=weekdays,
+        actor_user_id=ctx.user.id if ctx.user else None,
+    )
+    await session.commit()
+    return {"staff_updated": count}
+
+
 @router.get("/manager/staff/{staff_member_id}/schedule")
 async def get_staff_schedule(
     staff_member_id: UUID,
@@ -87,10 +228,13 @@ async def get_staff_schedule(
 ) -> dict[str, object]:
     await _ensure_staff(session, ctx, staff_member_id)
     templates = await list_templates(session, tenant_id=ctx.tenant.id, staff_member_id=staff_member_id)
+    rules = await list_rules(session, tenant_id=ctx.tenant.id)
+    rule_names = {r.id: r.name for r in rules}
     return {
         "staff_member_id": str(staff_member_id),
-        "days": weekly_template_payload(templates),
+        "days": weekly_template_payload(templates, rule_names=rule_names),
         "weekday_labels": list(WEEKDAY_LABELS),
+        "rules": [_rule_dict(r) for r in rules],
     }
 
 
@@ -103,29 +247,37 @@ async def put_staff_schedule(
 ) -> dict[str, object]:
     writable(ctx)
     await _ensure_staff(session, ctx, staff_member_id)
-    rows = []
+    specs: list[dict[str, object]] = []
     for day in body.days:
         if not day.enabled:
             continue
-        rows.append(
-            {
-                "weekday": day.weekday,
-                "start_time": day.start_time,
-                "end_time": day.end_time,
-                "break_start": day.break_start,
-                "break_end": day.break_end,
-            }
-        )
-    await replace_weekly_template(
+        if day.rule_id:
+            specs.append({"weekday": day.weekday, "rule_id": day.rule_id})
+        else:
+            specs.append(
+                {
+                    "weekday": day.weekday,
+                    "start_time": day.start_time,
+                    "end_time": day.end_time,
+                    "break_start": day.break_start,
+                    "break_end": day.break_end,
+                }
+            )
+    await set_staff_weekly_from_days(
         session,
         tenant_id=ctx.tenant.id,
         staff_member_id=staff_member_id,
-        rows=rows,
+        day_specs=specs,
         actor_user_id=ctx.user.id if ctx.user else None,
     )
     await session.commit()
     templates = await list_templates(session, tenant_id=ctx.tenant.id, staff_member_id=staff_member_id)
-    return {"staff_member_id": str(staff_member_id), "days": weekly_template_payload(templates)}
+    rules = await list_rules(session, tenant_id=ctx.tenant.id)
+    rule_names = {r.id: r.name for r in rules}
+    return {
+        "staff_member_id": str(staff_member_id),
+        "days": weekly_template_payload(templates, rule_names=rule_names),
+    }
 
 
 @router.get("/manager/staff/{staff_member_id}/exceptions")

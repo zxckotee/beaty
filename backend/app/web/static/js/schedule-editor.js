@@ -1,6 +1,7 @@
 import { api, friendly } from './api.js';
 import { h, icon, todayIn } from './util.js';
 import { store } from './store.js';
+import { navigate } from './main.js';
 import { confirmDialog, field, openSheet, spinner, toast, withBusy } from './ui.js';
 
 function toTimeInput(hhmm) {
@@ -12,6 +13,11 @@ function fromTimeInput(value) {
   if (!value) return '09:00';
   const [hh, mm] = value.split(':');
   return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+}
+
+function ruleHoursLabel(rule) {
+  if (!rule) return '';
+  return `${rule.start_time}–${rule.end_time}`;
 }
 
 /**
@@ -28,10 +34,9 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
 
   async function reload() {
     try {
-      [schedule, exceptions] = await Promise.all([
-        api.get(`/manager/staff/${staffId}/schedule`),
-        api.get(`/manager/staff/${staffId}/exceptions?from=${from}&days=90`),
-      ]);
+      const sched = await api.get(`/manager/staff/${staffId}/schedule`);
+      schedule = sched;
+      exceptions = await api.get(`/manager/staff/${staffId}/exceptions?from=${from}&days=90`);
       draw();
     } catch (e) {
       mount.replaceChildren(h('p', { class: 'small muted' }, friendly(e)));
@@ -39,13 +44,25 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
   }
 
   function draw() {
+    const rules = schedule.rules || [];
     const grid = h('div', { class: 'schedule-week' });
     for (const day of schedule.days) {
       const enabled = h('input', { class: 'check', type: 'checkbox', checked: day.enabled, 'aria-label': day.label });
-      const start = h('input', { class: 'input', type: 'time', value: day.enabled ? toTimeInput(day.start_time) : '09:00' });
-      const end = h('input', { class: 'input', type: 'time', value: day.enabled ? toTimeInput(day.end_time) : '18:00' });
+      const ruleSelect = h('select', { class: 'input select' });
+      ruleSelect.append(h('option', { value: '' }, '— нет смены —'));
+      for (const r of rules) {
+        ruleSelect.append(h('option', { value: r.id }, r.label || `${r.name} (${r.start_time}–${r.end_time})`));
+      }
+      if (day.rule_id) ruleSelect.value = day.rule_id;
+      const hint = h('span', { class: 'tiny muted num' });
+      const syncHint = () => {
+        const r = rules.find((x) => x.id === ruleSelect.value);
+        hint.textContent = ruleSelect.value ? ruleHoursLabel(r) : '';
+      };
+      ruleSelect.addEventListener('change', syncHint);
+      syncHint();
       const toggle = () => {
-        start.disabled = end.disabled = !enabled.checked;
+        ruleSelect.disabled = !enabled.checked;
       };
       enabled.addEventListener('change', toggle);
       toggle();
@@ -54,10 +71,16 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
           'div',
           { class: 'card schedule-day', 'data-wd': String(day.weekday) },
           h('label', { class: 'row between' }, h('b', null, day.label), enabled),
-          h('div', { class: 'grid2' }, field('С', start), field('До', end)),
+          field('Правило смены', ruleSelect, hint),
         ),
       );
     }
+
+    const rulesLink = h('button', {
+      class: 'btn sm soft',
+      type: 'button',
+      onclick: () => { if (opts.closeSheet) opts.closeSheet(); navigate('schedule-rules'); },
+    }, 'Библиотека правил');
 
     const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить неделю');
     save.addEventListener('click', () =>
@@ -65,13 +88,11 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
         const days = [...grid.querySelectorAll('.schedule-day')].map((row) => {
           const wd = Number(row.dataset.wd);
           const on = row.querySelector('.check').checked;
-          const inputs = row.querySelectorAll('input[type=time]');
-          return {
-            weekday: wd,
-            enabled: on,
-            start_time: fromTimeInput(inputs[0].value),
-            end_time: fromTimeInput(inputs[1].value),
-          };
+          const sel = row.querySelector('select');
+          const ruleId = sel?.value || '';
+          if (!on) return { weekday: wd, enabled: false };
+          if (!ruleId) return { weekday: wd, enabled: false };
+          return { weekday: wd, enabled: true, rule_id: ruleId };
         });
         try {
           await api.put(`/manager/staff/${staffId}/schedule`, { days });
@@ -122,6 +143,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
 
     mount.replaceChildren(
       h('h3', null, 'Недельный шаблон'),
+      h('p', { class: 'small muted' }, 'Для каждого дня выберите готовое правило. Часы правятся в библиотеке, не у каждого мастера отдельно.'),
+      rulesLink,
       grid,
       save,
       h('h3', { style: { marginTop: '20px' } }, 'Исключения по датам'),
@@ -226,7 +249,11 @@ export function openScheduleEditor(staffId, opts = {}) {
     build: (sheet) => {
       const host = h('div', { class: 'col' });
       sheet.body.append(host);
-      mountScheduleEditor(host, staffId, { ...opts, onSaved: () => { opts.onSaved?.(); } });
+      mountScheduleEditor(host, staffId, {
+        ...opts,
+        closeSheet: () => sheet.close(),
+        onSaved: () => { opts.onSaved?.(); },
+      });
     },
   });
 }
@@ -237,6 +264,16 @@ export function openScheduleRulesPicker(staffList, { anchorDate, onSaved } = {})
     title: 'Смены и правила',
     build: (sheet) => {
       const list = h('div', { class: 'list' });
+      sheet.body.append(
+        h('p', { class: 'small muted' }, 'Сначала создайте или отредактируйте правила смен, затем назначьте их мастерам или всему салону.'),
+        h('button', {
+          class: 'btn primary block',
+          type: 'button',
+          onclick: () => { sheet.close(); navigate('schedule-rules'); },
+        }, 'Правила смен и назначение'),
+        h('p', { class: 'small muted', style: { marginTop: '12px' } }, 'Исключения по датам (выходной, особые часы) — в графике конкретного мастера:'),
+        list,
+      );
       for (const s of staffList) {
         list.append(
           h(
@@ -255,7 +292,6 @@ export function openScheduleRulesPicker(staffList, { anchorDate, onSaved } = {})
           ),
         );
       }
-      sheet.body.append(h('p', { class: 'small muted' }, 'Недельный шаблон и исключения для выбранного мастера.'), list);
       sheet.setFooter(h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'));
     },
   });
