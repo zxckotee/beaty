@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.audit import log_audit
 from app.domain.exceptions import NotFoundError, ValidationError
-from app.domain.models import ScheduleException, ScheduleRule, ScheduleTemplate, StaffMember
+from app.domain.models import ScheduleException, ScheduleRule, ScheduleTemplate, StaffMember, Tenant
 from app.domain.services.slot_repository import WORK_OVERRIDE_KIND, invalidate_slots_for_staff
 
 HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$|^24:00$")
@@ -74,11 +74,7 @@ async def list_templates(
     )
 
 
-def weekly_template_payload(
-    templates: list[ScheduleTemplate],
-    *,
-    rule_names: dict[UUID, str] | None = None,
-) -> list[dict[str, object]]:
+def weekly_template_payload(templates: list[ScheduleTemplate]) -> list[dict[str, object]]:
     by_day = {t.weekday: t for t in templates}
     out: list[dict[str, object]] = []
     for wd in range(7):
@@ -86,7 +82,6 @@ def weekly_template_payload(
         if tpl is None:
             out.append({"weekday": wd, "label": WEEKDAY_LABELS[wd], "enabled": False})
         else:
-            rule_id = tpl.rule_id
             out.append(
                 {
                     "weekday": wd,
@@ -96,21 +91,83 @@ def weekly_template_payload(
                     "end_time": tpl.end_time,
                     "break_start": tpl.break_start,
                     "break_end": tpl.break_end,
-                    "rule_id": str(rule_id) if rule_id else None,
-                    "rule_name": rule_names.get(rule_id) if rule_id and rule_names else None,
                 }
             )
     return out
 
 
-def rule_times_dict(rule: ScheduleRule) -> dict[str, Any]:
-    return {
-        "start_time": rule.start_time,
-        "end_time": rule.end_time,
-        "break_start": rule.break_start,
-        "break_end": rule.break_end,
-        "rule_id": rule.id,
-    }
+def rule_days_payload(days_spec: list[dict[str, Any]] | None) -> list[dict[str, object]]:
+    """Seven weekday slots for API (enabled days carry hours)."""
+    by_day: dict[int, dict[str, Any]] = {}
+    for raw in days_spec or []:
+        by_day[int(raw["weekday"])] = raw
+    out: list[dict[str, object]] = []
+    for wd in range(7):
+        raw = by_day.get(wd)
+        if not raw or not raw.get("enabled", True):
+            out.append({"weekday": wd, "label": WEEKDAY_LABELS[wd], "enabled": False})
+        else:
+            out.append(
+                {
+                    "weekday": wd,
+                    "label": WEEKDAY_LABELS[wd],
+                    "enabled": True,
+                    "start_time": raw.get("start_time", "09:00"),
+                    "end_time": raw.get("end_time", "18:00"),
+                    "break_start": raw.get("break_start"),
+                    "break_end": raw.get("break_end"),
+                }
+            )
+    return out
+
+
+def _days_spec_to_rows(days_spec: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in days_spec:
+        if not raw.get("enabled", True):
+            continue
+        rows.append(
+            {
+                "weekday": int(raw["weekday"]),
+                "start_time": raw["start_time"],
+                "end_time": raw["end_time"],
+                "break_start": raw.get("break_start"),
+                "break_end": raw.get("break_end"),
+            }
+        )
+    return validate_weekly_rows(rows)
+
+
+def _rows_to_days_spec(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    enabled = {int(r["weekday"]): r for r in rows}
+    out: list[dict[str, Any]] = []
+    for wd in range(7):
+        if wd in enabled:
+            r = enabled[wd]
+            out.append(
+                {
+                    "weekday": wd,
+                    "enabled": True,
+                    "start_time": r["start_time"],
+                    "end_time": r["end_time"],
+                    "break_start": r.get("break_start"),
+                    "break_end": r.get("break_end"),
+                }
+            )
+        else:
+            out.append({"weekday": wd, "enabled": False})
+    return out
+
+
+async def _get_tenant(session: AsyncSession, tenant_id: UUID) -> Tenant:
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise NotFoundError("tenant not found")
+    return tenant
+
+
+def effective_rule_id(*, staff: StaffMember, tenant: Tenant) -> UUID | None:
+    return staff.schedule_rule_id or tenant.default_schedule_rule_id
 
 
 async def list_rules(session: AsyncSession, *, tenant_id: UUID) -> list[ScheduleRule]:
@@ -129,37 +186,13 @@ async def get_rule(session: AsyncSession, *, tenant_id: UUID, rule_id: UUID) -> 
     return rule
 
 
-def _validate_rule_fields(
-    *,
-    name: str,
-    start_time: str,
-    end_time: str,
-    break_start: str | None,
-    break_end: str | None,
-) -> dict[str, Any]:
+def _validate_rule_name(name: str) -> str:
     name_clean = (name or "").strip()
     if not name_clean:
         raise ValidationError("name required")
     if len(name_clean) > 120:
         raise ValidationError("name too long")
-    row = validate_weekly_rows(
-        [
-            {
-                "weekday": 0,
-                "start_time": start_time,
-                "end_time": end_time,
-                "break_start": break_start,
-                "break_end": break_end,
-            }
-        ]
-    )[0]
-    return {
-        "name": name_clean,
-        "start_time": row["start_time"],
-        "end_time": row["end_time"],
-        "break_start": row["break_start"],
-        "break_end": row["break_end"],
-    }
+    return name_clean
 
 
 async def create_rule(
@@ -167,22 +200,19 @@ async def create_rule(
     *,
     tenant_id: UUID,
     name: str,
-    start_time: str,
-    end_time: str,
-    break_start: str | None = None,
-    break_end: str | None = None,
+    days: list[dict[str, Any]],
     sort_order: int = 0,
     actor_user_id: UUID | None,
 ) -> ScheduleRule:
-    fields = _validate_rule_fields(
-        name=name,
-        start_time=start_time,
-        end_time=end_time,
-        break_start=break_start,
-        break_end=break_end,
+    rows = _days_spec_to_rows(days)
+    rule = ScheduleRule(
+        tenant_id=tenant_id,
+        name=_validate_rule_name(name),
+        days=_rows_to_days_spec(rows),
+        sort_order=sort_order,
     )
-    rule = ScheduleRule(tenant_id=tenant_id, sort_order=sort_order, **fields)
     session.add(rule)
+    await session.flush()
     await log_audit(
         session,
         tenant_id=tenant_id,
@@ -200,31 +230,15 @@ async def update_rule(
     tenant_id: UUID,
     rule_id: UUID,
     name: str | None,
-    start_time: str | None,
-    end_time: str | None,
-    break_start: str | None = None,
-    break_end: str | None = None,
+    days: list[dict[str, Any]] | None,
     sort_order: int | None = None,
     actor_user_id: UUID | None,
 ) -> ScheduleRule:
     rule = await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
-    next_name = rule.name if name is None else name
-    next_start = rule.start_time if start_time is None else start_time
-    next_end = rule.end_time if end_time is None else end_time
-    next_br_s = rule.break_start if break_start is None and break_end is None else break_start
-    next_br_e = rule.break_end if break_start is None and break_end is None else break_end
-    fields = _validate_rule_fields(
-        name=next_name,
-        start_time=next_start,
-        end_time=next_end,
-        break_start=next_br_s,
-        break_end=next_br_e,
-    )
-    rule.name = fields["name"]
-    rule.start_time = fields["start_time"]
-    rule.end_time = fields["end_time"]
-    rule.break_start = fields["break_start"]
-    rule.break_end = fields["break_end"]
+    if name is not None:
+        rule.name = _validate_rule_name(name)
+    if days is not None:
+        rule.days = _rows_to_days_spec(_days_spec_to_rows(days))
     if sort_order is not None:
         rule.sort_order = sort_order
     await log_audit(
@@ -235,6 +249,7 @@ async def update_rule(
         entity_id=rule.id,
         actor_user_id=actor_user_id,
     )
+    await resync_staff_for_rule(session, tenant_id=tenant_id, rule_id=rule.id, actor_user_id=actor_user_id)
     return rule
 
 
@@ -245,6 +260,9 @@ async def delete_rule(
     rule_id: UUID,
     actor_user_id: UUID | None,
 ) -> None:
+    tenant = await _get_tenant(session, tenant_id)
+    if tenant.default_schedule_rule_id == rule_id:
+        tenant.default_schedule_rule_id = None
     rule = await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
     await session.delete(rule)
     await log_audit(
@@ -257,75 +275,16 @@ async def delete_rule(
     )
 
 
-def _template_to_row(tpl: ScheduleTemplate) -> dict[str, Any]:
-    return {
-        "weekday": tpl.weekday,
-        "start_time": tpl.start_time,
-        "end_time": tpl.end_time,
-        "break_start": tpl.break_start,
-        "break_end": tpl.break_end,
-        "rule_id": tpl.rule_id,
-    }
-
-
-async def set_staff_weekly_from_days(
-    session: AsyncSession,
-    *,
-    tenant_id: UUID,
-    staff_member_id: UUID,
-    day_specs: list[dict[str, Any]],
-    actor_user_id: UUID | None,
-) -> None:
-    """Replace weekly template from UI day specs (each may reference a rule_id)."""
-    rows: list[dict[str, Any]] = []
-    for spec in day_specs:
-        rule_id = spec.get("rule_id")
-        if rule_id:
-            rule = await get_rule(session, tenant_id=tenant_id, rule_id=UUID(str(rule_id)))
-            base = rule_times_dict(rule)
-        else:
-            base = {
-                "start_time": spec["start_time"],
-                "end_time": spec["end_time"],
-                "break_start": spec.get("break_start"),
-                "break_end": spec.get("break_end"),
-                "rule_id": None,
-            }
-        rows.append({"weekday": int(spec["weekday"]), **base})
-    await replace_weekly_template(
-        session,
-        tenant_id=tenant_id,
-        staff_member_id=staff_member_id,
-        rows=rows,
-        actor_user_id=actor_user_id,
-    )
-
-
-async def apply_rule_to_staff(
+async def materialize_rule_for_staff(
     session: AsyncSession,
     *,
     tenant_id: UUID,
     staff_member_id: UUID,
     rule_id: UUID,
-    weekdays: list[int],
     actor_user_id: UUID | None,
 ) -> None:
     rule = await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
-    if not weekdays:
-        raise ValidationError("weekdays required")
-    for wd in weekdays:
-        if not 0 <= wd <= 6:
-            raise ValidationError("weekday must be 0..6")
-    templates = await list_templates(session, tenant_id=tenant_id, staff_member_id=staff_member_id)
-    by_day = {t.weekday: t for t in templates}
-    target = set(weekdays)
-    rows: list[dict[str, Any]] = []
-    base = rule_times_dict(rule)
-    for wd in range(7):
-        if wd in target:
-            rows.append({"weekday": wd, **base})
-        elif wd in by_day:
-            rows.append(_template_to_row(by_day[wd]))
+    rows = _days_spec_to_rows(rule.days or [])
     await replace_weekly_template(
         session,
         tenant_id=tenant_id,
@@ -335,58 +294,139 @@ async def apply_rule_to_staff(
     )
 
 
-async def apply_rule_to_tenant(
+async def assign_staff_schedule_rule(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    staff_member_id: UUID,
+    schedule_rule_id: UUID | None,
+    actor_user_id: UUID | None,
+) -> None:
+    staff = await session.get(StaffMember, staff_member_id)
+    if staff is None or staff.tenant_id != tenant_id:
+        raise NotFoundError("staff not found")
+    tenant = await _get_tenant(session, tenant_id)
+    staff.schedule_rule_id = schedule_rule_id
+    effective = effective_rule_id(staff=staff, tenant=tenant)
+    if effective:
+        await materialize_rule_for_staff(
+            session,
+            tenant_id=tenant_id,
+            staff_member_id=staff_member_id,
+            rule_id=effective,
+            actor_user_id=actor_user_id,
+        )
+    else:
+        await replace_weekly_template(
+            session,
+            tenant_id=tenant_id,
+            staff_member_id=staff_member_id,
+            rows=[],
+            actor_user_id=actor_user_id,
+        )
+
+
+async def set_tenant_default_schedule_rule(
     session: AsyncSession,
     *,
     tenant_id: UUID,
     rule_id: UUID,
-    staff_member_ids: list[UUID] | None,
-    weekdays: list[int] | None,
     actor_user_id: UUID | None,
 ) -> int:
-    rule = await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
-    wd_list = list(range(7)) if not weekdays else weekdays
-    if staff_member_ids:
-        staff_ids = staff_member_ids
-    else:
-        staff_ids = list(
-            await session.scalars(
-                select(StaffMember.id).where(
-                    StaffMember.tenant_id == tenant_id,
-                    StaffMember.is_active.is_(True),
-                )
-            )
-        )
-    base = rule_times_dict(rule)
-    target = set(wd_list)
-    count = 0
-    for staff_id in staff_ids:
-        templates = await list_templates(session, tenant_id=tenant_id, staff_member_id=staff_id)
-        by_day = {t.weekday: t for t in templates}
-        rows: list[dict[str, Any]] = []
-        for wd in range(7):
-            if wd in target:
-                rows.append({"weekday": wd, **base})
-            elif wd in by_day:
-                rows.append(_template_to_row(by_day[wd]))
-        if rows:
-            await replace_weekly_template(
-                session,
-                tenant_id=tenant_id,
-                staff_member_id=staff_id,
-                rows=rows,
-                actor_user_id=actor_user_id,
-            )
-            count += 1
+    await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
+    tenant = await _get_tenant(session, tenant_id)
+    tenant.default_schedule_rule_id = rule_id
+    count = await sync_staff_without_individual_rule(session, tenant_id=tenant_id, actor_user_id=actor_user_id)
     await log_audit(
         session,
         tenant_id=tenant_id,
-        action="schedule.rule_applied_bulk",
+        action="schedule.rule_default_set",
         entity_type="schedule_rule",
-        entity_id=rule.id,
+        entity_id=rule_id,
         actor_user_id=actor_user_id,
-        details={"staff_count": count, "weekdays": wd_list},
+        details={"staff_resynced": count},
     )
+    return count
+
+
+async def sync_staff_without_individual_rule(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    actor_user_id: UUID | None,
+) -> int:
+    tenant = await _get_tenant(session, tenant_id)
+    if not tenant.default_schedule_rule_id:
+        return 0
+    staff_ids = list(
+        await session.scalars(
+            select(StaffMember.id).where(
+                StaffMember.tenant_id == tenant_id,
+                StaffMember.is_active.is_(True),
+                StaffMember.schedule_rule_id.is_(None),
+            )
+        )
+    )
+    for staff_id in staff_ids:
+        await materialize_rule_for_staff(
+            session,
+            tenant_id=tenant_id,
+            staff_member_id=staff_id,
+            rule_id=tenant.default_schedule_rule_id,
+            actor_user_id=actor_user_id,
+        )
+    return len(staff_ids)
+
+
+async def resync_staff_for_rule(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    rule_id: UUID,
+    actor_user_id: UUID | None,
+) -> None:
+    tenant = await _get_tenant(session, tenant_id)
+    staff_rows = (
+        await session.scalars(
+            select(StaffMember).where(
+                StaffMember.tenant_id == tenant_id,
+                StaffMember.is_active.is_(True),
+            )
+        )
+    ).all()
+    for staff in staff_rows:
+        eff = effective_rule_id(staff=staff, tenant=tenant)
+        if eff == rule_id:
+            await materialize_rule_for_staff(
+                session,
+                tenant_id=tenant_id,
+                staff_member_id=staff.id,
+                rule_id=rule_id,
+                actor_user_id=actor_user_id,
+            )
+
+
+async def assign_rule_to_staff_members(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    rule_id: UUID,
+    staff_member_ids: list[UUID],
+    actor_user_id: UUID | None,
+) -> int:
+    await get_rule(session, tenant_id=tenant_id, rule_id=rule_id)
+    if not staff_member_ids:
+        raise ValidationError("staff_member_ids required")
+    count = 0
+    for staff_id in staff_member_ids:
+        await assign_staff_schedule_rule(
+            session,
+            tenant_id=tenant_id,
+            staff_member_id=staff_id,
+            schedule_rule_id=rule_id,
+            actor_user_id=actor_user_id,
+        )
+        count += 1
     return count
 
 
@@ -398,8 +438,7 @@ async def replace_weekly_template(
     rows: list[dict[str, Any]],
     actor_user_id: UUID | None,
 ) -> None:
-    rule_ids = [r.get("rule_id") for r in rows]
-    cleaned = validate_weekly_rows(
+    rows = validate_weekly_rows(
         [
             {
                 "weekday": r["weekday"],
@@ -411,7 +450,6 @@ async def replace_weekly_template(
             for r in rows
         ]
     )
-    rows = [{**spec, "rule_id": rule_ids[i]} for i, spec in enumerate(cleaned)]
     existing = await list_templates(session, tenant_id=tenant_id, staff_member_id=staff_member_id)
     for tpl in existing:
         await session.delete(tpl)
@@ -426,7 +464,6 @@ async def replace_weekly_template(
                 end_time=str(spec["end_time"]),
                 break_start=spec.get("break_start"),
                 break_end=spec.get("break_end"),
-                rule_id=spec.get("rule_id"),
             )
         )
     await log_audit(
@@ -610,15 +647,21 @@ async def ensure_default_schedule(
     existing = await list_templates(session, tenant_id=tenant_id, staff_member_id=staff_member_id)
     if existing:
         return
+    tenant = await _get_tenant(session, tenant_id)
+    staff = await session.get(StaffMember, staff_member_id)
+    if staff and tenant.default_schedule_rule_id:
+        staff.schedule_rule_id = None
+        await materialize_rule_for_staff(
+            session,
+            tenant_id=tenant_id,
+            staff_member_id=staff_member_id,
+            rule_id=tenant.default_schedule_rule_id,
+            actor_user_id=None,
+        )
+        return
     rows = []
     for weekday in range(5):
-        rows.append(
-            {
-                "weekday": weekday,
-                "start_time": "09:00",
-                "end_time": "18:00",
-            }
-        )
+        rows.append({"weekday": weekday, "start_time": "09:00", "end_time": "18:00"})
     await replace_weekly_template(
         session,
         tenant_id=tenant_id,

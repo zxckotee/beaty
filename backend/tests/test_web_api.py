@@ -137,44 +137,62 @@ async def test_schedule_rules_flow(salon: Salon, client_factory) -> None:  # typ
     base = f"/api/t/{salon.public_id}"
     owner = client_factory()
     await login(owner, salon, salon.owner_tg)
+    days = [
+        {"weekday": wd, "enabled": wd < 5, "start_time": "10:00", "end_time": "19:00"}
+        for wd in range(7)
+    ]
     created = await owner.post(
         f"{base}/manager/schedule-rules",
-        json={"name": "Дневная", "start_time": "10:00", "end_time": "19:00"},
+        json={"name": "Дневная неделя", "days": days},
     )
     assert created.status_code == 201, created.text
     rule_id = created.json()["id"]
-    applied = await owner.post(
+    default = await owner.post(
         f"{base}/manager/schedule-rules/{rule_id}/apply",
-        json={"weekdays": [0, 1, 2, 3, 4]},
+        json={"scope": "enterprise_default"},
     )
-    assert applied.status_code == 200
-    assert applied.json()["staff_updated"] >= 1
+    assert default.status_code == 200
+    assert default.json()["staff_updated"] >= 1
     sched = await owner.get(f"{base}/manager/staff/{salon.specialist_id}/schedule")
-    mon = next(d for d in sched.json()["days"] if d["weekday"] == 0)
+    body = sched.json()
+    assert body["uses_enterprise_default"]
+    mon = next(d for d in body["days"] if d["weekday"] == 0)
     assert mon["enabled"]
-    assert mon["rule_id"] == rule_id
     assert mon["start_time"] == "10:00"
+    other = await owner.post(
+        f"{base}/manager/schedule-rules",
+        json={
+            "name": "Индивидуальная",
+            "days": [{"weekday": 0, "enabled": True, "start_time": "08:00", "end_time": "14:00"}],
+        },
+    )
+    ind_id = other.json()["id"]
+    put = await owner.put(
+        f"{base}/manager/staff/{salon.specialist_id}/schedule",
+        json={"schedule_rule_id": ind_id},
+    )
+    assert put.status_code == 200
+    assert put.json()["schedule_rule_id"] == ind_id
+    mon2 = next(d for d in put.json()["days"] if d["weekday"] == 0)
+    assert mon2["start_time"] == "08:00"
 
 
 async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
     owner = client_factory()
     await login(owner, salon, salon.owner_tg)
-    sched = await owner.get(f"{base}/manager/staff/{salon.specialist_id}/schedule")
-    assert sched.status_code == 200
-    days = sched.json()["days"]
-    updated = [
-        {
-            "weekday": d["weekday"],
-            "enabled": d["weekday"] < 5,
-            "start_time": "10:00",
-            "end_time": "17:00",
-        }
-        for d in days
+    rule_days = [
+        {"weekday": wd, "enabled": wd < 5, "start_time": "10:00", "end_time": "17:00"}
+        for wd in range(7)
     ]
+    rule = await owner.post(
+        f"{base}/manager/schedule-rules",
+        json={"name": "For manual test", "days": rule_days},
+    )
+    assert rule.status_code == 201
     put_sched = await owner.put(
         f"{base}/manager/staff/{salon.specialist_id}/schedule",
-        json={"days": updated},
+        json={"schedule_rule_id": rule.json()["id"]},
     )
     assert put_sched.status_code == 200
 

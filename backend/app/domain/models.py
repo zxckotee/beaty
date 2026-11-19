@@ -67,6 +67,9 @@ class Tenant(Base):
     bot_status: Mapped[str] = mapped_column(String(32), default="active")
     brand: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     rules: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    default_schedule_rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_rule.id", ondelete="SET NULL"), nullable=True
+    )
     subscription_status: Mapped[str] = mapped_column(String(32), default="trial")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -106,6 +109,9 @@ class StaffMember(Base):
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     specialization: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    schedule_rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_rule.id", ondelete="SET NULL"), nullable=True
+    )
     payout_rule: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     ui_prefs: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
@@ -192,15 +198,14 @@ class SpecialistService(Base):
 
 
 class ScheduleRule(Base):
+    """Недельный шаблон: каждый день недели — пункт правила со своими часами."""
+
     __tablename__ = "schedule_rule"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(120))
-    start_time: Mapped[str] = mapped_column(String(8))
-    end_time: Mapped[str] = mapped_column(String(8))
-    break_start: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    break_end: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    days: Mapped[list[Any]] = mapped_column(JSONB, default=list)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -216,9 +221,6 @@ class ScheduleTemplate(Base):
     end_time: Mapped[str] = mapped_column(String(8))
     break_start: Mapped[str | None] = mapped_column(String(8), nullable=True)
     break_end: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    rule_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("schedule_rule.id", ondelete="SET NULL"), nullable=True
-    )
 
 
 class ScheduleException(Base):

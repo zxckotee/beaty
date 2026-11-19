@@ -15,11 +15,6 @@ function fromTimeInput(value) {
   return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
 }
 
-function ruleHoursLabel(rule) {
-  if (!rule) return '';
-  return `${rule.start_time}–${rule.end_time}`;
-}
-
 /**
  * @param {HTMLElement} mount
  * @param {string} staffId
@@ -45,58 +40,57 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
 
   function draw() {
     const rules = schedule.rules || [];
-    const grid = h('div', { class: 'schedule-week' });
-    for (const day of schedule.days) {
-      const enabled = h('input', { class: 'check', type: 'checkbox', checked: day.enabled, 'aria-label': day.label });
-      const ruleSelect = h('select', { class: 'input select' });
-      ruleSelect.append(h('option', { value: '' }, '— нет смены —'));
-      for (const r of rules) {
-        ruleSelect.append(h('option', { value: r.id }, r.label || `${r.name} (${r.start_time}–${r.end_time})`));
-      }
-      if (day.rule_id) ruleSelect.value = day.rule_id;
-      const hint = h('span', { class: 'tiny muted num' });
-      const syncHint = () => {
-        const r = rules.find((x) => x.id === ruleSelect.value);
-        hint.textContent = ruleSelect.value ? ruleHoursLabel(r) : '';
-      };
-      ruleSelect.addEventListener('change', syncHint);
-      syncHint();
-      const toggle = () => {
-        ruleSelect.disabled = !enabled.checked;
-      };
-      enabled.addEventListener('change', toggle);
-      toggle();
-      grid.append(
-        h(
-          'div',
-          { class: 'card schedule-day', 'data-wd': String(day.weekday) },
-          h('label', { class: 'row between' }, h('b', null, day.label), enabled),
-          field('Правило смены', ruleSelect, hint),
+    const ruleSelect = h('select', { class: 'input select' });
+    ruleSelect.append(h('option', { value: '' }, 'Как у салона (по умолчанию)'));
+    for (const r of rules) {
+      ruleSelect.append(h('option', { value: r.id }, `${r.name}${r.is_default ? ' · салон' : ''}`));
+    }
+    if (schedule.schedule_rule_id) ruleSelect.value = schedule.schedule_rule_id;
+    const preview = h('div', { class: 'schedule-week' });
+    const syncPreview = () => {
+      const effId = ruleSelect.value || schedule.default_schedule_rule_id;
+      const tpl = rules.find((r) => r.id === effId);
+      const days = tpl?.days || schedule.days;
+      preview.replaceChildren(
+        ...days.map((day) =>
+          h(
+            'div',
+            { class: 'card schedule-day' },
+            h('div', { class: 'row between' },
+              h('b', null, day.label),
+              day.enabled
+                ? h('span', { class: 'small num' }, `${day.start_time}–${day.end_time}`)
+                : h('span', { class: 'small muted' }, 'выходной'),
+            ),
+          ),
         ),
       );
-    }
+    };
+    ruleSelect.addEventListener('change', syncPreview);
+    syncPreview();
 
     const rulesLink = h('button', {
       class: 'btn sm soft',
       type: 'button',
       onclick: () => { if (opts.closeSheet) opts.closeSheet(); navigate('schedule-rules'); },
-    }, 'Библиотека правил');
+    }, 'Шаблоны недели');
 
-    const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить неделю');
+    const meta = h('p', { class: 'small muted' });
+    if (schedule.uses_enterprise_default) {
+      meta.textContent = 'Сейчас действует правило салона по умолчанию.';
+    } else if (schedule.schedule_rule_id) {
+      meta.textContent = 'У мастера своё правило — оно важнее правила салона.';
+    }
+
+    const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
     save.addEventListener('click', () =>
       withBusy(save, async () => {
-        const days = [...grid.querySelectorAll('.schedule-day')].map((row) => {
-          const wd = Number(row.dataset.wd);
-          const on = row.querySelector('.check').checked;
-          const sel = row.querySelector('select');
-          const ruleId = sel?.value || '';
-          if (!on) return { weekday: wd, enabled: false };
-          if (!ruleId) return { weekday: wd, enabled: false };
-          return { weekday: wd, enabled: true, rule_id: ruleId };
-        });
         try {
-          await api.put(`/manager/staff/${staffId}/schedule`, { days });
-          toast('График сохранён');
+          await api.put(`/manager/staff/${staffId}/schedule`, {
+            schedule_rule_id: ruleSelect.value || null,
+          });
+          toast('Правило назначено');
+          await reload();
           opts.onSaved?.();
         } catch (e) {
           toast(friendly(e), true);
@@ -142,10 +136,12 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
     );
 
     mount.replaceChildren(
-      h('h3', null, 'Недельный шаблон'),
-      h('p', { class: 'small muted' }, 'Для каждого дня выберите готовое правило. Часы правятся в библиотеке, не у каждого мастера отдельно.'),
+      h('h3', null, 'Шаблон расписания'),
+      meta,
+      field('Правило для мастера', ruleSelect, 'Пусто = правило салона. Индивидуальное всегда в приоритете.'),
       rulesLink,
-      grid,
+      h('p', { class: 'small muted' }, 'Расписание по дням (из выбранного шаблона):'),
+      preview,
       save,
       h('h3', { style: { marginTop: '20px' } }, 'Исключения по датам'),
       quickDate,
@@ -265,12 +261,12 @@ export function openScheduleRulesPicker(staffList, { anchorDate, onSaved } = {})
     build: (sheet) => {
       const list = h('div', { class: 'list' });
       sheet.body.append(
-        h('p', { class: 'small muted' }, 'Сначала создайте или отредактируйте правила смен, затем назначьте их мастерам или всему салону.'),
+        h('p', { class: 'small muted' }, 'Шаблон — это вся неделя: каждый день и часы. Создайте шаблоны и назначьте салону или мастерам.'),
         h('button', {
           class: 'btn primary block',
           type: 'button',
           onclick: () => { sheet.close(); navigate('schedule-rules'); },
-        }, 'Правила смен и назначение'),
+        }, 'Шаблоны недели'),
         h('p', { class: 'small muted', style: { marginTop: '12px' } }, 'Исключения по датам (выходной, особые часы) — в графике конкретного мастера:'),
         list,
       );
