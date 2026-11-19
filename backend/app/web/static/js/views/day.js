@@ -1,6 +1,6 @@
 import { api, friendly } from '../api.js';
 import {
-  addDays, dayLabel, dayNumber, duration, fromMin, h, icon, longDayLabel, money, nowMinutesIn, plural,
+  addDays, dayLabel, dayNumber, duration, fromMin, h, icon, longDayLabel, money, nowMinutesIn, plural, readTimeInput, timeInput,
   signedMoney, todayIn, toMin, weekdayShort,
 } from '../util.js';
 import { store } from '../store.js';
@@ -784,8 +784,8 @@ export function dayView({ manager }) {
     openSheet({
       title: editing ? 'Изменить ячейку' : 'Новая ячейка',
       build: (sheet) => {
-        const startInput = h('input', { class: 'input', type: 'time', step: '300', value: state.start, required: true });
-        const endInput = h('input', { class: 'input', type: 'time', step: '300', value: state.end === '24:00' ? '23:59' : state.end, required: true });
+        const startInput = timeInput({ value: state.start, required: true });
+        const endInput = timeInput({ value: state.end === '24:00' ? '24:00' : state.end, required: true });
         const priceInput = h('input', { class: 'input', type: 'number', step: '50', inputmode: 'decimal', placeholder: '0', value: editing && cell.price_cents ? cell.price_cents / 100 : '' });
         const titleInput = h('input', { class: 'input', type: 'text', maxlength: '255', placeholder: 'Например, «Вечернее окно»', value: editing ? cell.title || '' : '' });
         const descInput = h('textarea', { class: 'textarea', maxlength: '2000', placeholder: 'Что важно знать клиенту' }, editing ? cell.description || '' : '');
@@ -793,17 +793,17 @@ export function dayView({ manager }) {
         const error = h('p', { class: 'small', style: { color: 'var(--bad)' }, role: 'alert' });
 
         const updateDur = () => {
-          const d = toMin(endInput.value || '00:00') - toMin(startInput.value || '00:00');
+          const d = toMin(readTimeInput(endInput) || '00:00') - toMin(readTimeInput(startInput) || '00:00');
           durLabel.textContent = d > 0 ? `Длительность: ${duration(d)}` : 'Конец должен быть позже начала';
         };
-        let lastDur = Math.max(5, toMin(endInput.value) - toMin(startInput.value));
+        let lastDur = Math.max(5, toMin(readTimeInput(endInput) || '00:00') - toMin(readTimeInput(startInput) || '00:00'));
         startInput.addEventListener('change', () => {
-          const e = Math.min(toMin(startInput.value) + lastDur, 24 * 60 - 1);
+          const e = Math.min(toMin(readTimeInput(startInput) || '00:00') + lastDur, 24 * 60 - 1);
           endInput.value = fromMin(e);
           updateDur();
         });
         endInput.addEventListener('change', () => {
-          const d = toMin(endInput.value) - toMin(startInput.value);
+          const d = toMin(readTimeInput(endInput) || '00:00') - toMin(readTimeInput(startInput) || '00:00');
           if (d > 0) lastDur = d;
           updateDur();
         });
@@ -814,7 +814,7 @@ export function dayView({ manager }) {
           { class: 'chips' },
           [30, 60, 90, 120, 180, 240].map((m) =>
             h('button', { class: 'chip', type: 'button', onclick: () => {
-              endInput.value = fromMin(Math.min(toMin(startInput.value) + m, 24 * 60 - 1));
+              endInput.value = fromMin(Math.min(toMin(readTimeInput(startInput) || '00:00') + m, 24 * 60 - 1));
               lastDur = m;
               updateDur();
             } }, duration(m)),
@@ -859,8 +859,8 @@ export function dayView({ manager }) {
             const body = {
               staff_member_id: state.staffId,
               date: editing ? cell.date : date,
-              start: startInput.value,
-              end: endInput.value,
+              start: readTimeInput(startInput),
+              end: readTimeInput(endInput),
               price_cents: priceInput.value === '' ? null : Math.round(Number(priceInput.value) * 100),
               title: titleInput.value.trim() || null,
               description: descInput.value.trim() || null,
