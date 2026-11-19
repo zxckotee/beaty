@@ -103,8 +103,8 @@ def rule_days_payload(days_spec: list[dict[str, Any]] | None) -> list[dict[str, 
         by_day[int(raw["weekday"])] = raw
     out: list[dict[str, object]] = []
     for wd in range(7):
-        raw = by_day.get(wd)
-        if not raw or not raw.get("enabled", True):
+        slot: dict[str, Any] | None = by_day.get(wd)
+        if slot is None or not slot.get("enabled", True):
             out.append({"weekday": wd, "label": WEEKDAY_LABELS[wd], "enabled": False})
         else:
             out.append(
@@ -112,10 +112,10 @@ def rule_days_payload(days_spec: list[dict[str, Any]] | None) -> list[dict[str, 
                     "weekday": wd,
                     "label": WEEKDAY_LABELS[wd],
                     "enabled": True,
-                    "start_time": raw.get("start_time", "09:00"),
-                    "end_time": raw.get("end_time", "18:00"),
-                    "break_start": raw.get("break_start"),
-                    "break_end": raw.get("break_end"),
+                    "start_time": slot.get("start_time", "09:00"),
+                    "end_time": slot.get("end_time", "18:00"),
+                    "break_start": slot.get("break_start"),
+                    "break_end": slot.get("break_end"),
                 }
             )
     return out
