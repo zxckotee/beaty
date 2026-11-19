@@ -191,6 +191,20 @@ class SpecialistService(Base):
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class ScheduleRule(Base):
+    __tablename__ = "schedule_rule"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    start_time: Mapped[str] = mapped_column(String(8))
+    end_time: Mapped[str] = mapped_column(String(8))
+    break_start: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    break_end: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ScheduleTemplate(Base):
     __tablename__ = "schedule_template"
 
@@ -202,6 +216,9 @@ class ScheduleTemplate(Base):
     end_time: Mapped[str] = mapped_column(String(8))
     break_start: Mapped[str | None] = mapped_column(String(8), nullable=True)
     break_end: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_rule.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class ScheduleException(Base):

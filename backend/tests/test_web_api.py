@@ -133,6 +133,29 @@ async def test_client_books_on_schedule(salon: Salon, client_factory) -> None:  
     assert all(o["start_at"] != offer["start_at"] for o in offers2)
 
 
+async def test_schedule_rules_flow(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    owner = client_factory()
+    await login(owner, salon, salon.owner_tg)
+    created = await owner.post(
+        f"{base}/manager/schedule-rules",
+        json={"name": "Дневная", "start_time": "10:00", "end_time": "19:00"},
+    )
+    assert created.status_code == 201, created.text
+    rule_id = created.json()["id"]
+    applied = await owner.post(
+        f"{base}/manager/schedule-rules/{rule_id}/apply",
+        json={"weekdays": [0, 1, 2, 3, 4]},
+    )
+    assert applied.status_code == 200
+    assert applied.json()["staff_updated"] >= 1
+    sched = await owner.get(f"{base}/manager/staff/{salon.specialist_id}/schedule")
+    mon = next(d for d in sched.json()["days"] if d["weekday"] == 0)
+    assert mon["enabled"]
+    assert mon["rule_id"] == rule_id
+    assert mon["start_time"] == "10:00"
+
+
 async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
     owner = client_factory()
