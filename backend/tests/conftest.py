@@ -49,5 +49,15 @@ def tomorrow_at(hhmm: str, days: int = 1) -> datetime:
     return datetime.combine(day, time.fromisoformat(hhmm), tzinfo=tz).astimezone(UTC)
 
 
+def next_open_day_iso(*, min_offset_days: int = 1, weekdays: frozenset[int] | None = None) -> str:
+    """Next calendar date in Moscow TZ that falls on an allowed weekday (default Mon–Fri)."""
+    tz = ZoneInfo("Europe/Moscow")
+    allowed = weekdays if weekdays is not None else frozenset(range(5))
+    day = datetime.now(tz).date() + timedelta(days=min_offset_days)
+    while day.weekday() not in allowed:
+        day += timedelta(days=1)
+    return day.isoformat()
+
+
 def random_telegram_id() -> int:
     return secrets.randbelow(10**12) + 10**10
