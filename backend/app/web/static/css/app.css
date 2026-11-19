@@ -152,6 +152,7 @@ img { max-width: 100%; display: block; }
 }
 .textarea { min-height: 92px; resize: vertical; }
 .input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.input.time-24 { width: auto; min-width: 5.5rem; max-width: 7rem; text-align: center; font-variant-numeric: tabular-nums; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .chip {

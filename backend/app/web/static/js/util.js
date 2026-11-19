@@ -84,6 +84,51 @@ export const toMin = (hhmm) => {
 };
 export const fromMin = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
+/** Parse HH:MM (24 h); returns normalized string or null. */
+export function normalizeTime24(raw) {
+  if (raw == null || raw === '') return null;
+  const t = String(raw).trim();
+  if (t === '24:00') return '24:00';
+  const m = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+export function readTimeInput(el) {
+  return normalizeTime24(el?.value) || '';
+}
+
+/** @param {Record<string, unknown>} [props] */
+export function timeInput(props = {}) {
+  const { class: extraClass, value, ...rest } = props;
+  const classes = ['input', 'num', 'time-24', extraClass].filter(Boolean).join(' ');
+  const el = h('input', {
+    class: classes,
+    type: 'text',
+    inputmode: 'numeric',
+    autocomplete: 'off',
+    spellcheck: 'false',
+    placeholder: '09:00',
+    maxlength: '5',
+    pattern: '[0-2][0-9]:[0-5][0-9]',
+    title: 'Часы и минуты, 24-часовой формат (ЧЧ:ММ)',
+    lang: 'ru-RU',
+    'data-time24': '1',
+    ...rest,
+  });
+  if (value != null && value !== '') el.value = String(value);
+  const fix = () => {
+    const n = normalizeTime24(el.value);
+    if (n) el.value = n;
+  };
+  el.addEventListener('blur', fix);
+  el.addEventListener('change', fix);
+  return el;
+}
+
 const wdFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' });
 const dayFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 const longFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });

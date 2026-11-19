@@ -1,17 +1,15 @@
 import { api, friendly } from './api.js';
-import { h, icon, todayIn } from './util.js';
+import { h, icon, normalizeTime24, readTimeInput, timeInput, todayIn } from './util.js';
 import { store } from './store.js';
 import { confirmDialog, field, openSheet, spinner, toast, withBusy } from './ui.js';
 
 function toTimeInput(hhmm) {
-  if (hhmm === '24:00') return '23:59';
-  return hhmm.length === 5 ? `${hhmm}:00`.slice(0, 5) : hhmm;
+  if (!hhmm) return '09:00';
+  return hhmm === '24:00' ? '24:00' : (normalizeTime24(hhmm) || '09:00');
 }
 
 function fromTimeInput(value) {
-  if (!value) return '09:00';
-  const [hh, mm] = value.split(':');
-  return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
+  return normalizeTime24(value) || '09:00';
 }
 
 /**
@@ -42,8 +40,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
     const grid = h('div', { class: 'schedule-week' });
     for (const day of schedule.days) {
       const enabled = h('input', { class: 'check', type: 'checkbox', checked: day.enabled, 'aria-label': day.label });
-      const start = h('input', { class: 'input', type: 'time', value: day.enabled ? toTimeInput(day.start_time) : '09:00' });
-      const end = h('input', { class: 'input', type: 'time', value: day.enabled ? toTimeInput(day.end_time) : '18:00' });
+      const start = timeInput({ value: day.enabled ? toTimeInput(day.start_time) : '09:00', required: true });
+      const end = timeInput({ value: day.enabled ? toTimeInput(day.end_time) : '18:00', required: true });
       const toggle = () => {
         start.disabled = end.disabled = !enabled.checked;
       };
@@ -65,12 +63,12 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
         const days = [...grid.querySelectorAll('.schedule-day')].map((row) => {
           const wd = Number(row.dataset.wd);
           const on = row.querySelector('.check').checked;
-          const inputs = row.querySelectorAll('input[type=time]');
+          const inputs = row.querySelectorAll('input[data-time24]');
           return {
             weekday: wd,
             enabled: on,
-            start_time: fromTimeInput(inputs[0].value),
-            end_time: fromTimeInput(inputs[1].value),
+            start_time: fromTimeInput(readTimeInput(inputs[0])),
+            end_time: fromTimeInput(readTimeInput(inputs[1])),
           };
         });
         try {
@@ -188,8 +186,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
 
   function openOverride(prefillDate) {
     const date = h('input', { class: 'input', type: 'date', value: prefillDate || from });
-    const start = h('input', { class: 'input', type: 'time', value: '10:00' });
-    const end = h('input', { class: 'input', type: 'time', value: '16:00' });
+    const start = timeInput({ value: '10:00', required: true });
+    const end = timeInput({ value: '16:00', required: true });
     openSheet({
       title: 'Особые часы',
       build: (sheet) => {
@@ -200,8 +198,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
             try {
               await api.post(`/manager/staff/${staffId}/exceptions/work-override`, {
                 date: date.value,
-                start_time: fromTimeInput(start.value),
-                end_time: fromTimeInput(end.value),
+                start_time: fromTimeInput(readTimeInput(start)),
+                end_time: fromTimeInput(readTimeInput(end)),
               });
               sheet.close();
               toast('Исключение сохранено');
