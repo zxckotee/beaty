@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST, UiRole
@@ -8,9 +8,12 @@ def main_menu_reply(
     *,
     active_ui_role: UiRole,
     can_switch_ui_role: bool,
+    miniapp_web_url: str | None = None,
 ) -> ReplyKeyboardMarkup:
     """Reply menu for the role the user chose to act as right now."""
     builder = ReplyKeyboardBuilder()
+    if miniapp_web_url:
+        builder.row(KeyboardButton(text="Открыть кабинет", web_app=WebAppInfo(url=miniapp_web_url)))
     if active_ui_role == UI_ROLE_MANAGER:
         builder.row(KeyboardButton(text="Сегодня"), KeyboardButton(text="Команда"))
         builder.row(KeyboardButton(text="Услуги"), KeyboardButton(text="Клиенты"))

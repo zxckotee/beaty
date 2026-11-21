@@ -10,6 +10,7 @@ from app.bot.active_role import UI_ROLE_LABELS, available_ui_roles, read_stored_
 from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
 from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply
+from app.bot.miniapp import miniapp_url_for_tenant
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -38,6 +39,7 @@ def _parse_start_param(text: str | None) -> str | None:
 def _reply_menu(
     roles: set[str],
     staff_member: StaffMember | None,
+    tenant: Tenant,
     *,
     active_ui_role: str | None = None,
     can_switch_ui_role: bool | None = None,
@@ -48,7 +50,11 @@ def _reply_menu(
     )
     active = active_ui_role or resolve_active_ui_role(read_stored_ui_role(staff_member), avail)
     can_switch = can_switch_ui_role if can_switch_ui_role is not None else len(avail) > 1
-    return main_menu_reply(active_ui_role=active, can_switch_ui_role=can_switch)  # type: ignore[arg-type]
+    return main_menu_reply(
+        active_ui_role=active,  # type: ignore[arg-type]
+        can_switch_ui_role=can_switch,
+        miniapp_web_url=miniapp_url_for_tenant(tenant),
+    )
 
 
 @client_onboarding_router.message(CommandStart())
@@ -103,6 +109,7 @@ async def cmd_start(
                 reply_markup=main_menu_reply(
                     active_ui_role=active,
                     can_switch_ui_role=len(avail) > 1,
+                    miniapp_web_url=miniapp_url_for_tenant(tenant),
                 ),
             )
             return
@@ -135,6 +142,7 @@ async def cmd_start(
             reply_markup=_reply_menu(
                 roles,
                 staff_member,
+                tenant,
                 active_ui_role=active_ui_role,
                 can_switch_ui_role=can_switch_ui_role,
             ),
@@ -165,6 +173,7 @@ async def cmd_start(
             reply_markup=_reply_menu(
                 roles,
                 staff_member,
+                tenant,
                 active_ui_role=active_ui_role,
                 can_switch_ui_role=can_switch_ui_role,
             ),
@@ -277,6 +286,7 @@ async def marketing_choice(
         reply_markup=_reply_menu(
             roles,
             staff_member,
+            tenant,
             active_ui_role=active_ui_role,
             can_switch_ui_role=can_switch_ui_role,
         ),

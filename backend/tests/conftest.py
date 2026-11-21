@@ -49,5 +49,14 @@ def tomorrow_at(hhmm: str, days: int = 1) -> datetime:
     return datetime.combine(day, time.fromisoformat(hhmm), tzinfo=tz).astimezone(UTC)
 
 
+def next_open_weekday_moscow(*, days_ahead: int = 1) -> date:
+    """Next calendar date in Europe/Moscow on a weekday (Mon–Fri), at least `days_ahead` from today."""
+    tz = ZoneInfo("Europe/Moscow")
+    day = datetime.now(tz).date() + timedelta(days=days_ahead)
+    while day.weekday() >= 5:
+        day += timedelta(days=1)
+    return day
+
+
 def random_telegram_id() -> int:
     return secrets.randbelow(10**12) + 10**10

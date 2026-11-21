@@ -1,4 +1,5 @@
 import { api, friendly, tenantId } from './api.js';
+import { isTelegramWebApp, prepareTelegramChrome, telegramInitData } from './telegram.js';
 import { clear, h, icon } from './util.js';
 import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
@@ -172,6 +173,17 @@ async function boot() {
     return;
   }
   applyBrand();
+  if (isTelegramWebApp()) {
+    prepareTelegramChrome();
+    const initData = telegramInitData();
+    if (initData) {
+      try {
+        await api.post('/auth/telegram', { init_data: initData });
+      } catch (e) {
+        toast(friendly(e), true);
+      }
+    }
+  }
   await loadMe();
   window.addEventListener('hashchange', render);
   render();

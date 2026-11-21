@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     platform_bot_token: str = ""
     webhook_base_url: str = "http://localhost:8000"
+    public_web_url: str = ""
     token_encryption_key: str = "change-me-32-bytes-base64-fernet-key!!"
 
     s3_endpoint_url: str = "http://localhost:9000"

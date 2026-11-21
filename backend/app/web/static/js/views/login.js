@@ -1,4 +1,5 @@
 import { api, friendly } from '../api.js';
+import { isTelegramWebApp } from '../telegram.js';
 import { h, icon } from '../util.js';
 import { loadMe, store } from '../store.js';
 import { toast } from '../ui.js';
@@ -11,6 +12,9 @@ const DEMO = [
 
 /** Telegram-via-bot login: shows steps, polls until the bot confirms the one-time code. */
 export function loginPanel({ onSuccess, compact = false }) {
+  if (isTelegramWebApp()) {
+    return h('div', { class: 'col' }, h('p', { class: 'muted' }, 'Вход через Telegram…'));
+  }
   const root = h('div', { class: 'col' });
   let timer = null;
   let stopped = false;
