@@ -3,11 +3,13 @@ import { h, icon, hueFor, initials, clear } from './util.js';
 const overlayRoot = () => document.getElementById('overlay-root');
 const stack = [];
 
-export function avatar(person, size = '') {
+export function avatar(person, size = '', { eager = false } = {}) {
   const name = person.name || person.display_name || '?';
   const el = h('div', { class: `avatar ${size}`, style: { '--h': hueFor(name) }, title: name });
   if (person.photo_url) {
-    const img = h('img', { src: person.photo_url, alt: name, loading: 'lazy' });
+    const imgAttrs = { src: person.photo_url, alt: name };
+    if (!eager) imgAttrs.loading = 'lazy';
+    const img = h('img', imgAttrs);
     img.addEventListener('error', () => {
       img.remove();
       el.append(initials(name));
@@ -130,15 +132,46 @@ export async function withBusy(button, fn) {
 /** Avatar-like preview with a "choose photo" button. getFile() returns the picked File or null. */
 export function photoPicker({ url, name, square = false }) {
   let file = null;
+  let objectUrl = null;
   const preview = h('div');
-  const draw = (src) => preview.replaceChildren(avatar({ name: name || '?', photo_url: src }, `lg ${square ? 'sq' : ''}`));
-  draw(url);
+  const draw = (src, label) => {
+    preview.replaceChildren(avatar({ name: label || name || '?', photo_url: src }, `lg ${square ? 'sq' : ''}`, { eager: true }));
+  };
+  draw(url, name);
   const input = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/gif', class: 'sr', tabindex: '-1' });
   input.addEventListener('change', () => {
-    file = input.files && input.files[0] ? input.files[0] : null;
-    if (file) draw(URL.createObjectURL(file));
+    const picked = input.files && input.files[0] ? input.files[0] : null;
+    file = picked;
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+    if (picked) {
+      objectUrl = URL.createObjectURL(picked);
+      draw(objectUrl, name);
+    } else {
+      draw(url, name);
+    }
   });
-  const btn = h('button', { class: 'btn sm', type: 'button', onclick: () => input.click() }, icon('camera'), 'Выбрать фото');
+  const pick = () => {
+    input.value = '';
+    input.click();
+  };
+  const btn = h('button', { class: 'btn sm', type: 'button', onclick: pick }, icon('camera'), 'Выбрать фото');
   const el = h('div', { class: 'photo-field' }, preview, h('div', { class: 'col', style: { gap: '6px' } }, btn, h('span', { class: 'tiny muted' }, 'JPG, PNG, WebP до 5 МБ'), input));
-  return { el, getFile: () => file };
+  return {
+    el,
+    getFile: () => file,
+    setServerUrl(src) {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+      file = null;
+      draw(src, name);
+    },
+    setName(next) {
+      name = next;
+    },
+  };
 }

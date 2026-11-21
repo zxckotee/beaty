@@ -11,6 +11,8 @@ import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
 import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
+import { landingView } from './views/landing.js';
+import { messagesView } from './views/messages.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -21,6 +23,8 @@ const NAV = {
     { route: 'day', label: 'Расписание', icon: 'calendar' },
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
+    { route: 'landing', label: 'Лендинг', icon: 'globe' },
+    { route: 'messages', label: 'Сообщения', icon: 'chat' },
     { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
   specialist: [{ route: 'day', label: 'Мой день', icon: 'calendar' }],
@@ -36,6 +40,8 @@ const ROUTES = {
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
   'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
   services: { roles: ['manager'], view: () => servicesView() },
+  landing: { roles: ['manager'], view: () => landingView() },
+  messages: { roles: ['manager'], view: () => messagesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },
   login: { roles: ['client', 'manager', 'specialist'], view: () => loginView(() => navigate(defaultRoute())) },

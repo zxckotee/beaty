@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -40,6 +41,7 @@ class StaffRole(str, enum.Enum):
 
 class NotificationType(str, enum.Enum):
     BOOKING_CONFIRMED = "booking_confirmed"
+    BOOKING_CANCELLED = "booking_cancelled"
     REMINDER_24H = "reminder_24h"
     REMINDER_2H = "reminder_2h"
     STAFF_NEW_BOOKING = "staff_new_booking"
@@ -468,3 +470,62 @@ class PlatformInvoice(Base):
     status: Mapped[str] = mapped_column(String(32), default="pending")
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantLanding(Base):
+    __tablename__ = "tenant_landing"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tagline: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    dgis_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dgis_firm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dgis_complex_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dgis_embed_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    map_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    map_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    map_zoom: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LandingPortfolioItem(Base):
+    __tablename__ = "landing_portfolio_item"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_urls: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class LandingPost(Base):
+    __tablename__ = "landing_post"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    body: Mapped[str] = mapped_column(Text, default="")
+    photo_urls: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class NotificationTemplate(Base):
+    __tablename__ = "notification_template"
+    __table_args__ = (UniqueConstraint("tenant_id", "kind", name="uq_notification_template_tenant_kind"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(64))
+    body: Mapped[str] = mapped_column(Text, default="")
+    parse_mode: Mapped[str] = mapped_column(String(16), default="HTML")
+    photo_slots: Mapped[list[Any]] = mapped_column(JSONB, default=list)
