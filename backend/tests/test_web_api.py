@@ -12,7 +12,7 @@ from app.domain.services.card_service import ServiceLink, create_service, set_sp
 from app.domain.services.provisioning import create_tenant_for_owner
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.web.main import app
-from tests.conftest import random_telegram_id, tomorrow_at
+from tests.conftest import next_open_weekday_moscow, random_telegram_id, tomorrow_at
 
 TZ = ZoneInfo("Europe/Moscow")
 
@@ -196,7 +196,7 @@ async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None
     )
     assert put_sched.status_code == 200
 
-    day = (tomorrow_at("12:00").astimezone(TZ)).date().isoformat()
+    day = next_open_weekday_moscow().isoformat()
     phone = "+79001234567"
     manual = await owner.post(
         f"{base}/manager/bookings/manual",
