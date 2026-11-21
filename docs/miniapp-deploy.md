@@ -50,8 +50,29 @@ curl -sI "https://betwelc.ru/t/<tenant_public_id>/"
 | Secret | Пример |
 | --- | --- |
 | `PUBLIC_HTTPS_URL` | `https://betwelc.ru` |
+| `CERTBOT_EMAIL` | (опционально) email для certbot в deploy |
 
 После мержа — redeploy; в `.env.prod` появятся `WEBHOOK_BASE_URL`, `PUBLIC_WEB_URL`, `TENANT_UI_MODE`, `WEB_COOKIE_SECURE`.
+
+## Файл `.env.prod` на VPS
+
+Секреты БД и JWT лежат в `.secrets.env` (создаётся один раз). Публичный prod для betwelc:
+
+```bash
+cd /root/beaty
+TELEGRAM_SECRET='<токен платформенного бота>' \
+PUBLIC_HTTPS_URL=https://betwelc.ru \
+bash scripts/write-env-prod-betwelc.sh
+```
+
+Проверка:
+
+```bash
+grep -E '^(WEBHOOK_BASE_URL|PUBLIC_WEB_URL|WEB_COOKIE_SECURE|TENANT_UI_MODE)=' .env.prod
+./scripts/redeploy.sh nobuild
+```
+
+Локально в репозитории лежит черновик `.env.prod` (в gitignore) — для правок перед копированием на сервер.
 
 ## Бот салона
 
