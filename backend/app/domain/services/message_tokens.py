@@ -134,18 +134,28 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
     landing = await session.scalar(select(TenantLanding).where(TenantLanding.tenant_id == booking.tenant_id))
     dgis_url = landing.dgis_url if landing and landing.dgis_url else ""
     price = ""
-    if item and item.get("price_cents") is not None:
+    if item is not None and item["price_cents"] is not None:
         price = f"{int(item['price_cents']) // 100} ₽"
+    if item is None:
+        start_at = None
+        service = "Услуга"
+        staff = "Мастер"
+        staff_photo: str | None = None
+    else:
+        start_at = item["start_at"]
+        service = str(item["service_name"] or "Услуга")
+        staff = str(item["staff_name"] or "Мастер")
+        staff_photo = item["staff_photo"]
     return BookingMessageContext(
-        service=(item or {}).get("service_name") or "Услуга",
-        staff=(item or {}).get("staff_name") or "Мастер",
+        service=service,
+        staff=staff,
         address=(branch.address if branch else None) or "",
         price=price,
         tenant_name=tenant.name if tenant else "",
         dgis_url=dgis_url,
-        start_at=item.get("start_at") if item else None,
+        start_at=start_at,
         timezone=branch.timezone if branch else "Europe/Moscow",
-        staff_photo_url=(item or {}).get("staff_photo"),
+        staff_photo_url=staff_photo,
         venue_cover_url=landing.cover_url if landing else None,
     )
 

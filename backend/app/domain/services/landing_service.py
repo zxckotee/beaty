@@ -71,20 +71,20 @@ async def update_landing(
 
 
 async def list_portfolio(session: AsyncSession, tenant_id: uuid.UUID) -> list[LandingPortfolioItem]:
-    return (
-        await session.scalars(
-            select(LandingPortfolioItem)
-            .where(LandingPortfolioItem.tenant_id == tenant_id)
-            .order_by(LandingPortfolioItem.sort_order, LandingPortfolioItem.title)
-        )
-    ).all()
+    rows = await session.scalars(
+        select(LandingPortfolioItem)
+        .where(LandingPortfolioItem.tenant_id == tenant_id)
+        .order_by(LandingPortfolioItem.sort_order, LandingPortfolioItem.title)
+    )
+    return list(rows.all())
 
 
 async def list_posts(session: AsyncSession, tenant_id: uuid.UUID, *, visible_only: bool) -> list[LandingPost]:
     q = select(LandingPost).where(LandingPost.tenant_id == tenant_id)
     if visible_only:
         q = q.where(LandingPost.is_visible.is_(True))
-    return (await session.scalars(q.order_by(LandingPost.sort_order.desc(), LandingPost.id))).all()
+    rows = await session.scalars(q.order_by(LandingPost.sort_order.desc(), LandingPost.id))
+    return list(rows.all())
 
 
 async def get_portfolio_item(session: AsyncSession, tenant_id: uuid.UUID, item_id: uuid.UUID) -> LandingPortfolioItem:
