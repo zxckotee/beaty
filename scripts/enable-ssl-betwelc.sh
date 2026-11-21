@@ -37,11 +37,25 @@ certbot --nginx -d "$DOMAIN" \
   --email "$CERTBOT_EMAIL" \
   --redirect
 
+# certbot edits nginx, but a plain HTTP deploy/*.edge.conf overwrites TLS; pin vhost from repo.
+if [ -f "$DEPLOY_PATH/deploy/nginx-betwelc.edge.https.conf" ]; then
+  echo ">>> Installing tracked HTTPS nginx vhost (SNI for $DOMAIN on :443)"
+  bash "$DEPLOY_PATH/scripts/deploy-edge-nginx-betwelc.sh" "$DEPLOY_PATH"
+fi
+
 nginx -t
 systemctl reload nginx
 
+echo ">>> TLS certificate name (must be $DOMAIN, not swingfox.ru)"
+if ! echo | openssl s_client -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null \
+  | openssl x509 -noout -subject 2>/dev/null | grep -q "CN = ${DOMAIN}"; then
+  echo "ERROR: nginx still serves the wrong certificate for SNI $DOMAIN." >&2
+  echo "Check: grep -R 'listen.*443' /etc/nginx/sites-enabled/ — betwelc must have ssl_certificate for $DOMAIN." >&2
+  exit 1
+fi
+
 echo ">>> HTTPS check"
-curl -fsSI "https://${DOMAIN}/health" | head -5 || echo "(curl failed — check beaty stack and nginx)"
+curl -fsS "https://${DOMAIN}/health" | head -3
 
 echo ""
 echo "Next steps:"
