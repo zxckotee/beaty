@@ -9,7 +9,7 @@ from urllib.parse import unquote, urlparse
 
 _FIRM_ID = re.compile(r"/firm/([0-9]+)", re.IGNORECASE)
 _COORDS_PATH = re.compile(r"/firm/[0-9]+/([0-9.]+)(?:[,%]2C|,)([0-9.]+)", re.IGNORECASE)
-_MAP_QUERY = re.compile(r"m=([0-9.]+)[,%]2C([0-9.]+)/([0-9.]+)", re.IGNORECASE)
+_MAP_QUERY = re.compile(r"m=([0-9.]+)(?:[,%]2C|,)([0-9.]+)/([0-9.]+)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
