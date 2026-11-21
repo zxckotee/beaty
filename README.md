@@ -160,4 +160,15 @@ docker compose ps
 
 Опциональный TLS: `docker-compose.tls.yml` + Caddy; задайте `PUBLIC_DOMAIN` и `ACME_EMAIL` в `.env.prod`.
 
+## Лендинг и 2ГИС (опционально)
+
+Публичная страница салона: `/t/{public_id}/studio` (редактор в веб-кабинете: раздел «Лендинг»). Карта на лендинге строится по координатам из ссылки 2ГИС (Leaflet + OpenStreetMap) без API-ключей.
+
+Опциональные переменные окружения для будущей интеграции Catalog / MapGL:
+
+| Переменная | Назначение |
+| --- | --- |
+| `DGIS_CATALOG_API_KEY` | Авто-адрес и `building_id` по `firm_id` |
+| `DGIS_MAPGL_KEY` | Встроенная карта 2ГИС вместо или вместе с OSM |
+
 Перед выкладкой Mini App на домен — [docs/pilot-checklist.md](docs/pilot-checklist.md).

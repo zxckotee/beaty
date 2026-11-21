@@ -128,7 +128,10 @@ export async function teamView() {
                 saved = await api.post('/manager/staff', payload);
               }
               const file = photo.getFile();
-              if (file) await api.upload(`/manager/staff/${saved.id}/photo`, file);
+              if (file) {
+                const withPhoto = await api.upload(`/manager/staff/${saved.id}/photo`, file);
+                if (withPhoto.photo_url) photo.setServerUrl(`${withPhoto.photo_url}?t=${Date.now()}`);
+              }
               sheet.close();
               toast(editing ? 'Карточка сохранена' : 'Специалист добавлен');
               reload();

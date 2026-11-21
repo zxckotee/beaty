@@ -59,6 +59,7 @@ export async function servicesView() {
       build: (sheet) => {
         const photo = photoPicker({ url: service && service.photo_url, name: service ? service.name : 'Услуга', square: true });
         const name = h('input', { class: 'input', type: 'text', maxlength: '255', required: true, value: service ? service.name : '', placeholder: 'Название услуги' });
+        name.addEventListener('input', () => photo.setName(name.value.trim() || 'Услуга'));
         const price = h('input', { class: 'input', type: 'number', min: '0', step: '50', inputmode: 'decimal', value: service ? service.price_cents / 100 : '', placeholder: '1500' });
         const dur = h('input', { class: 'input', type: 'number', min: '5', max: '720', step: '5', inputmode: 'numeric', value: service ? service.duration_minutes : 60 });
         const buffer = h('input', { class: 'input', type: 'number', min: '0', max: '240', step: '5', inputmode: 'numeric', value: service ? service.buffer_minutes : 0 });
@@ -119,7 +120,10 @@ export async function servicesView() {
                 }
               }
               const file = photo.getFile();
-              if (file) await api.upload(`/manager/services/${saved.id}/photo`, file);
+              if (file) {
+                const withPhoto = await api.upload(`/manager/services/${saved.id}/photo`, file);
+                if (withPhoto.photo_url) photo.setServerUrl(`${withPhoto.photo_url}?t=${Date.now()}`);
+              }
               sheet.close();
               toast(editing ? 'Услуга сохранена' : 'Услуга добавлена');
               reload();
