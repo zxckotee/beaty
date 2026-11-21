@@ -72,7 +72,12 @@ grep -E '^(WEBHOOK_BASE_URL|PUBLIC_WEB_URL|WEB_COOKIE_SECURE|TENANT_UI_MODE)=' .
 ./scripts/redeploy.sh nobuild
 ```
 
-Локально в репозитории лежит черновик `.env.prod` (в gitignore) — для правок перед копированием на сервер.
+В репозитории: **[deploy/env.prod](../deploy/env.prod)** — эталон prod для betwelc.ru (секреты — плейсхолдеры). На VPS:
+
+```bash
+TELEGRAM_SECRET='...' bash scripts/install-env-prod.sh /root/beaty
+# или CI: TELEGRAM_SECRET=... PUBLIC_HTTPS_URL=https://betwelc.ru bash scripts/write-env-prod-betwelc.sh
+```
 
 ## Бот салона
 
