@@ -24,7 +24,10 @@ def sanitize_dgis_embed(html: str | None) -> str | None:
     if not m:
         return None
     src = m.group(1)
-    return f'<iframe src="{src}" width="100%" height="100%" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+    return (
+        f'<iframe src="{src}" width="100%" height="100%" style="border:0;" '
+        'loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+    )
 
 
 async def get_or_create_landing(session: AsyncSession, tenant_id: uuid.UUID) -> TenantLanding:

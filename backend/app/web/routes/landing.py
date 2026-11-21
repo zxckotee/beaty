@@ -4,11 +4,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from sqlalchemy import select
-
 from app.domain.models import LandingPortfolioItem, LandingPost, Tenant, TenantLanding
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (

@@ -74,9 +74,10 @@ async def send_notification(session: AsyncSession, notification: Notification) -
             if len(photo_urls) == 1:
                 await bot.send_photo(chat_id, photo_urls[0], caption=text[:1024], reply_markup=reply_markup, **kwargs)
             else:
-                media = [
-                    InputMediaPhoto(media=photo_urls[0], caption=text[:1024], parse_mode=parse_mode if parse_mode else None)
-                ]
+                cap_kwargs: dict = {"caption": text[:1024]}
+                if parse_mode:
+                    cap_kwargs["parse_mode"] = parse_mode
+                media = [InputMediaPhoto(media=photo_urls[0], **cap_kwargs)]
                 for url in photo_urls[1:10]:
                     media.append(InputMediaPhoto(media=url))
                 await bot.send_media_group(chat_id, media)

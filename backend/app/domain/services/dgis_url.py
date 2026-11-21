@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
 _FIRM_ID = re.compile(r"/firm/([0-9]+)", re.IGNORECASE)
 _COORDS_PATH = re.compile(r"/firm/[0-9]+/([0-9.]+)(?:[,%]2C|,)([0-9.]+)", re.IGNORECASE)
