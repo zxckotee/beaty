@@ -22,10 +22,21 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## SSL (certbot)
 
+На VPS (один раз или при продлении):
+
+```bash
+cd /root/beaty
+CERTBOT_EMAIL=your@email.com bash scripts/enable-ssl-betwelc.sh
+```
+
+Вручную:
+
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d betwelc.ru
 ```
+
+Опционально в **GitHub Secrets** задайте `CERTBOT_EMAIL` — deploy попытается выпустить/обновить сертификат (без интерактива). После успешного HTTPS обязательно добавьте `PUBLIC_HTTPS_URL=https://betwelc.ru` и redeploy.
 
 Проверка:
 

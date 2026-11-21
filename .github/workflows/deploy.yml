@@ -47,6 +47,7 @@ jobs:
           TELEGRAM_PROXY: ${{ secrets.TELEGRAM_PROXY }}
           PUBLIC_HOST: ${{ secrets.SSH_HOST }}
           PUBLIC_HTTPS_URL: ${{ secrets.PUBLIC_HTTPS_URL }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
           TENANT_UI_MODE: "both"
           WEB_PORT: "4040"
           WEB_UI_PORT: "3030"
@@ -56,7 +57,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           command_timeout: 15m
-          envs: DEPLOY_BRANCH,SKIP_BUILD,GH_REPOSITORY,GH_TOKEN,TRIGGER,TELEGRAM_SECRET,TELEGRAM_PROXY,PUBLIC_HOST,PUBLIC_HTTPS_URL,TENANT_UI_MODE,WEB_PORT,WEB_UI_PORT
+          envs: DEPLOY_BRANCH,SKIP_BUILD,GH_REPOSITORY,GH_TOKEN,TRIGGER,TELEGRAM_SECRET,TELEGRAM_PROXY,PUBLIC_HOST,PUBLIC_HTTPS_URL,CERTBOT_EMAIL,TENANT_UI_MODE,WEB_PORT,WEB_UI_PORT
           script: |
             set -e
 
@@ -99,6 +100,11 @@ jobs:
 
             if [ -f scripts/deploy-edge-nginx-betwelc.sh ]; then
               bash scripts/deploy-edge-nginx-betwelc.sh "$DEPLOY_PATH" || true
+            fi
+
+            if [ -n "${CERTBOT_EMAIL:-}" ] && [ -f scripts/enable-ssl-betwelc.sh ]; then
+              echo ">>> SSL: certbot for betwelc.ru (skip if already issued)"
+              CERTBOT_EMAIL="$CERTBOT_EMAIL" bash scripts/enable-ssl-betwelc.sh "$DEPLOY_PATH" || true
             fi
 
             echo "Beaty deploy complete"
