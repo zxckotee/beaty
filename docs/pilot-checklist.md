@@ -34,4 +34,7 @@
 - [ ] Мастер `/day`, статусы inline; `/sick` форс-мажор
 - [ ] Менеджер `/today`, `/staff`, `/service_add`, `/pending`
 - [ ] Phase2: лист ожидания, отзыв 1–5, `/courses`
-- [ ] `TENANT_UI_MODE=bot` (по умолчанию) — только чат, без WebApp
+- [ ] `TENANT_UI_MODE=both` — чат + кнопка «Открыть кабинет» (Web App)
+- [ ] `https://betwelc.ru/health` и сертификат Let's Encrypt на nginx
+- [ ] Mini App: вход без poll-login, `POST /auth/telegram` с initData
+- [ ] `PUBLIC_HTTPS_URL=https://betwelc.ru` в CI / `.env.prod`

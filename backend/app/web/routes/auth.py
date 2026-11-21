@@ -10,10 +10,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.crypto import decrypt_bot_token
 from app.core.db import get_session
 from app.core.jwt_auth import create_web_session_token
 from app.core.redis_client import get_redis
 from app.core.settings import get_settings
+from app.core.telegram_auth import verify_webapp_init_data
 from app.domain.active_role import UI_ROLE_LABELS, write_stored_ui_role
 from app.domain.models import Branch, Tenant
 from app.domain.services.cell_service import get_default_branch, work_day_hours
@@ -147,6 +149,36 @@ class DevLogin(BaseModel):
     telegram_user_id: int | None = None
     identifier: str | None = None
     name: str | None = None
+
+
+class TelegramWebAppAuth(BaseModel):
+    init_data: str = Field(min_length=1, max_length=4096)
+
+
+@router.post("/auth/telegram")
+async def auth_telegram(
+    body: TelegramWebAppAuth,
+    response: Response,
+    tenant: Tenant = Depends(get_tenant),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    """Exchange Telegram WebApp initData for a session cookie (Mini App login)."""
+    if not tenant.bot_token_encrypted:
+        raise HTTPException(status_code=503, detail="bot not linked")
+    bot_token = decrypt_bot_token(tenant.bot_token_encrypted)
+    try:
+        parsed = verify_webapp_init_data(body.init_data, bot_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    user = parsed.get("user")
+    if not isinstance(user, dict) or "id" not in user:
+        raise HTTPException(status_code=400, detail="missing user in init data")
+    telegram_user_id = int(user["id"])
+    display_name = user.get("first_name") or user.get("username")
+    account = await get_or_create_user_account(session, telegram_user_id)
+    await session.commit()
+    _set_session_cookie(response, tenant, account.id, display_name)
+    return {"state": "confirmed"}
 
 
 @router.post("/auth/dev")

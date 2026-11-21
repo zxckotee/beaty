@@ -11,14 +11,19 @@ from app.bot.active_role import (
 )
 from app.bot.client.states import ClientOnboarding
 from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply, role_switch_inline
-from app.domain.models import ClientProfile, StaffMember
+from app.bot.miniapp import miniapp_url_for_tenant
+from app.domain.models import ClientProfile, StaffMember, Tenant
 from app.domain.services.client_onboarding_service import client_has_phone
 
 role_switch_router = Router(name="role_switch")
 
 
-def _menu(active_ui_role: UiRole, can_switch_ui_role: bool):
-    return main_menu_reply(active_ui_role=active_ui_role, can_switch_ui_role=can_switch_ui_role)
+def _menu(active_ui_role: UiRole, can_switch_ui_role: bool, tenant: Tenant):
+    return main_menu_reply(
+        active_ui_role=active_ui_role,
+        can_switch_ui_role=can_switch_ui_role,
+        miniapp_web_url=miniapp_url_for_tenant(tenant),
+    )
 
 
 @role_switch_router.message(F.text == "Сменить режим")
@@ -41,6 +46,7 @@ async def apply_switch(
     callback: CallbackQuery,
     state: FSMContext,
     db_session: AsyncSession,
+    tenant: Tenant,
     staff_member: StaffMember | None,
     client_profile: ClientProfile | None,
     available_ui_roles: list[str],
@@ -75,6 +81,6 @@ async def apply_switch(
         await callback.message.edit_text(f"Сейчас вы в режиме: {label}.")
         await callback.message.answer(
             "Меню обновлено.",
-            reply_markup=_menu(role, can_switch_ui_role),  # type: ignore[arg-type]
+            reply_markup=_menu(role, can_switch_ui_role, tenant),  # type: ignore[arg-type]
         )
     await callback.answer()

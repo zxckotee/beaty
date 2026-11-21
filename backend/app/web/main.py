@@ -48,10 +48,27 @@ _STATUS_BY_ERROR: tuple[tuple[type[DomainError], int], ...] = (
     (ConflictError, 409),
 )
 
-CSP = (
+CSP_BROWSER = (
     "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
+
+CSP_TELEGRAM = (
+    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
+    "base-uri 'none'; form-action 'self'"
+)
+
+
+def _telegram_miniapp_context(request: Request) -> bool:
+    if request.headers.get("sec-fetch-dest") == "iframe":
+        return True
+    if request.query_params.get("tgWebAppData") or request.query_params.get("tgWebAppVersion"):
+        return True
+    referer = (request.headers.get("referer") or "").lower()
+    return "telegram" in referer
 
 
 @asynccontextmanager
@@ -71,7 +88,8 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "same-origin")
-    response.headers.setdefault("Content-Security-Policy", CSP)
+    csp = CSP_TELEGRAM if _telegram_miniapp_context(request) else CSP_BROWSER
+    response.headers.setdefault("Content-Security-Policy", csp)
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
     return response

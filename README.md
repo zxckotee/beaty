@@ -82,14 +82,10 @@ flowchart TB
 В коде уже есть задел:
 
 - проверка подписи `WebAppData` в [backend/app/core/telegram_auth.py](backend/app/core/telegram_auth.py);
-- настройка `TENANT_UI_MODE=bot|miniapp|both` в [backend/app/core/settings.py](backend/app/core/settings.py) (сейчас Mini App в рантайме отключён заглушкой [backend/app/bot/miniapp.py](backend/app/bot/miniapp.py));
-- prod-переменные `PUBLIC_DOMAIN`, `PUBLIC_HTTPS_URL`, профиль [docker-compose.tls.yml](docker-compose.tls.yml) + [deploy/Caddyfile](deploy/Caddyfile).
-
-План доработки (без смены доменной модели):
-
-1. Проксировать веб-кабинет и статику на домене (Caddy → `web:3030`, API и `/tg/*` — на `api:8000`).
-2. Включить Mini App: кнопка `web_app` в боте салона, авторизация через `initData` вместо/вместе с cookie-flow.
-3. Включить `WEB_COOKIE_SECURE=true` и единый публичный URL для мультитенантных ссылок `/t/<id>/`.
+- `TENANT_UI_MODE=both` — чат + кнопка «Открыть кабинет» ([backend/app/bot/miniapp.py](backend/app/bot/miniapp.py), `web_app` в reply-меню);
+- `POST /api/t/.../auth/telegram` — вход по `initData` в Mini App;
+- edge nginx: [deploy/nginx-betwelc.edge.conf](deploy/nginx-betwelc.edge.conf), деплой [docs/miniapp-deploy.md](docs/miniapp-deploy.md);
+- prod: `PUBLIC_HTTPS_URL`, `PUBLIC_WEB_URL`, `WEB_COOKIE_SECURE=true` (через [scripts/write-env-from-ci.sh](scripts/write-env-from-ci.sh)).
 
 Детальные сценарии ролей и ограничения Telegram — [docs/product.md](docs/product.md). Техническая схема — [docs/architecture.md](docs/architecture.md). Этапы MVP → V2 — [docs/roadmap.md](docs/roadmap.md).
 
