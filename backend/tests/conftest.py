@@ -9,7 +9,7 @@ os.environ.setdefault("JWT_SECRET", "test-jwt")
 import asyncio  # noqa: E402
 import secrets  # noqa: E402
 from collections.abc import AsyncIterator  # noqa: E402
-from datetime import UTC, datetime, time, timedelta  # noqa: E402
+from datetime import UTC, date, datetime, time, timedelta  # noqa: E402
 from zoneinfo import ZoneInfo  # noqa: E402
 
 import pytest  # noqa: E402
