@@ -54,6 +54,27 @@ curl -sI "https://betwelc.ru/t/<tenant_public_id>/"
 
 После мержа — redeploy; в `.env.prod` появятся `WEBHOOK_BASE_URL`, `PUBLIC_WEB_URL`, `TENANT_UI_MODE`, `WEB_COOKIE_SECURE`.
 
+### Если в браузере «Подключение не защищено» после certbot
+
+На одном VPS с **swingfox.ru** nginx на `:443` должен отдавать **свой** сертификат для `betwelc.ru` (SNI). Частая причина: в `betwelc.ru.conf` только `listen 80` (шаблон перезаписал правки certbot), и тогда на HTTPS прилетает сертификат swingfox.
+
+Проверка с любой машины:
+
+```bash
+echo | openssl s_client -connect betwelc.ru:443 -servername betwelc.ru 2>/dev/null | openssl x509 -noout -subject
+# должно быть: subject=CN = betwelc.ru
+```
+
+Починка на VPS (после `git pull`):
+
+```bash
+cd /root/beaty
+bash scripts/deploy-edge-nginx-betwelc.sh   # подставит deploy/nginx-betwelc.edge.https.conf, если есть LE-серт
+nginx -t && systemctl reload nginx
+```
+
+Открывайте **`https://betwelc.ru`** (без `www`; `www` редиректится только с HTTP).
+
 ## Файл `.env.prod` на VPS
 
 Секреты БД и JWT лежат в `.secrets.env` (создаётся один раз). Публичный prod для betwelc:
