@@ -12,6 +12,7 @@ from app.bot.chat_readonly import open_miniapp_markup
 from app.bot.filters.roles import HasManagerRole, is_manager
 from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.models import Tenant
+from app.domain.user_labels import booking_status_display
 
 today_router = Router(name="manager_today")
 today_router.message.filter(HasManagerRole())
@@ -76,7 +77,8 @@ async def send_today(
     lines = [f"Записи на {day.strftime('%d.%m.%Y')}:"]
     for r in items:
         t = r.start_at.strftime("%H:%M") if r.start_at else "?"
-        lines.append(f"{t} {r.client_name} — {r.service_name} / {r.staff_name} [{r.status}]")
+        status_label = booking_status_display(r.status)
+        lines.append(f"{t} {r.client_name} — {r.service_name} / {r.staff_name} [{status_label}]")
         kb.button(text=f"{t} {r.client_name}"[:38], callback_data=f"m:bdg:{r.id}")
     kb.adjust(1)
     await message.answer("\n".join(lines), reply_markup=kb.as_markup())
@@ -132,7 +134,8 @@ async def booking_card(callback: CallbackQuery, tenant: Tenant, db_session: Asyn
         return
     when = r.start_at.strftime("%d.%m.%Y %H:%M") if r.start_at else "—"
     text_msg = (
-        f"{r.client_name}\n{when}\n{r.service_name} / {r.staff_name}\nСтатус: {r.status}"
+        f"{r.client_name}\n{when}\n{r.service_name} / {r.staff_name}\n"
+        f"Статус: {booking_status_display(r.status)}"
     )
     if bot_chat_write_enabled():
         kb = InlineKeyboardBuilder()

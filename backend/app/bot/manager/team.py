@@ -16,6 +16,7 @@ from app.bot.shared import assert_can_write
 from app.domain.models import StaffMember, StaffRole, Tenant, UserAccount
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.domain.services.team_invite_service import create_invite, invite_start_param, regenerate_invite
+from app.domain.user_labels import staff_roles_display
 
 team_router = Router(name="manager_team")
 team_router.message.filter(HasManagerRole())
@@ -24,7 +25,7 @@ team_router.callback_query.filter(HasManagerRole())
 
 def _staff_card(st: StaffMember) -> str:
     linked = "✅ в Telegram" if st.user_account_id else "⏳ без привязки"
-    lines = [f"*{st.display_name}* ({linked})", f"Роли: {', '.join(st.roles or [])}"]
+    lines = [f"*{st.display_name}* ({linked})", f"Роли: {staff_roles_display(st.roles)}"]
     if st.specialization:
         lines.append(f"Специализация: {st.specialization}")
     if st.bio:
