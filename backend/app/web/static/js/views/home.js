@@ -1,7 +1,7 @@
 import { api, friendly } from '../api.js';
 import { navigate } from '../main.js';
 import { isManager, store } from '../store.js';
-import { field, openSheet, spinner, toast, withBusy } from '../ui.js';
+import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 import { h, hueFor, icon, initials } from '../util.js';
 
 let leafletPromise = null;
@@ -105,36 +105,60 @@ export async function homeView() {
       build: (sheet) => {
         const t = h('input', { class: 'input', value: item ? item.title : '', placeholder: 'Название' });
         const d = h('textarea', { class: 'textarea' }, item ? item.description || '' : '');
-        sheet.body.append(field('Название', t), field('Описание', d));
-        if (item) {
-          const photoBtn = h('button', { class: 'btn sm', type: 'button' }, icon('camera'), 'Добавить фото');
-          photoBtn.addEventListener('click', () =>
-            pickImage(async (f) => {
-              try {
-                await api.upload(`/manager/landing/portfolio/${item.id}/photos`, f);
-                toast('Фото добавлено');
-                await load();
-                draw();
-              } catch (e) {
-                toast(friendly(e), true);
-              }
-            }),
+        const firstPhoto = item && item.photo_urls && item.photo_urls[0];
+        const photos = photoPicker({ url: firstPhoto, name: item ? item.title : 'Работа', square: true });
+        sheet.body.append(
+          field('Фото', photos.el),
+          field('Название', t),
+          field('Описание', d),
+        );
+        if (item && item.photo_urls && item.photo_urls.length > 1) {
+          sheet.body.append(
+            h('p', { class: 'tiny muted' }, `Всего фото: ${item.photo_urls.length}. Здесь меняется обложка карточки.`),
           );
-          sheet.body.append(photoBtn);
         }
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
+            const title = t.value.trim();
+            if (!title) {
+              toast('Укажите название', true);
+              return;
+            }
+            const file = photos.getFile();
+            if (!item && !file && !firstPhoto) {
+              toast('Добавьте фото работы', true);
+              return;
+            }
             const bodyPayload = {
-              title: t.value.trim(),
+              title,
               description: d.value.trim() || null,
               sort_order: item ? item.sort_order : 0,
             };
-            if (item) await api.patch(`/manager/landing/portfolio/${item.id}`, bodyPayload);
-            else await api.post('/manager/landing/portfolio', bodyPayload);
-            sheet.close();
-            await load();
-            draw();
+            try {
+              let itemId = item ? item.id : null;
+              if (item) await api.patch(`/manager/landing/portfolio/${item.id}`, bodyPayload);
+              else {
+                const created = await api.post('/manager/landing/portfolio', bodyPayload);
+                itemId = created.id;
+              }
+              if (file && itemId) {
+                const uploaded = await api.upload(`/manager/landing/portfolio/${itemId}/photos`, file);
+                const urls = uploaded.photo_urls || [];
+                if (item && urls.length > 1) {
+                  const last = urls[urls.length - 1];
+                  await api.patch(`/manager/landing/portfolio/${itemId}`, {
+                    photo_urls: [last, ...urls.slice(0, -1)],
+                  });
+                }
+              }
+              sheet.close();
+              await load();
+              draw();
+              toast(item ? 'Работа сохранена' : 'Работа добавлена');
+            } catch (e) {
+              toast(friendly(e), true);
+            }
           }),
         );
         sheet.setFooter(save);
