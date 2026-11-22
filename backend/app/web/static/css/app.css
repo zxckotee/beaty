@@ -469,17 +469,26 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 
 /* ---------- profile (VK-style landing) ---------- */
 .shell--home-guest { padding-bottom: calc(var(--safe-b) + 16px); }
-.shell--home .main--profile { max-width: none; padding: 0; }
+.shell--home .main--profile { max-width: none; width: 100%; padding: 0; }
+.shell--home .header { max-width: none; }
 .header--profile-guest { backdrop-filter: blur(12px); background: color-mix(in srgb, var(--surface) 88%, transparent); }
 .main--profile #toast-root { bottom: calc(var(--safe-b) + 24px); }
 
-.profile { padding-bottom: 32px; }
-.profile-inner { max-width: 720px; margin: 0 auto; }
-.profile-hero { position: relative; margin-bottom: 56px; }
+.profile { padding-bottom: 32px; width: 100%; }
+.profile-inner {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 8px;
+  box-sizing: border-box;
+}
 .profile-cover {
-  height: clamp(160px, 38vw, 260px);
+  width: 100%;
+  max-width: 100%;
+  height: clamp(200px, 36vw, 420px);
   background-size: cover;
   background-position: center;
+  display: block;
 }
 .profile-cover--edit { cursor: pointer; position: relative; }
 .profile-cover--edit .profile-edit-hint {
@@ -489,10 +498,13 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
   opacity: 0; transition: opacity .2s;
 }
 .profile--edit .profile-cover--edit:hover .profile-edit-hint { opacity: 1; }
-.profile-hero-body { position: relative; padding: 0 20px 12px; text-align: center; }
+.profile-hero-body { position: relative; padding: 0 8px 20px; margin-bottom: 12px; text-align: center; }
 .profile-avatar {
-  width: 112px; height: 112px; border-radius: 50%; border: 4px solid var(--surface);
-  margin: -56px auto 12px; object-fit: cover; display: block; background: var(--surface-2);
+  width: clamp(104px, 18vw, 128px);
+  height: clamp(104px, 18vw, 128px);
+  border-radius: 50%; border: 4px solid var(--surface);
+  margin: calc(-1 * clamp(52px, 9vw, 64px)) auto 14px;
+  object-fit: cover; display: block; background: var(--surface-2);
   box-shadow: var(--shadow);
 }
 .profile-avatar-fallback {
@@ -500,7 +512,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 }
 .profile-avatar--edit { cursor: pointer; outline: 2px dashed transparent; transition: outline-color .2s; }
 .profile-avatar--edit:hover { outline-color: var(--accent-line); }
-.profile-title { margin: 0 0 6px; font-size: 1.5rem; font-weight: 750; }
+.profile-title { margin: 0 0 6px; font-size: clamp(1.35rem, 2.5vw, 2rem); font-weight: 750; }
 .profile-title--edit[contenteditable='true']:empty::before,
 .profile-tagline--edit[contenteditable='true']:empty::before {
   content: attr(data-ph); color: var(--muted); font-style: italic;
@@ -515,13 +527,21 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 }
 .profile-cta { margin: 4px auto 0; padding: 12px 22px; border-radius: 999px; font-weight: 650; }
 .profile-edit-bar {
-  margin: 0 16px 16px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 0 16px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
-.profile-section { padding: 0 16px 28px; }
-.profile-section h2 { margin: 0 0 14px; font-size: 1.15rem; }
+.profile-section { padding: 0 0 32px; }
+.profile-section h2 { margin: 0 0 14px; font-size: clamp(1.05rem, 1.8vw, 1.35rem); font-weight: 700; }
 .profile-portfolio-grid { display: grid; gap: 14px; }
 @media (min-width: 560px) {
   .profile-portfolio-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 900px) {
+  .profile-inner { padding: 0 28px 12px; }
+  .profile-portfolio-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .profile-map { height: clamp(320px, 36vh, 520px); }
+  .profile-dgis-embed,
+  .profile-dgis-embed iframe { min-height: clamp(320px, 36vh, 520px); height: clamp(320px, 36vh, 520px); }
+  .profile-hero-body { padding: 0 24px 28px; }
 }
 .profile-portfolio-card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;

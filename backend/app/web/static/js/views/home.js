@@ -433,7 +433,6 @@ export async function homeView() {
 
     const cta = h('button', { class: 'btn profile-cta', type: 'button', onclick: () => navigate('book') }, icon('scissors'), 'Записаться');
     const heroBody = h('div', { class: 'profile-hero-body' }, avatar, titleEl, tagEl, cta);
-    const heroSection = h('div', { class: 'profile-hero' }, cover, heroBody);
 
     const sections = [];
 
@@ -526,7 +525,8 @@ export async function homeView() {
       sections.push(h('section', { class: 'profile-section' }, h('h2', null, 'Новости'), list));
     }
 
-    body.replaceChildren(heroSection, ...sections);
+    root.replaceChildren(cover, body);
+    body.replaceChildren(heroBody, ...sections);
     if (!hasEmbed && hasMap) mountMap();
   }
 
