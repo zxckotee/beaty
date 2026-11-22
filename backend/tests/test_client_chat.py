@@ -1,5 +1,7 @@
 """Client messenger: inbound classification and manager chat API."""
 
+from collections.abc import AsyncIterator
+
 import httpx
 import pytest
 from aiogram.types import Chat, PhotoSize, User, Voice
@@ -72,10 +74,12 @@ async def chat_salon(session: AsyncSession) -> dict[str, object]:
 
 
 @pytest.fixture
-async def web_client() -> httpx.AsyncClient:
-    c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
-    yield c
-    await c.aclose()
+async def web_client() -> AsyncIterator[httpx.AsyncClient]:
+    from app.core.db import engine
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    await engine.dispose()
 
 
 async def test_chat_api_list_and_thread(
