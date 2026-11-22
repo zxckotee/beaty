@@ -20,6 +20,7 @@
   --glass-saturate: 1;
   --glass-bg: color-mix(in srgb, #000000 72%, transparent);
   --shell-chrome-bg: color-mix(in srgb, #000000 78%, transparent);
+  --header-bg: color-mix(in srgb, #000000 48%, transparent);
   --glass-border: var(--line);
   --glass-highlight: color-mix(in srgb, #fff 6%, transparent);
   --ok: #3ccf93;
