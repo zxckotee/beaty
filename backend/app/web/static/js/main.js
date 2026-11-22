@@ -5,6 +5,7 @@ import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
 import { loginView } from './views/login.js';
 import { dayView } from './views/day.js';
+import { dashboardView } from './views/dashboard.js';
 import { teamView } from './views/team.js';
 import { servicesView } from './views/services.js';
 import { bookView } from './views/book.js';
@@ -20,7 +21,7 @@ let renderToken = 0;
 
 const NAV = {
   manager: [
-    { route: 'schedule', label: 'Расписание', icon: 'calendar' },
+    { route: 'dashboard', label: 'Дашборд', icon: 'calendar' },
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
     { route: 'home', label: 'Профиль', icon: 'globe' },
@@ -39,6 +40,7 @@ const NAV = {
 };
 
 const ROUTES = {
+  dashboard: { roles: ['manager'], view: (sub) => dashboardView(sub) },
   schedule: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
   team: { roles: ['manager'], view: () => teamView() },
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
@@ -52,7 +54,7 @@ const ROUTES = {
 };
 
 const activeRole = () => (store.me.authenticated ? store.me.active_role : 'client');
-const defaultRoute = () => 'home';
+const defaultRoute = () => (isManager() ? 'dashboard' : 'home');
 
 const isHomeGuest = (route) => route === 'home' && !store.me.authenticated;
 

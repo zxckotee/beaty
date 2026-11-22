@@ -5,15 +5,16 @@ from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.domain.exceptions import ValidationError
-from app.domain.models import Service, ServiceCategory, StaffMember
-from app.domain.services.booking_service import book_services_at_start
+from app.domain.exceptions import ForbiddenError, NotFoundError
+from app.domain.models import Booking, BookingItem, BookingStatus, Service, ServiceCategory, StaffMember
+from app.domain.services.booking_service import book_services_at_start, cancel_booking, mark_booking_completed
 from app.domain.services.card_service import (
     ServiceLink,
     create_service,
@@ -339,6 +340,9 @@ async def post_manual_booking(
     tenant = writable(ctx)
     assert ctx.user is not None
     tz = await _tz(session, ctx)
+    today_local = datetime.now(tz).date()
+    if body.date < today_local:
+        raise HTTPException(status_code=400, detail="cannot book in the past")
     start_at: datetime = parse_local(body.date, body.start_time, tz)
     end_at: datetime | None = None
     if body.end_time is not None:
@@ -373,6 +377,57 @@ async def post_manual_booking(
         "start_at": start_at.isoformat(),
         "end_time": body.end_time,
     }
+
+
+class BookingCancelIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/bookings/{booking_id}/complete")
+async def manager_complete_booking(
+    booking_id: UUID,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    assert ctx.user is not None
+    try:
+        booking = await mark_booking_completed(
+            session, tenant=tenant, booking_id=booking_id, actor_user_id=ctx.user.id
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="booking not found") from None
+    except ForbiddenError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    await session.commit()
+    return {"status": booking.status}
+
+
+@router.post("/bookings/{booking_id}/cancel")
+async def manager_cancel_booking(
+    booking_id: UUID,
+    body: BookingCancelIn,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    assert ctx.user is not None
+    try:
+        booking = await cancel_booking(
+            session,
+            tenant=tenant,
+            booking_id=booking_id,
+            reason="manager_cancel",
+            message=body.reason,
+            actor_user_id=ctx.user.id,
+            skip_deadline_check=True,
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="booking not found") from None
+    except ForbiddenError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    await session.commit()
+    return {"status": booking.status}
 
 
 @router.post("/services", status_code=201)

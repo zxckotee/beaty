@@ -8,14 +8,16 @@ from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import Range
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.cells import ServiceNeed, price_total, total_block_minutes
 from app.domain.models import (
     Booking,
+    BookingEvent,
     BookingItem,
+    BookingStatus,
     Branch,
     ClientProfile,
     ScheduleException,
@@ -30,6 +32,7 @@ from app.domain.services.cell_service import (
     eligible_staff_needs,
     lead_time_earliest,
     load_services,
+    work_day_hours,
 )
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.domain.services.slot_repository import (
@@ -42,6 +45,68 @@ from app.domain.services.slot_repository import (
 from app.domain.slots import SlotRules, TimeInterval, compute_slots, subtract_busy
 
 ACTIVE_BOOKING_STATUSES = ACTIVE_STATUSES
+
+DISPLAY_BOOKING_STATUSES = (
+    *ACTIVE_STATUSES,
+    BookingStatus.COMPLETED.value,
+    BookingStatus.CANCELLED.value,
+    BookingStatus.NO_SHOW.value,
+)
+
+_SYSTEM_CANCEL_CODES = frozenset(
+    {
+        "client_cancel",
+        "client_cancel_web",
+        "manager_cancel",
+        "user_cancelled_hold",
+        "force_majeure",
+    }
+)
+
+
+def human_cancel_reason(payload: dict) -> str | None:
+    if not payload:
+        return None
+    message = payload.get("message") or payload.get("client_message")
+    if message and str(message).strip():
+        return str(message).strip()
+    reason = payload.get("reason")
+    if reason and str(reason).strip() and str(reason) not in _SYSTEM_CANCEL_CODES:
+        return str(reason).strip()
+    return None
+
+
+async def _load_cancel_reasons(
+    session: AsyncSession, *, tenant_id: UUID, booking_ids: Sequence[UUID]
+) -> dict[UUID, str]:
+    if not booking_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(BookingEvent.booking_id, BookingEvent.payload)
+            .where(
+                BookingEvent.tenant_id == tenant_id,
+                BookingEvent.booking_id.in_(booking_ids),
+                BookingEvent.event_type == "cancelled",
+            )
+            .order_by(BookingEvent.booking_id, BookingEvent.created_at.desc())
+        )
+    ).all()
+    out: dict[UUID, str] = {}
+    for bid, payload in rows:
+        if bid in out:
+            continue
+        text = human_cancel_reason(payload or {})
+        if text:
+            out[bid] = text
+    return out
+
+
+def _local_time_on_day(day: date, hhmm: str, tz: ZoneInfo) -> datetime:
+    if hhmm == "24:00":
+        return datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+    h, m = hhmm.split(":")
+    return datetime.combine(day, time(int(h), int(m)), tzinfo=tz).astimezone(UTC)
 
 
 @dataclass
@@ -227,20 +292,31 @@ async def staff_day_bookings(
   staff_member_id: UUID,
   range_start: datetime,
   range_end: datetime,
+  for_display: bool = False,
 ) -> list[CellBooking]:
+  statuses = DISPLAY_BOOKING_STATUSES if for_display else ACTIVE_BOOKING_STATUSES
+  filters = [
+    BookingItem.tenant_id == tenant_id,
+    BookingItem.staff_member_id == staff_member_id,
+    Booking.status.in_(statuses),
+    BookingItem.during.overlaps(Range(range_start, range_end, bounds="[)")),
+  ]
+  if for_display:
+    filters.append(
+      or_(
+        BookingItem.is_active.is_(True),
+        Booking.status == BookingStatus.CANCELLED.value,
+      )
+    )
+  else:
+    filters.append(BookingItem.is_active.is_(True))
   rows = (
     await session.execute(
       select(BookingItem, Booking, ClientProfile, Service)
       .join(Booking, Booking.id == BookingItem.booking_id)
       .join(ClientProfile, ClientProfile.id == Booking.client_profile_id)
       .join(Service, Service.id == BookingItem.service_id)
-      .where(
-        BookingItem.tenant_id == tenant_id,
-        BookingItem.staff_member_id == staff_member_id,
-        BookingItem.is_active.is_(True),
-        Booking.status.in_(ACTIVE_BOOKING_STATUSES),
-        BookingItem.during.overlaps(Range(range_start, range_end, bounds="[)")),
-      )
+      .where(*filters)
       .order_by(func.lower(BookingItem.during))
     )
   ).all()
@@ -265,6 +341,10 @@ async def staff_day_bookings(
     else:
       existing.service_names.append(service.name)
       existing.end = max(existing.end, rng.upper)
+  if for_display and grouped:
+    reasons = await _load_cancel_reasons(session, tenant_id=tenant_id, booking_ids=list(grouped.keys()))
+    for bid, cell in grouped.items():
+      cell.cancel_reason = reasons.get(bid)
   result = list(grouped.values())
   result.sort(key=lambda b: b.start)
   return result
@@ -288,12 +368,12 @@ async def list_schedule_day_windows(
   staff_list = list((await session.scalars(stmt)).all())
 
   windows: list[ScheduleDayWindow] = []
-  for staff in staff_list:
-    work = await _work_for_staff_range(
-      session, tenant=tenant, branch=branch, staff_id=staff.id, range_start=day_start, range_end=day_end
-    )
-    if not work:
-      continue
+  covered_staff: set[UUID] = set()
+  day_ws, day_we = work_day_hours(tenant)
+  default_w_start = _local_time_on_day(day, day_ws, tz)
+  default_w_end = _local_time_on_day(day, day_we, tz)
+
+  async def append_window(staff: StaffMember, work: list[TimeInterval]) -> None:
     busy = await _busy_for_staff(
       session, tenant_id=tenant.id, staff_id=staff.id, range_start=day_start, range_end=day_end
     )
@@ -306,10 +386,34 @@ async def list_schedule_day_windows(
       staff_member_id=staff.id,
       range_start=day_start,
       range_end=day_end,
+      for_display=True,
     )
     windows.append(
       ScheduleDayWindow(staff=staff, day=day, work_start=w_start, work_end=w_end, free=free, bookings=bookings)
     )
+    covered_staff.add(staff.id)
+
+  for staff in staff_list:
+    work = await _work_for_staff_range(
+      session, tenant=tenant, branch=branch, staff_id=staff.id, range_start=day_start, range_end=day_end
+    )
+    if work:
+      await append_window(staff, work)
+      continue
+    bookings = await staff_day_bookings(
+      session,
+      tenant_id=tenant.id,
+      staff_member_id=staff.id,
+      range_start=day_start,
+      range_end=day_end,
+      for_display=True,
+    )
+    if not bookings:
+      continue
+    w_start = min(default_w_start, min(b.start for b in bookings))
+    w_end = max(default_w_end, max(b.end for b in bookings))
+    await append_window(staff, [TimeInterval(w_start, w_end)])
+
   windows.sort(key=lambda w: (w.work_start, w.staff.display_name))
   return windows
 

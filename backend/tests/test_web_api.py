@@ -263,6 +263,85 @@ async def test_public_landing_always(salon: Salon, client_factory) -> None:  # t
     assert "portfolio" in body and "posts" in body
 
 
+async def test_booking_status_and_analytics(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    owner = client_factory()
+    await login(owner, salon, salon.owner_tg)
+    day = next_open_weekday_moscow().isoformat()
+    manual = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": day,
+            "start_time": "11:00",
+            "service_ids": [salon.service_id],
+            "client_name": "Статус Тест",
+            "client_phone": "+79007654321",
+        },
+    )
+    assert manual.status_code == 201, manual.text
+    booking_id = manual.json()["booking_id"]
+    done = await owner.post(f"{base}/manager/bookings/{booking_id}/complete")
+    assert done.status_code == 200
+    assert done.json()["status"] == "completed"
+    day_view = await owner.get(f"{base}/manager/day", params={"date": day})
+    assert day_view.status_code == 200
+    bookings = [b for c in day_view.json()["cells"] for b in c.get("bookings", [])]
+    assert any(b["booking_id"] == booking_id and b["status"] == "completed" for b in bookings)
+
+    summary = await owner.get(f"{base}/manager/analytics/summary")
+    assert summary.status_code == 200
+    assert summary.json()["counts"]["completed"] >= 1
+
+
+async def test_past_manual_booking_rejected(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    owner = client_factory()
+    await login(owner, salon, salon.owner_tg)
+    from datetime import timedelta
+
+    past = (next_open_weekday_moscow() - timedelta(days=7)).isoformat()
+    r = await owner.post(
+        f"{base}/manager/bookings/manual",
+        json={
+            "staff_member_id": salon.specialist_id,
+            "date": past,
+            "start_time": "11:00",
+            "service_ids": [salon.service_id],
+            "client_name": "Прошлое",
+            "client_phone": "+79001110000",
+        },
+    )
+    assert r.status_code == 400
+
+
+async def test_client_cancel_with_reason(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    base = f"/api/t/{salon.public_id}"
+    client = client_factory()
+    avail = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
+    offers = [o for d in avail.json()["days"] for o in d["offers"]]
+    assert offers
+    offer = offers[0]
+    await login(client, salon, salon.client_tg)
+    booked = await client.post(
+        f"{base}/client/bookings",
+        json={
+            "staff_member_id": offer["staff_member_id"],
+            "start_at": offer["start_at"],
+            "service_ids": [salon.service_id],
+            "name": "Отмена",
+            "phone": "+79002223344",
+        },
+    )
+    assert booked.status_code == 201
+    bid = booked.json()["id"]
+    cancel = await client.post(
+        f"{base}/client/bookings/{bid}/cancel",
+        json={"reason": "извиняюсь я заболел"},
+    )
+    assert cancel.status_code == 200
+
+
 async def test_staff_options(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
     anon = client_factory()

@@ -274,6 +274,33 @@ async def confirm_visit(
     return booking
 
 
+async def mark_booking_completed(
+    session: AsyncSession,
+    *,
+    tenant: Tenant,
+    booking_id: UUID,
+    actor_user_id: UUID | None = None,
+) -> Booking:
+    booking = await session.get(Booking, booking_id)
+    if booking is None or booking.tenant_id != tenant.id:
+        raise NotFoundError("booking not found")
+    if booking.status in (BookingStatus.CANCELLED.value, BookingStatus.COMPLETED.value):
+        raise ForbiddenError("invalid status")
+    booking.status = BookingStatus.COMPLETED.value
+    session.add(
+        BookingEvent(
+            tenant_id=tenant.id,
+            booking_id=booking.id,
+            event_type="completed",
+            actor_user_id=actor_user_id,
+        )
+    )
+    from app.domain.services.revisit_service import schedule_revisit_for_completed_booking
+
+    await schedule_revisit_for_completed_booking(session, tenant_id=tenant.id, booking_id=booking.id)
+    return booking
+
+
 async def cancel_booking(
     session: AsyncSession,
     *,
@@ -282,6 +309,7 @@ async def cancel_booking(
     reason: str,
     actor_user_id: UUID | None = None,
     skip_deadline_check: bool = False,
+    message: str | None = None,
 ) -> Booking:
     booking = await session.get(Booking, booking_id)
     if booking is None or booking.tenant_id != tenant.id:
@@ -308,12 +336,15 @@ async def cancel_booking(
     from app.domain.services.notification_planner import queue_booking_cancelled
 
     await queue_booking_cancelled(session, booking)
+    cancel_payload: dict[str, str] = {"reason": reason}
+    if message and message.strip():
+        cancel_payload["message"] = message.strip()
     session.add(
         BookingEvent(
             tenant_id=tenant.id,
             booking_id=booking.id,
             event_type="cancelled",
-            payload={"reason": reason},
+            payload=cancel_payload,
             actor_user_id=actor_user_id,
         )
     )

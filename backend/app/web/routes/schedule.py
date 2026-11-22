@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.domain.exceptions import ForbiddenError, NotFoundError
+from app.domain.models import Booking, BookingItem
 from app.domain.services.availability_service import list_schedule_day_windows
+from app.domain.services.booking_service import cancel_booking, mark_booking_completed
 from app.domain.services.cell_service import get_default_branch, work_day_hours
-from app.web.deps import WebContext, require_manager, require_staff
+from app.web.deps import WebContext, require_manager, require_staff, writable
 from app.web.serializers import booking_dict, schedule_window_dict
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["schedule"])
@@ -37,12 +44,22 @@ async def day_payload(
         for w in windows
     ]
     work_start, work_end = work_day_hours(tenant)
+    today_local = datetime.now(tz).date()
+    is_past = day < today_local
+    active_on_day = sum(
+        1 for w in windows for b in w.bookings if b.status in {"held", "booked", "confirmed", "arrived"}
+    )
     return {
         "date": day.isoformat(),
         "timezone": branch.timezone,
         "work_start": work_start,
         "work_end": work_end,
         "cells": cells,
+        "meta": {
+            "is_past": is_past,
+            "read_only_booking": is_past,
+            "active_bookings": active_on_day,
+        },
         "stats": {
             "cells": len(cells),
             "shifts": len(cells),
@@ -125,3 +142,76 @@ async def specialist_bookings(
     rows = [booking_dict(b, tz, reveal=True) for w in windows for b in w.bookings]
     rows.sort(key=lambda r: str(r["start"]))
     return rows
+
+
+class SpecialistBookingCancelIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+async def _assert_specialist_owns_booking(
+    session: AsyncSession, ctx: WebContext, booking_id: UUID
+) -> Booking:
+    assert ctx.staff is not None
+    booking = await session.get(Booking, booking_id)
+    if booking is None or booking.tenant_id != ctx.tenant.id:
+        raise HTTPException(status_code=404, detail="booking not found")
+    owned = await session.scalar(
+        select(BookingItem.id)
+        .where(
+            BookingItem.booking_id == booking_id,
+            BookingItem.staff_member_id == ctx.staff.id,
+        )
+        .limit(1)
+    )
+    if owned is None:
+        raise HTTPException(status_code=403, detail="not your booking")
+    return booking
+
+
+@router.post("/specialist/bookings/{booking_id}/complete")
+async def specialist_complete_booking(
+    booking_id: UUID,
+    ctx: WebContext = Depends(require_staff),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    assert ctx.user is not None
+    await _assert_specialist_owns_booking(session, ctx, booking_id)
+    try:
+        booking = await mark_booking_completed(
+            session, tenant=tenant, booking_id=booking_id, actor_user_id=ctx.user.id
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="booking not found") from None
+    except ForbiddenError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    await session.commit()
+    return {"status": booking.status}
+
+
+@router.post("/specialist/bookings/{booking_id}/cancel")
+async def specialist_cancel_booking(
+    booking_id: UUID,
+    body: SpecialistBookingCancelIn,
+    ctx: WebContext = Depends(require_staff),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    assert ctx.user is not None
+    await _assert_specialist_owns_booking(session, ctx, booking_id)
+    try:
+        booking = await cancel_booking(
+            session,
+            tenant=tenant,
+            booking_id=booking_id,
+            reason="manager_cancel",
+            message=body.reason,
+            actor_user_id=ctx.user.id,
+            skip_deadline_check=True,
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="booking not found") from None
+    except ForbiddenError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    await session.commit()
+    return {"status": booking.status}

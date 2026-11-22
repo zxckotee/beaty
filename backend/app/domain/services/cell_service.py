@@ -62,6 +62,7 @@ class CellBooking:
     end: datetime
     total_price_cents: int
     comment: str | None
+    cancel_reason: str | None = None
 
 
 @dataclass

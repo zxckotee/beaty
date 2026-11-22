@@ -1,6 +1,6 @@
 import { api, friendly } from '../api.js';
 import { duration, h, icon, longDayLabel, money } from '../util.js';
-import { avatar, confirmDialog, emptyState, toast } from '../ui.js';
+import { avatar, emptyState, field, openSheet, toast, withBusy } from '../ui.js';
 
 const STATUS = {
   booked: ['Записан', 'ok'],
@@ -51,16 +51,46 @@ export async function mineView() {
     );
   }
 
-  async function cancel(b) {
-    const ok = await confirmDialog({ title: 'Отменить запись?', text: `${longDayLabel(b.date)}, ${b.start}. Время освободится для других клиентов.`, confirmLabel: 'Отменить запись', danger: true });
-    if (!ok) return;
-    try {
-      await api.del(`/client/bookings/${b.id}`);
-      toast('Запись отменена');
-      await reload();
-    } catch (e) {
-      toast(friendly(e), true);
-    }
+  function cancel(b) {
+    openSheet({
+      title: 'Отменить запись?',
+      build: (sheet) => {
+        const note = field({ label: 'Причина отмены', tag: 'textarea', props: { rows: 3, maxlength: 500, placeholder: 'Например: заболел, не получается приехать' } });
+        sheet.body.append(
+          h('p', { class: 'muted small' }, `${longDayLabel(b.date)}, ${b.start}. Время освободится для других клиентов.`),
+          note.el,
+        );
+        const foot = h('div', { class: 'row wrap', style: { gap: '8px', justifyContent: 'flex-end', width: '100%' } });
+        foot.append(
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => sheet.close() }, 'Назад'),
+          h(
+            'button',
+            {
+              class: 'btn danger',
+              type: 'button',
+              onclick: () => withBusy(foot, async () => {
+                const reason = note.input.value.trim();
+                if (!reason) {
+                  toast('Укажите причину отмены', true);
+                  return;
+                }
+                try {
+                  await api.post(`/client/bookings/${b.id}/cancel`, { reason });
+                  toast('Запись отменена');
+                  sheet.close();
+                  await reload();
+                } catch (e) {
+                  toast(friendly(e), true);
+                }
+              }),
+            },
+            icon('close'),
+            'Отменить запись',
+          ),
+        );
+        sheet.setFooter(foot);
+      },
+    });
   }
 
   await reload();
