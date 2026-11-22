@@ -30,7 +30,7 @@ from app.domain.exceptions import (
     ValidationError,
 )
 from app.domain.models import StaffMember, Tenant
-from app.web.routes import auth, client, landing, manager, messages, schedule, staff_schedule, test_login
+from app.web.routes import auth, client, landing, manager, messages, schedule, site_root, staff_schedule, test_login
 from app.web.uploads import media_root
 
 logger = logging.getLogger(__name__)
@@ -108,6 +108,7 @@ async def domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse({"detail": str(exc), "code": type(exc).__name__}, status_code=status)
 
 
+app.include_router(site_root.router)
 app.include_router(test_login.router)
 app.include_router(auth.router)
 app.include_router(schedule.router)

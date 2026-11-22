@@ -73,7 +73,7 @@ bash scripts/deploy-edge-nginx-betwelc.sh   # подставит deploy/nginx-be
 nginx -t && systemctl reload nginx
 ```
 
-Открывайте **`https://betwelc.ru`** (без `www`; `www` редиректится только с HTTP).
+Открывайте **`https://betwelc.ru/t/<public_id>/`** или кнопку Web App в боте (корень `/` в production — 404, без списка салонов).
 
 ## Файл `.env.prod` на VPS
 

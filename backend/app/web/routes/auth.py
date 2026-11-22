@@ -30,7 +30,11 @@ router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["auth"])
 
 def dev_login_enabled() -> bool:
     settings = get_settings()
-    return settings.environment != "production" or settings.web_dev_login
+    if settings.environment == "production":
+        return False
+    if settings.environment == "test":
+        return True
+    return settings.web_dev_login
 
 
 def _set_session_cookie(response: Response, tenant: Tenant, user_id: UUID, name: str | None) -> None:
@@ -64,7 +68,7 @@ async def _tenant_info(session: AsyncSession, tenant: Tenant) -> dict[str, objec
         "work_start": work_start,
         "work_end": work_end,
         "grid_step_minutes": int((tenant.rules or {}).get("grid_step_minutes", 30)),
-        "dev_login": dev_login_enabled(),
+        **({"dev_login": True} if dev_login_enabled() else {}),
         "read_only": tenant.subscription_status in {"expired", "suspended", "cancelled"},
     }
 

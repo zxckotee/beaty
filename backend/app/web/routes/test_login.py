@@ -94,37 +94,14 @@ async def _tenant_choices(session: AsyncSession) -> list[tuple[str, str]]:
     return [(pid, name or pid) for pid, name in rows]
 
 
-@router.get("/", response_model=None)
-async def root_login(session: AsyncSession = Depends(get_session)) -> HTMLResponse | RedirectResponse:
-    settings = get_settings()
-    dev = dev_login_enabled()
-    tenants = await _tenant_choices(session)
-
-    if settings.web_default_tenant and dev:
-        return HTMLResponse(_page(tenants=tenants, selected=settings.web_default_tenant, dev_enabled=dev))
-    if settings.web_default_tenant and not dev:
-        return RedirectResponse(f"/t/{settings.web_default_tenant}/", status_code=302)
-    if len(tenants) == 1 and not dev:
-        return RedirectResponse(f"/t/{tenants[0][0]}/", status_code=302)
-    if dev:
-        selected = tenants[0][0] if tenants else ""
-        return HTMLResponse(_page(tenants=tenants, selected=selected, dev_enabled=True))
-    return HTMLResponse(
-        _page(
-            tenants=tenants,
-            selected=tenants[0][0] if tenants else "",
-            error="Нет маршрута по умолчанию. Откройте /t/<public_id>/ или включите WEB_DEV_LOGIN.",
-            dev_enabled=False,
-        )
-    )
-
-
 @router.get("/login", response_class=HTMLResponse)
 async def login_get(
     session: AsyncSession = Depends(get_session),
     tenant: str | None = None,
     error: str | None = None,
 ) -> HTMLResponse:
+    if not dev_login_enabled():
+        raise HTTPException(status_code=404, detail="not found")
     tenants = await _tenant_choices(session)
     selected = tenant or get_settings().web_default_tenant or (tenants[0][0] if tenants else "")
     return HTMLResponse(_page(tenants=tenants, selected=selected, error=error, dev_enabled=dev_login_enabled()))
@@ -138,7 +115,7 @@ async def login_post(
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse | HTMLResponse:
     if not dev_login_enabled():
-        raise HTTPException(status_code=403, detail="test login disabled")
+        raise HTTPException(status_code=404, detail="not found")
     tenant = await session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
     if tenant is None:
         tenants = await _tenant_choices(session)
