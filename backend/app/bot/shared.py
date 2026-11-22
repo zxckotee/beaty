@@ -20,6 +20,13 @@ async def get_branch(session: AsyncSession, tenant: Tenant) -> Branch:
     return branch
 
 
+CHAT_WRITE_DISABLED = "Запись и управление доступны в мини-приложении"
+
+
 def assert_can_write(tenant: Tenant, read_only: bool) -> None:
+    from app.bot.miniapp import bot_chat_write_enabled
+
+    if not bot_chat_write_enabled():
+        raise DomainError(CHAT_WRITE_DISABLED)
     if read_only:
         raise DomainError("subscription inactive")

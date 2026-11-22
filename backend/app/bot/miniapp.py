@@ -17,16 +17,24 @@ def miniapp_enabled() -> bool:
     return tenant_ui_mode_allows_miniapp()
 
 
+def bot_chat_write_enabled() -> bool:
+    """In-chat booking and salon management. Off unless TENANT_UI_MODE=bot.
+
+    Mini App (`miniapp` / `both`) is the only write surface; the chat bot is read-only.
+    """
+    return get_settings().tenant_ui_mode.strip().lower() == "bot"
+
+
 def bot_reply_keyboard_enabled() -> bool:
-    """Classic reply-keyboard bot UI (Сегодня, Запись, …). Off in miniapp-only mode."""
-    mode = get_settings().tenant_ui_mode.strip().lower()
-    return mode != "miniapp"
+    """Classic reply-keyboard bot UI (Сегодня, Запись, …). Same gate as chat writes."""
+    return bot_chat_write_enabled()
 
 
 def miniapp_open_hint() -> str:
     return (
-        "Запись и кабинет — в мини-приложении. "
-        "Нажмите «Открыть» у поля ввода в чате (или «Open» в списке чатов)."
+        "Запись, отмена и управление салоном — в мини-приложении. "
+        "В чате можно посмотреть записи: /my, /today, /day. "
+        "Нажмите «Открыть» у поля ввода."
     )
 
 

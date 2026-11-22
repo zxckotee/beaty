@@ -9,7 +9,9 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
+from app.bot.chat_readonly import open_miniapp_markup
 from app.bot.filters.roles import HasStaffRole, is_manager, is_staff
+from app.bot.miniapp import bot_chat_write_enabled
 from app.bot.shared import assert_can_write
 from app.domain.exceptions import DomainError
 from app.domain.models import Booking, BookingItem, BookingStatus, StaffMember, Tenant
@@ -92,9 +94,13 @@ async def cmd_day(
     for r in items:
         t = r.start_at.strftime("%H:%M") if r.start_at else "?"
         lines.append(f"{t} {r.client_name} — {r.service_name} ({r.status})")
-        kb.button(text=f"{t} {r.client_name}"[:40], callback_data=f"s:st:menu:{r.id}")
-    kb.adjust(1)
-    await message.answer("\n".join(lines), reply_markup=kb.as_markup())
+        if bot_chat_write_enabled():
+            kb.button(text=f"{t} {r.client_name}"[:40], callback_data=f"s:st:menu:{r.id}")
+    if bot_chat_write_enabled():
+        kb.adjust(1)
+        await message.answer("\n".join(lines), reply_markup=kb.as_markup())
+        return
+    await message.answer("\n".join(lines), reply_markup=open_miniapp_markup(tenant, text="Открыть в приложении"))
 
 
 @staff_router.callback_query(F.data.startswith("s:st:menu:"))

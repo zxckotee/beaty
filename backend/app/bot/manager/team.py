@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.subscription_gate import assert_tenant_can_write
 from app.bot.filters.roles import HasManagerRole, is_owner
 from app.bot.manager.states import ManagerTeamStates
+from app.bot.miniapp import bot_chat_write_enabled
 from app.bot.shared import assert_can_write
 from app.domain.models import StaffMember, StaffRole, Tenant, UserAccount
 from app.domain.services.schedule_service import ensure_default_schedule
@@ -57,14 +58,19 @@ async def cmd_team_list(
     ).all()
     if not rows:
         kb = InlineKeyboardBuilder()
-        kb.button(text="➕ Добавить специалиста", callback_data="m:team:add")
-        await message.answer("Команда пуста.", reply_markup=kb.as_markup())
+        if bot_chat_write_enabled():
+            kb.button(text="➕ Добавить специалиста", callback_data="m:team:add")
+        await message.answer(
+            "Команда пуста.",
+            reply_markup=kb.as_markup() if bot_chat_write_enabled() else None,
+        )
         return
     kb = InlineKeyboardBuilder()
     for st in rows:
         kb.button(text=st.display_name[:40], callback_data=f"m:team:view:{st.id}")
     kb.adjust(1)
-    kb.button(text="➕ Добавить специалиста", callback_data="m:team:add")
+    if bot_chat_write_enabled():
+        kb.button(text="➕ Добавить специалиста", callback_data="m:team:add")
     await message.answer("Команда:", reply_markup=kb.as_markup())
 
 
@@ -170,10 +176,11 @@ async def team_view(
         await callback.answer("Не найден", show_alert=True)
         return
     kb = InlineKeyboardBuilder()
-    if st.user_account_id is None:
-        kb.button(text="🔗 Ссылка-приглашение", callback_data=f"m:team:inv:{st.id}")
-    if is_owner(roles):
-        kb.button(text="👔 Сделать менеджером", callback_data=f"m:team:mgr:{st.id}")
+    if bot_chat_write_enabled():
+        if st.user_account_id is None:
+            kb.button(text="🔗 Ссылка-приглашение", callback_data=f"m:team:inv:{st.id}")
+        if is_owner(roles):
+            kb.button(text="👔 Сделать менеджером", callback_data=f"m:team:mgr:{st.id}")
     kb.button(text="◀ Список", callback_data="m:team:list")
     kb.adjust(1)
     if callback.message:

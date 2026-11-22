@@ -10,8 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
+from app.bot.chat_readonly import reply_use_miniapp
 from app.bot.filters.roles import HasManagerRole
 from app.bot.manager.states import ManagerManualBookStates
+from app.bot.miniapp import bot_chat_write_enabled
 from app.bot.shared import assert_can_write, get_branch, get_branch_id
 from app.domain.exceptions import DomainError, SlotTakenError
 from app.domain.models import ClientProfile, Service, StaffMember, Tenant, UserAccount
@@ -31,6 +33,9 @@ async def manual_book_start(
     tenant: Tenant,
     db_session: AsyncSession,
 ) -> None:
+    if not bot_chat_write_enabled():
+        await reply_use_miniapp(message, tenant)
+        return
     rows = (
         await db_session.scalars(
             select(StaffMember).where(

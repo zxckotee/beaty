@@ -39,11 +39,18 @@ def test_miniapp_url_requires_https(monkeypatch: pytest.MonkeyPatch) -> None:
     assert url == "https://betwelc.ru/t/demo/"
 
 
-def test_bot_reply_keyboard_disabled_in_miniapp_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bot_reply_keyboard_only_in_bot_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TENANT_UI_MODE", "miniapp")
     get_settings.cache_clear()
     assert miniapp_mod.bot_reply_keyboard_enabled() is False
+    assert miniapp_mod.bot_chat_write_enabled() is False
 
     monkeypatch.setenv("TENANT_UI_MODE", "both")
     get_settings.cache_clear()
+    assert miniapp_mod.bot_reply_keyboard_enabled() is False
+    assert miniapp_mod.bot_chat_write_enabled() is False
+
+    monkeypatch.setenv("TENANT_UI_MODE", "bot")
+    get_settings.cache_clear()
     assert miniapp_mod.bot_reply_keyboard_enabled() is True
+    assert miniapp_mod.bot_chat_write_enabled() is True

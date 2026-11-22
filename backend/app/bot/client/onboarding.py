@@ -194,7 +194,13 @@ async def cmd_start(
     intro = f"Добро пожаловать в {tenant.name}!"
     if policy:
         intro += f"\nПолитика: {policy}"
-    intro += "\n\nДля записи нужен номер телефона (кнопка ниже)."
+    if bot_reply_keyboard_enabled():
+        intro += "\n\nДля записи нужен номер телефона (кнопка ниже)."
+    else:
+        intro += (
+            "\n\nЧтобы смотреть свои записи в чате, нужен номер телефона (кнопка ниже). "
+            "Записаться можно в мини-приложении."
+        )
     await state.set_state(ClientOnboarding.waiting_contact)
     await message.answer(intro, reply_markup=contact_request_keyboard())
 

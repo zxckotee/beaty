@@ -12,8 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.callbacks.codec import load_payload, store_payload
+from app.bot.chat_readonly import reply_use_miniapp
 from app.bot.client.states import BookFlow
 from app.bot.filters.roles import HasActiveClientRole
+from app.bot.miniapp import bot_chat_write_enabled
 from app.bot.shared import assert_can_write, get_branch
 from app.domain.exceptions import DomainError, SlotTakenError
 from app.domain.models import ClientProfile, Service, SpecialistService, StaffMember, Tenant
@@ -133,6 +135,9 @@ async def start_book_flow(
     tenant: Tenant | None = None,
     db_session: AsyncSession | None = None,
 ) -> None:
+    if tenant is not None and not bot_chat_write_enabled():
+        await reply_use_miniapp(message, tenant)
+        return
     data = await state.get_data()
     entry = data.get("book_entry") or entry
     pre_service = _parse_entity_id(data.get("pre_service_id"))

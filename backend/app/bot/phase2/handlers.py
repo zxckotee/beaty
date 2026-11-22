@@ -9,6 +9,8 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.chat_readonly import reply_use_miniapp
+from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.models import ClientProfile, Tenant
 from app.domain.services.waitlist_service import join_waitlist
 
@@ -91,6 +93,10 @@ async def review_text(
 ) -> None:
     from app.domain.services.review_service import create_review
 
+    if not bot_chat_write_enabled():
+        await state.clear()
+        await reply_use_miniapp(message, tenant)
+        return
     data = await state.get_data()
     await state.clear()
     if not client_profile:
