@@ -117,11 +117,14 @@ img { max-width: 100%; display: block; }
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.01em; min-width: 0; }
 .brand-mark {
-  width: 34px; height: 34px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1; font-size: 0.95rem; overflow: hidden;
   color: var(--accent-ink); font-weight: 800;
   background: var(--ui-gold);
   box-shadow: var(--shadow-gold);
 }
+.brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .header-spacer { flex: 1; }
 .main { width: 100%; max-width: 1080px; margin: 0 auto; padding: 18px 16px 24px; }

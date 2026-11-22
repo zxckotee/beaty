@@ -1,6 +1,6 @@
 import { api, friendly, tenantId } from './api.js';
 import { isTelegramWebApp, prepareTelegramChrome, telegramInitData } from './telegram.js';
-import { clear, h, icon } from './util.js';
+import { brandMark, clear, h, icon } from './util.js';
 import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
 import { loginView } from './views/login.js';
@@ -88,7 +88,7 @@ function header(route) {
     return h(
       'header',
       { class: 'header header--profile-guest' },
-      h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (store.info?.name || 'B')[0].toUpperCase())),
+      h('a', { class: 'brand', href: '#/home' }, brandMark(store.info)),
       h('div', { class: 'header-spacer' }),
       h('a', { class: 'btn sm primary', href: '#/book' }, 'Записаться'),
     );
@@ -125,7 +125,7 @@ function header(route) {
   return h(
     'header',
     { class: 'header' },
-    h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()), h('span', { class: 'brand-name' }, name)),
+    h('a', { class: 'brand', href: '#/home' }, brandMark(store.info), h('span', { class: 'brand-name' }, name)),
     nav,
     h('div', { class: 'header-spacer' }),
     right,
