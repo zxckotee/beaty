@@ -64,7 +64,7 @@ _SYSTEM_CANCEL_CODES = frozenset(
 )
 
 
-def human_cancel_reason(payload: dict) -> str | None:
+def human_cancel_reason(payload: dict[str, object]) -> str | None:
     if not payload:
         return None
     message = payload.get("message") or payload.get("client_message")
