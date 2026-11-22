@@ -1,7 +1,7 @@
 import { api, friendly } from '../api.js';
 import { navigate } from '../main.js';
 import { isManager, store } from '../store.js';
-import { field, openSheet, spinner, toast, withBusy } from '../ui.js';
+import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 import { h, hueFor, icon, initials } from '../util.js';
 
 let leafletPromise = null;
@@ -66,6 +66,12 @@ export async function homeView() {
     draw();
   }
 
+  function embedMapNode(html) {
+    const wrap = h('div', { class: 'profile-dgis-embed' });
+    if (html) wrap.insertAdjacentHTML('beforeend', html);
+    return wrap;
+  }
+
   function editDgisSheet() {
     openSheet({
       title: 'Как нас найти',
@@ -81,12 +87,33 @@ export async function homeView() {
             toast(friendly(e), true);
           }
         });
-        sheet.body.append(field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)));
+        const embed = h('textarea', {
+          class: 'textarea',
+          placeholder: 'Вставьте код iframe из конструктора карт 2ГИС (необязательно)',
+          style: { minHeight: '120px' },
+        }, data.dgis_embed_html ? stripIframeWrapper(data.dgis_embed_html) : '');
+        sheet.body.append(
+          field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)),
+          h(
+            'div',
+            { class: 'field' },
+            h('label', null, 'Виджет карты 2ГИС'),
+            embed,
+            h(
+              'p',
+              { class: 'tiny muted' },
+              'В личном кабинете 2ГИС: конструктор карт → скопируйте iframe. Если виджета нет, на профиле покажется карта OpenStreetMap по ссылке.',
+            ),
+          ),
+        );
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
             try {
-              await patchLanding({ dgis_url: url.value.trim() || null });
+              await patchLanding({
+                dgis_url: url.value.trim() || null,
+                dgis_embed_html: embed.value.trim() || null,
+              });
               sheet.close();
               toast('Адрес сохранён');
             } catch (e) {
@@ -99,42 +126,71 @@ export async function homeView() {
     });
   }
 
+  function stripIframeWrapper(sanitizedHtml) {
+    const m = sanitizedHtml.match(/<iframe[\s\S]*?<\/iframe>/i);
+    return m ? m[0] : sanitizedHtml;
+  }
+
   function editPortfolio(item) {
     openSheet({
       title: item ? 'Работа' : 'Новая работа',
       build: (sheet) => {
         const t = h('input', { class: 'input', value: item ? item.title : '', placeholder: 'Название' });
         const d = h('textarea', { class: 'textarea' }, item ? item.description || '' : '');
-        sheet.body.append(field('Название', t), field('Описание', d));
-        if (item) {
-          const photoBtn = h('button', { class: 'btn sm', type: 'button' }, icon('camera'), 'Добавить фото');
-          photoBtn.addEventListener('click', () =>
-            pickImage(async (f) => {
-              try {
-                await api.upload(`/manager/landing/portfolio/${item.id}/photos`, f);
-                toast('Фото добавлено');
-                await load();
-                draw();
-              } catch (e) {
-                toast(friendly(e), true);
-              }
-            }),
+        const firstPhoto = item && item.photo_urls && item.photo_urls[0];
+        const photos = photoPicker({ url: firstPhoto, name: item ? item.title : 'Работа', square: true });
+        sheet.body.append(
+          field('Фото', photos.el),
+          field('Название', t),
+          field('Описание', d),
+        );
+        if (item && item.photo_urls && item.photo_urls.length > 1) {
+          sheet.body.append(
+            h('p', { class: 'tiny muted' }, `Всего фото: ${item.photo_urls.length}. Здесь меняется обложка карточки.`),
           );
-          sheet.body.append(photoBtn);
         }
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
+            const title = t.value.trim();
+            if (!title) {
+              toast('Укажите название', true);
+              return;
+            }
+            const file = photos.getFile();
+            if (!item && !file && !firstPhoto) {
+              toast('Добавьте фото работы', true);
+              return;
+            }
             const bodyPayload = {
-              title: t.value.trim(),
+              title,
               description: d.value.trim() || null,
               sort_order: item ? item.sort_order : 0,
             };
-            if (item) await api.patch(`/manager/landing/portfolio/${item.id}`, bodyPayload);
-            else await api.post('/manager/landing/portfolio', bodyPayload);
-            sheet.close();
-            await load();
-            draw();
+            try {
+              let itemId = item ? item.id : null;
+              if (item) await api.patch(`/manager/landing/portfolio/${item.id}`, bodyPayload);
+              else {
+                const created = await api.post('/manager/landing/portfolio', bodyPayload);
+                itemId = created.id;
+              }
+              if (file && itemId) {
+                const uploaded = await api.upload(`/manager/landing/portfolio/${itemId}/photos`, file);
+                const urls = uploaded.photo_urls || [];
+                if (item && urls.length > 1) {
+                  const last = urls[urls.length - 1];
+                  await api.patch(`/manager/landing/portfolio/${itemId}`, {
+                    photo_urls: [last, ...urls.slice(0, -1)],
+                  });
+                }
+              }
+              sheet.close();
+              await load();
+              draw();
+              toast(item ? 'Работа сохранена' : 'Работа добавлена');
+            } catch (e) {
+              toast(friendly(e), true);
+            }
           }),
         );
         sheet.setFooter(save);
@@ -215,9 +271,13 @@ export async function homeView() {
       return;
     }
     destroyMap();
-    map = window.L.map(mapEl, { scrollWheelZoom: false }).setView([data.map_lat, data.map_lon], data.map_zoom || 16);
+    map = window.L.map(mapEl, { scrollWheelZoom: false, attributionControl: true }).setView(
+      [data.map_lat, data.map_lon],
+      data.map_zoom || 16,
+    );
+    if (map.attributionControl) map.attributionControl.setPrefix('');
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
     window.L.marker([data.map_lat, data.map_lon]).addTo(map);
@@ -320,7 +380,7 @@ export async function homeView() {
 
     if (edit) {
       sections.push(
-        h('div', { class: 'profile-edit-bar card' }, h('span', { class: 'tiny' }, 'Режим редактирования'), h('a', { class: 'btn sm ghost', href: '#/day' }, 'Расписание')),
+        h('div', { class: 'profile-edit-bar card' }, h('span', { class: 'tiny' }, 'Режим редактирования'), h('a', { class: 'btn sm ghost', href: '#/schedule' }, 'Расписание')),
       );
     }
 
@@ -351,16 +411,19 @@ export async function homeView() {
       sections.push(h('section', { class: 'profile-section' }, h('h2', null, 'Портфолио'), grid));
     }
 
+    const hasEmbed = Boolean(data.dgis_embed_html && String(data.dgis_embed_html).trim());
     const hasMap = data.map_lat != null && data.map_lon != null;
-    const showMap = edit || hasMap || data.dgis_url;
+    const showMap = edit || hasEmbed || hasMap || data.dgis_url;
     if (showMap) {
       const mapBlock = h('section', { class: 'profile-section' }, h('h2', null, 'Как нас найти'));
-      if (hasMap) {
+      if (hasEmbed) {
+        mapBlock.append(embedMapNode(data.dgis_embed_html));
+      } else if (hasMap) {
         mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
         mapBlock.append(h('div', { class: 'profile-map-wrap' }, mapEl));
       } else if (edit) {
         mapBlock.append(
-          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите ссылку 2ГИС'),
+          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите адрес или виджет 2ГИС'),
         );
       }
       const actions = h('div', { class: 'profile-map-actions' });
@@ -401,7 +464,7 @@ export async function homeView() {
     }
 
     body.replaceChildren(heroSection, ...sections);
-    if (hasMap) mountMap();
+    if (!hasEmbed && hasMap) mountMap();
   }
 
   try {

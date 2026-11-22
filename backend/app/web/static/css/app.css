@@ -553,3 +553,13 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .profile-post-photos { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; }
 .profile-post-photos img { height: 120px; border-radius: 10px; object-fit: cover; }
 .leaflet-container { background: var(--surface-2); }
+.leaflet-attribution-flag,
+.leaflet-control-attribution img.leaflet-attribution-flag { display: none !important; }
+.profile-dgis-embed {
+  min-height: clamp(280px, 45vw, 400px);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.profile-dgis-embed iframe { display: block; width: 100%; height: clamp(280px, 45vw, 400px); border: 0; }

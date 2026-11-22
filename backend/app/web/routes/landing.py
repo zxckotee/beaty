@@ -32,6 +32,7 @@ def _landing_dict(landing, portfolio, posts, *, tenant: Tenant) -> dict[str, obj
         "avatar_url": landing.avatar_url,
         "dgis_url": landing.dgis_url,
         "dgis_firm_id": landing.dgis_firm_id,
+        "dgis_embed_html": landing.dgis_embed_html,
         "map_lon": landing.map_lon,
         "map_lat": landing.map_lat,
         "map_zoom": landing.map_zoom,
@@ -74,6 +75,7 @@ class LandingPatch(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     tagline: str | None = Field(default=None, max_length=4000)
     dgis_url: str | None = None
+    dgis_embed_html: str | None = Field(default=None, max_length=12000)
 
 
 class DgisParseIn(BaseModel):
