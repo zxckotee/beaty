@@ -27,7 +27,7 @@ const NAV = {
     { route: 'services', label: 'Услуги', icon: 'scissors' },
     { route: 'home', label: 'Профиль', icon: 'globe' },
     { route: 'chats', label: 'Чаты', icon: 'chat' },
-    { route: 'messages', label: 'Сообщения', icon: 'send' },
+    { route: 'messages', label: 'Напоминания', icon: 'send' },
     { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
   specialist: [

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.filters.roles import HasManagerRole
 from app.domain.models import Tenant
+from app.domain.user_labels import booking_status_display
 
 pending_router = Router(name="manager_pending")
 pending_router.message.filter(HasManagerRole())
@@ -32,4 +33,6 @@ async def cmd_pending(
     if not items:
         await message.answer("Нет нерешённых переносов/форс-мажора.")
         return
-    await message.answer("\n".join(f"#{r.id} — {r.status}" for r in items))
+    await message.answer(
+        "\n".join(f"#{r.id} — {booking_status_display(r.status)}" for r in items)
+    )

@@ -14,6 +14,7 @@ from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, Tenant
 from app.domain.services.booking_service import cancel_booking
+from app.domain.user_labels import booking_status_display
 
 client_my_router = Router(name="client_my")
 client_my_router.message.filter(HasActiveClientRole())
@@ -56,7 +57,9 @@ async def send_my_bookings(
     lines = ["Мои записи:"]
     for r in items:
         when = r.start_at.strftime("%d.%m %H:%M") if r.start_at else "—"
-        lines.append(f"• {when} — {r.service_name or 'Услуга'} ({r.status})")
+        lines.append(
+            f"• {when} — {r.service_name or 'Услуга'} ({booking_status_display(r.status)})"
+        )
         kb.button(text=f"{when} {r.service_name or 'Запись'}"[:40], callback_data=f"c:my:{r.id}")
     kb.adjust(1)
     await message.answer("\n".join(lines), reply_markup=kb.as_markup())
@@ -102,7 +105,7 @@ async def booking_detail(
     when = r.start_at.strftime("%d.%m.%Y %H:%M") if r.start_at else "—"
     text_msg = (
         f"{r.service_name}\n{when}\nМастер: {r.staff_name or '—'}\n"
-        f"Статус: {r.status}\n{(r.total_price_cents or 0) // 100} ₽"
+        f"Статус: {booking_status_display(r.status)}\n{(r.total_price_cents or 0) // 100} ₽"
     )
     if bot_chat_write_enabled() and r.status in ("booked", "confirmed", "held"):
         kb = InlineKeyboardBuilder()

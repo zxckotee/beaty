@@ -1,6 +1,7 @@
 import { api, friendly } from '../api.js';
 import { debounce, h, icon } from '../util.js';
 import { field, photoPicker, spinner, toast, withBusy } from '../ui.js';
+import { createTokenEditor } from '../token-editor.js';
 
 const KIND_LABELS = {
   booking_confirmed: 'Подтверждение',
@@ -23,23 +24,32 @@ export async function messagesView() {
   let templates = {};
   let activeKind = 'booking_confirmed';
   let previewEl = null;
-  let bodyEl = null;
+  /** @type {ReturnType<typeof createTokenEditor> | null} */
+  let editor = null;
 
   root.append(
     h(
       'div',
       { class: 'page-head' },
-      h('div', null, h('h1', null, 'Сообщения в Telegram'), h('p', { class: 'muted' }, 'Шаблоны с переменными, HTML и вложениями для бота.')),
+      h(
+        'div',
+        null,
+        h('h1', null, 'Напоминания в Telegram'),
+        h('p', { class: 'muted' }, 'Шаблоны напоминаний с переменными, HTML и вложениями для бота.'),
+      ),
     ),
-    h('nav', { class: 'chips scroll messages-kinds', id: 'msg-tabs', 'aria-label': 'Тип сообщения' }),
+    h('nav', { class: 'chips scroll messages-kinds', id: 'msg-tabs', 'aria-label': 'Тип напоминания' }),
     panel,
   );
   panel.append(spinner());
 
   const runPreview = debounce(async () => {
-    if (!bodyEl || !previewEl) return;
+    if (!editor || !previewEl) return;
     try {
-      const res = await api.post('/manager/messages/preview', { kind: activeKind, body: bodyEl.value });
+      const res = await api.post('/manager/messages/preview', {
+        kind: activeKind,
+        body: editor.getBody(),
+      });
       previewEl.textContent = res.text || '—';
       previewEl.classList.remove('msg-preview-empty');
     } catch {
@@ -47,17 +57,6 @@ export async function messagesView() {
       previewEl.classList.add('msg-preview-empty');
     }
   }, 400);
-
-  function insertToken(token) {
-    if (!bodyEl) return;
-    const start = bodyEl.selectionStart;
-    const end = bodyEl.selectionEnd;
-    const text = bodyEl.value;
-    bodyEl.value = `${text.slice(0, start)}{${token}}${text.slice(end)}`;
-    bodyEl.focus();
-    bodyEl.selectionStart = bodyEl.selectionEnd = start + token.length + 2;
-    runPreview();
-  }
 
   async function reload() {
     meta = await api.get('/manager/messages/meta');
@@ -90,24 +89,23 @@ export async function messagesView() {
 
   function drawEditor() {
     const tpl = templates[activeKind] || { body: '', photo_slots: [], parse_mode: 'HTML' };
-    bodyEl = h('textarea', {
-      class: 'textarea messages-text',
-      id: 'msg-body',
-      rows: '10',
-      placeholder: 'Привет! Вы записаны на {service}…',
-    }, tpl.body || '');
-    bodyEl.addEventListener('input', () => runPreview());
+
+    editor = createTokenEditor({
+      body: tpl.body || '',
+      tokens: meta?.tokens || [],
+      onInput: () => runPreview(),
+    });
 
     previewEl = h('div', { class: 'msg-preview-body msg-preview-empty' }, 'Нажмите «Обновить превью» или начните вводить текст');
 
     const tokenChips = h(
       'div',
       { class: 'chips messages-tokens' },
-      ...(meta.tokens || []).map(([key, label]) =>
+      ...(meta?.tokens || []).map(([key, label]) =>
         h(
           'button',
-          { class: 'chip', type: 'button', onclick: () => insertToken(key), title: label },
-          `{${key}}`,
+          { class: 'chip', type: 'button', onclick: () => editor.insertToken(key), title: `Вставить: ${label}` },
+          label,
         ),
       ),
     );
@@ -142,7 +140,7 @@ export async function messagesView() {
             slots.push({ type: 'custom', url: customUrlStored });
           }
           await api.put(`/manager/messages/${activeKind}`, {
-            body: bodyEl.value,
+            body: editor.getBody(),
             parse_mode: 'HTML',
             photo_slots: slots,
           });
@@ -157,13 +155,17 @@ export async function messagesView() {
     const layout = h('div', { class: 'messages-layout' },
       h('div', { class: 'card pad messages-editor' },
         h('p', { class: 'messages-kind-hint' }, KIND_HINTS[activeKind] || ''),
-        field('Текст сообщения', bodyEl, 'Поддерживается HTML: <b>, <i>, ссылки. Вставляйте переменные кнопками ниже.'),
+        field(
+          'Текст напоминания',
+          editor.el,
+          'Поддерживается HTML: <b>, <i>, ссылки. Переменные вставляйте кнопками ниже.',
+        ),
         h('div', { class: 'messages-block' },
           h('span', { class: 'label' }, 'Переменные'),
           tokenChips,
         ),
         h('div', { class: 'messages-block' },
-          h('span', { class: 'label' }, 'Вложения к сообщению'),
+          h('span', { class: 'label' }, 'Вложения к напоминанию'),
           photoGrid,
         ),
         h('div', { class: 'messages-actions row' }, previewBtn, save),
