@@ -1,5 +1,6 @@
 from aiogram import Dispatcher
 
+from app.bot.chat_readonly import readonly_router
 from app.bot.client.book import client_book_router
 from app.bot.client.my_bookings import client_my_router
 from app.bot.client.onboarding import client_onboarding_router
@@ -16,6 +17,7 @@ def build_dispatcher() -> Dispatcher:
     """Build the process-wide tenant dispatcher (call once; routers are singletons)."""
     dp = Dispatcher()
     dp.update.middleware(BotContextMiddleware())
+    dp.include_router(readonly_router)
     dp.include_router(legacy_router)
     dp.include_router(client_onboarding_router)
     dp.include_router(role_switch_router)

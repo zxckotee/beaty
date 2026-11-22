@@ -6,6 +6,7 @@ from aiogram.types import InputMediaPhoto
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.miniapp import bot_chat_write_enabled, miniapp_url_for_tenant
 from app.bot.registry import get_bot_for_tenant
 from app.domain.models import ClientProfile, Notification, NotificationStatus, NotificationType, Tenant
 from app.domain.services.message_tokens import render_booking_notification
@@ -38,6 +39,10 @@ async def send_notification(session: AsyncSession, notification: Notification) -
     photo_urls: list[str] = []
     text: str
     reply_markup = None
+    template_kwargs = {
+        "chat_writes": bot_chat_write_enabled(),
+        "miniapp_url": miniapp_url_for_tenant(tenant),
+    }
 
     if booking_id and notification.notification_type in _RENDERABLE:
         rendered = await render_booking_notification(
@@ -48,11 +53,17 @@ async def send_notification(session: AsyncSession, notification: Notification) -
         )
         if rendered:
             text, parse_mode, photo_urls = rendered
-            _, reply_markup = build_notification_message(notification.notification_type, payload)
+            _, reply_markup = build_notification_message(
+                notification.notification_type, payload, **template_kwargs
+            )
         else:
-            text, reply_markup = build_notification_message(notification.notification_type, payload)
+            text, reply_markup = build_notification_message(
+                notification.notification_type, payload, **template_kwargs
+            )
     else:
-        text, reply_markup = build_notification_message(notification.notification_type, payload)
+        text, reply_markup = build_notification_message(
+            notification.notification_type, payload, **template_kwargs
+        )
 
     chat_id: int | None = None
     if notification.recipient_type == "client":

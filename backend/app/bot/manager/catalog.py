@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.subscription_gate import assert_tenant_can_write
 from app.bot.filters.roles import HasManagerRole
 from app.bot.manager.states import ManagerServiceEditStates, ManagerServiceStates
+from app.bot.miniapp import bot_chat_write_enabled
 from app.bot.shared import assert_can_write
 from app.domain.models import Service, Tenant
 from app.domain.services.catalog_service import apply_catalog_template
@@ -19,6 +21,7 @@ catalog_router.message.filter(HasManagerRole())
 catalog_router.callback_query.filter(HasManagerRole())
 
 
+@catalog_router.message(Command("services"))
 @catalog_router.message(F.text == "Услуги")
 async def cmd_services(message: Message, tenant: Tenant, db_session: AsyncSession) -> None:
     await _list_services(message, tenant, db_session)
@@ -29,10 +32,14 @@ async def _list_services(message: Message, tenant: Tenant, db_session: AsyncSess
         await db_session.scalars(select(Service).where(Service.tenant_id == tenant.id))
     ).all()
     kb = InlineKeyboardBuilder()
-    kb.button(text="➕ Добавить услугу", callback_data="m:svc:add")
-    kb.button(text="📦 Шаблон barber", callback_data="m:svc:tpl:barber")
+    if bot_chat_write_enabled():
+        kb.button(text="➕ Добавить услугу", callback_data="m:svc:add")
+        kb.button(text="📦 Шаблон barber", callback_data="m:svc:tpl:barber")
     if not rows:
-        await message.answer("Услуг пока нет.", reply_markup=kb.as_markup())
+        await message.answer(
+            "Услуг пока нет.",
+            reply_markup=kb.as_markup() if bot_chat_write_enabled() else None,
+        )
         return
     for svc in rows:
         mark = "✓" if svc.is_active else "✗"
@@ -137,12 +144,6 @@ async def svc_view(callback: CallbackQuery, tenant: Tenant, db_session: AsyncSes
     if svc is None or svc.tenant_id != tenant.id:
         await callback.answer("Не найдено", show_alert=True)
         return
-    kb = InlineKeyboardBuilder()
-    kb.button(text="Цена", callback_data=f"m:svc:ep:{svc.id}")
-    kb.button(text="Длительность", callback_data=f"m:svc:ed:{svc.id}")
-    toggle = "Выключить" if svc.is_active else "Включить"
-    kb.button(text=toggle, callback_data=f"m:svc:toggle:{svc.id}")
-    kb.adjust(2, 1)
     text = (
         f"{svc.name}\n"
         f"Цена: {svc.price_cents // 100}₽\n"
@@ -150,8 +151,17 @@ async def svc_view(callback: CallbackQuery, tenant: Tenant, db_session: AsyncSes
         f"Буфер: {svc.buffer_minutes} мин\n"
         f"Активна: {'да' if svc.is_active else 'нет'}"
     )
+    markup = None
+    if bot_chat_write_enabled():
+        kb = InlineKeyboardBuilder()
+        kb.button(text="Цена", callback_data=f"m:svc:ep:{svc.id}")
+        kb.button(text="Длительность", callback_data=f"m:svc:ed:{svc.id}")
+        toggle = "Выключить" if svc.is_active else "Включить"
+        kb.button(text=toggle, callback_data=f"m:svc:toggle:{svc.id}")
+        kb.adjust(2, 1)
+        markup = kb.as_markup()
     if callback.message:
-        await callback.message.edit_text(text, reply_markup=kb.as_markup())
+        await callback.message.edit_text(text, reply_markup=markup)
     await callback.answer()
 
 

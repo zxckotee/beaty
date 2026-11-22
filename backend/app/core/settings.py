@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     hold_ttl_seconds: int = 600
     environment: str = "development"
-    tenant_ui_mode: str = "bot"  # bot | miniapp | both
+    tenant_ui_mode: str = "miniapp"  # bot (chat writes) | miniapp | both (miniapp writes, chat reads)
     enable_public_api: bool = False
 
     web_ui_port: int = 3030
