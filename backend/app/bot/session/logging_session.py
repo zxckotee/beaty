@@ -74,13 +74,13 @@ def _parse_outbound(
     message: Message,
 ) -> tuple[str | None, str | None, str | None, str | None, dict[str, Any]]:
     if isinstance(method, SendMessage):
-        text = (method.text or "").strip()  # type: ignore[attr-defined]
+        text = (method.text or "").strip()
         if not text:
             return None, None, None, None, {}
         return "text", text[:4096], None, None, {}
 
     if isinstance(method, SendPhoto):
-        caption = (method.caption or message.caption or "")[:4096] or None  # type: ignore[attr-defined]
+        caption = (method.caption or message.caption or "")[:4096] or None
         photo = message.photo[-1] if message.photo else None
         if photo is None:
             return None, None, None, None, {}

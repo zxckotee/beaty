@@ -165,7 +165,9 @@ class ClientChatMessage(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
-    client_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("client_profile.id", ondelete="CASCADE"), index=True)
+    client_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("client_profile.id", ondelete="CASCADE"), index=True
+    )
     direction: Mapped[str] = mapped_column(String(16))
     author: Mapped[str] = mapped_column(String(16))
     kind: Mapped[str] = mapped_column(String(16))
