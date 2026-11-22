@@ -19,8 +19,8 @@ from app.core.telegram_auth import verify_webapp_init_data
 from app.domain.active_role import UI_ROLE_LABELS, write_stored_ui_role
 from app.domain.models import Branch, Tenant
 from app.domain.services.cell_service import get_default_branch, work_day_hours
-from app.domain.services.landing_service import get_or_create_landing
 from app.domain.services.client_service import get_or_create_user_account, upsert_client_profile
+from app.domain.services.landing_service import get_or_create_landing
 from app.domain.services.web_auth_service import create_login_request, poll_login, start_param_for
 from app.web.deps import WebContext, cookie_name, get_context, get_tenant, require_auth, writable
 from app.web.dev_login import resolve_telegram_user_id
