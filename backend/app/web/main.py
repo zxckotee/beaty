@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -30,7 +30,7 @@ from app.domain.exceptions import (
     ValidationError,
 )
 from app.domain.models import StaffMember, Tenant
-from app.web.routes import auth, client, manager, schedule, site_root, staff_schedule, test_login
+from app.web.routes import auth, client, landing, manager, messages, schedule, site_root, staff_schedule, test_login
 from app.web.uploads import media_root
 
 logger = logging.getLogger(__name__)
@@ -49,14 +49,18 @@ _STATUS_BY_ERROR: tuple[tuple[type[DomainError], int], ...] = (
 )
 
 CSP_BROWSER = (
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "script-src 'self' https://telegram.org https://unpkg.com; "
+    "connect-src 'self' https://*.tile.openstreetmap.org; "
+    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 
 CSP_TELEGRAM = (
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "script-src 'self' https://telegram.org https://unpkg.com; "
+    "connect-src 'self' https://*.tile.openstreetmap.org; "
+    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
     "base-uri 'none'; form-action 'self'"
 )
@@ -88,7 +92,10 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "same-origin")
-    csp = CSP_TELEGRAM if _telegram_miniapp_context(request) else CSP_BROWSER
+    if _telegram_miniapp_context(request):
+        csp = CSP_TELEGRAM
+    else:
+        csp = CSP_BROWSER
     response.headers.setdefault("Content-Security-Policy", csp)
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
@@ -108,6 +115,9 @@ app.include_router(schedule.router)
 app.include_router(manager.router)
 app.include_router(staff_schedule.router)
 app.include_router(client.router)
+app.include_router(landing.public_router)
+app.include_router(landing.manager_router)
+app.include_router(messages.router)
 
 
 @app.get("/health")
@@ -152,5 +162,11 @@ def _index() -> FileResponse:
 @app.get("/t/{tenant_public_id}/")
 async def spa(tenant_public_id: str) -> FileResponse:
     return _index()
+
+
+@app.get("/t/{tenant_public_id}/studio")
+@app.get("/t/{tenant_public_id}/studio/")
+async def studio_redirect(tenant_public_id: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/t/{tenant_public_id}/", status_code=301)
 
 

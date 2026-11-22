@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     web_dev_login: bool = False
     web_max_upload_bytes: int = 5 * 1024 * 1024
 
+    dgis_catalog_api_key: str = ""
+    dgis_mapgl_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

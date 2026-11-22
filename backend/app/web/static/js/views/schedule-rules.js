@@ -163,7 +163,7 @@ export async function scheduleRulesView() {
         h('h1', null, 'Шаблоны расписания'),
         h('p', { class: 'muted small' }, 'Недельное правило: каждый день — свой пункт с часами. Назначайте мастерам или всему салону.'),
       ),
-      h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('day') }, icon('chevL'), 'К расписанию'),
+      h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('schedule') }, icon('chevL'), 'К расписанию'),
     ),
   );
   const list = h('div', { class: 'list' });

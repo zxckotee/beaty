@@ -244,13 +244,6 @@ export function dayView({ manager }) {
       );
 
       const track = h('div', { class: 'staff-track', style: { height: `${ROW_TRACK_H}px`, width: `${width}px` } });
-      track.append(
-        h('i', {
-          class: 'shift-band',
-          style: { left: `${(s - startMin) * pxm}px`, width: `${(e - s) * pxm}px` },
-          'aria-hidden': 'true',
-        }),
-      );
       if (date === today) {
         const nowMin = nowMinutesIn(tz);
         if (nowMin >= startMin && nowMin <= endMin) {
@@ -287,12 +280,7 @@ export function dayView({ manager }) {
       rows,
     );
     const scroller = h('div', { class: 'timeline-scroll' }, timeline);
-    const legend = h(
-      'div',
-      { class: 'legend' },
-      h('span', null, h('i', { class: 'leg-shift' }), 'Рабочее окно'),
-      h('span', null, h('i', { class: 'leg-appt' }), 'Запись'),
-    );
+    const legend = h('div', { class: 'legend' }, h('span', null, h('i', { class: 'leg-appt' }), 'Запись'));
     barCard.replaceChildren(scroller, legend);
     requestAnimationFrame(() => {
       const target = date === today ? (nowMinutesIn(tz) - startMin) * pxm - 80 : 0;
@@ -430,7 +418,7 @@ export function dayView({ manager }) {
             h('dt', null, 'Длительность'), h('dd', null, duration(cell.minutes)),
             h('dt', null, 'Свободно'), h('dd', null, `${duration(cell.free_minutes)} из ${duration(cell.minutes)}`),
             cell.price_cents ? [h('dt', null, 'Корректировка цены'), h('dd', null, signedMoney(cell.price_cents))] : null,
-            h('dt', null, 'Статус'), h('dd', null, h('span', { class: `chip ${cell.status === 'free' ? 'ok' : cell.status === 'partial' ? 'warn' : 'bad'}` }, STATUS_LABEL[cell.status])),
+            h('dt', null, 'Статус'), h('dd', null, h('span', { class: `chip ${cell.status === 'partial' ? 'warn' : cell.status === 'full' ? 'bad' : ''}` }, STATUS_LABEL[cell.status])),
           ),
           h('div', { class: 'meter', 'aria-hidden': 'true' }, h('i', { style: { width: `${cell.minutes ? (booked / cell.minutes) * 100 : 0}%` } })),
           cell.title ? h('h3', null, cell.title) : null,
