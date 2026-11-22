@@ -17,6 +17,19 @@ def miniapp_enabled() -> bool:
     return tenant_ui_mode_allows_miniapp()
 
 
+def bot_reply_keyboard_enabled() -> bool:
+    """Classic reply-keyboard bot UI (Сегодня, Запись, …). Off in miniapp-only mode."""
+    mode = get_settings().tenant_ui_mode.strip().lower()
+    return mode != "miniapp"
+
+
+def miniapp_open_hint() -> str:
+    return (
+        "Запись и кабинет — в мини-приложении. "
+        "Нажмите «Открыть» у поля ввода в чате (или «Open» в списке чатов)."
+    )
+
+
 def resolve_public_web_url() -> str:
     settings = get_settings()
     raw = (settings.public_web_url or "").strip()

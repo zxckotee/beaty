@@ -1,19 +1,36 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST, UiRole
+from app.bot.miniapp import bot_reply_keyboard_enabled
+
+
+def tenant_reply_keyboard(
+    *,
+    active_ui_role: UiRole,
+    can_switch_ui_role: bool,
+) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
+    if not bot_reply_keyboard_enabled():
+        return ReplyKeyboardRemove()
+    return main_menu_reply(
+        active_ui_role=active_ui_role,
+        can_switch_ui_role=can_switch_ui_role,
+    )
 
 
 def main_menu_reply(
     *,
     active_ui_role: UiRole,
     can_switch_ui_role: bool,
-    miniapp_web_url: str | None = None,
 ) -> ReplyKeyboardMarkup:
-    """Reply menu for the role the user chose to act as right now."""
+    """Reply menu for the role the user chose to act as right now (bot / both modes)."""
     builder = ReplyKeyboardBuilder()
-    if miniapp_web_url:
-        builder.row(KeyboardButton(text="Открыть кабинет", web_app=WebAppInfo(url=miniapp_web_url)))
     if active_ui_role == UI_ROLE_MANAGER:
         builder.row(KeyboardButton(text="Сегодня"), KeyboardButton(text="Команда"))
         builder.row(KeyboardButton(text="Услуги"), KeyboardButton(text="Клиенты"))

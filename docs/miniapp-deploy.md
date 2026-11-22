@@ -4,7 +4,7 @@
 
 - HTTPS на публичном домене (Let's Encrypt на хостовом nginx, без балансировщика Timeweb)
 - `PUBLIC_HTTPS_URL=https://betwelc.ru` и `PUBLIC_WEB_URL=https://betwelc.ru` в `.env.prod` / GitHub Secret
-- `TENANT_UI_MODE=both` — чат-бот и кнопка «Открыть кабинет»
+- `TENANT_UI_MODE=miniapp` — основной интерфейс в Mini App, в Telegram кнопка «Открыть» (`setChatMenuButton`); чат без reply-меню. Режим `both` оставляет чат-меню и тот же пункт «Открыть»
 - `WEB_COOKIE_SECURE=true` в prod (ставится автоматически при `PUBLIC_HTTPS_URL`)
 
 ## Nginx на VPS

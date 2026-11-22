@@ -5,6 +5,8 @@ import logging
 import httpx
 from sqlalchemy import select
 
+from app.bot.factory import create_bot
+from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
 from app.core.crypto import decrypt_bot_token
 from app.core.db import SessionLocal
 from app.domain.models import Tenant
@@ -46,3 +48,10 @@ async def check_tenant_webhooks() -> None:
                     tenant.public_id,
                     last_error,
                 )
+            bot = create_bot(token)
+            try:
+                await sync_tenant_bot_telegram_ui(bot, tenant)
+            except Exception:
+                logger.exception("telegram ui sync tenant=%s", tenant.public_id)
+            finally:
+                await bot.session.close()
