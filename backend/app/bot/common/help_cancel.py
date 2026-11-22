@@ -1,26 +1,64 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
 from app.bot.chat_readonly import reply_use_miniapp
 from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
+from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
-from app.domain.models import Tenant  # noqa: TC001 — aiogram DI
+from app.domain.models import StaffMember, Tenant  # noqa: TC001 — aiogram DI
 
 common_router = Router(name="common")
 
 
+def _menu(
+    *,
+    active_ui_role: str,
+    can_switch_ui_role: bool,
+    roles: set[str],
+    staff_member: StaffMember | None,
+):
+    return tenant_reply_keyboard(
+        active_ui_role=active_ui_role,  # type: ignore[arg-type]
+        can_switch_ui_role=can_switch_ui_role,
+        granted_roles=roles,
+        has_staff_profile=staff_member is not None,
+    )
+
+
 @common_router.message(Command("cancel"))
-async def cmd_cancel(message: Message, state: FSMContext) -> None:
+async def cmd_cancel(
+    message: Message,
+    state: FSMContext,
+    roles: set[str],
+    staff_member: StaffMember | None,
+    active_ui_role: str,
+    can_switch_ui_role: bool,
+) -> None:
     await state.clear()
-    await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+    await message.answer(
+        "Действие отменено.",
+        reply_markup=_menu(
+            active_ui_role=active_ui_role,
+            can_switch_ui_role=can_switch_ui_role,
+            roles=roles,
+            staff_member=staff_member,
+        ),
+    )
 
 
 @common_router.message(Command("help"))
 @common_router.message(F.text == "Помощь")
-async def cmd_help(message: Message, tenant: Tenant, roles: set[str], active_ui_role: str) -> None:
+async def cmd_help(
+    message: Message,
+    tenant: Tenant,
+    roles: set[str],
+    staff_member: StaffMember | None,
+    active_ui_role: str,
+    can_switch_ui_role: bool,
+) -> None:
     bot_user = message.bot
     username = getattr(bot_user, "username", None) or "bot"
     lines = [
@@ -29,27 +67,16 @@ async def cmd_help(message: Message, tenant: Tenant, roles: set[str], active_ui_
         "",
     ]
     if not bot_chat_write_enabled():
-        lines.extend(
-            [
-                "В чате можно только смотреть информацию. Запись и управление — в мини-приложении.",
-                "",
-                "/my — мои записи",
-            ]
+        lines.append(miniapp_open_hint())
+        await message.answer(
+            "\n".join(lines),
+            reply_markup=_menu(
+                active_ui_role=active_ui_role,
+                can_switch_ui_role=can_switch_ui_role,
+                roles=roles,
+                staff_member=staff_member,
+            ),
         )
-        if is_manager(roles):
-            lines.extend(
-                [
-                    "/today — записи салона на сегодня",
-                    "/staff — команда",
-                    "/services — услуги",
-                    "/find_client имя — поиск клиента",
-                    "/pending — нерешённые переносы",
-                ]
-            )
-        if is_staff(roles):
-            lines.append("/day — мой рабочий день")
-        lines.extend(["/help — эта справка", "", miniapp_open_hint()])
-        await message.answer("\n".join(lines))
         return
     lines.extend(
         [

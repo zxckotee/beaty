@@ -10,7 +10,7 @@ from app.bot.active_role import UI_ROLE_LABELS, available_ui_roles, read_stored_
 from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
 from app.bot.keyboards.builders import contact_request_keyboard, tenant_reply_keyboard
-from app.bot.miniapp import bot_reply_keyboard_enabled, miniapp_open_hint
+from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -53,6 +53,8 @@ def _reply_menu(
     return tenant_reply_keyboard(
         active_ui_role=active,  # type: ignore[arg-type]
         can_switch_ui_role=can_switch,
+        granted_roles=roles,
+        has_staff_profile=staff_member is not None,
     )
 
 
@@ -108,6 +110,8 @@ async def cmd_start(
                 reply_markup=tenant_reply_keyboard(
                     active_ui_role=active,
                     can_switch_ui_role=len(avail) > 1,
+                    granted_roles=roles,
+                    has_staff_profile=True,
                 ),
             )
             return
@@ -117,16 +121,6 @@ async def cmd_start(
             return
 
     await state.update_data(start_param=start_param, book_entry=None)
-
-    if not start_param and not bot_reply_keyboard_enabled():
-        await message.answer(miniapp_open_hint())
-    elif not start_param:
-        await message.answer(
-            "Для входа на сайт: нажмите на сайте «Войти через Telegram», откроется этот чат — "
-            "там же нажмите START BOT. Если открыли @"
-            + (tenant.bot_username or "бота")
-            + " из поиска, к сайту это не привязано."
-        )
 
     if start_param:
         if start_param.startswith("service_"):
@@ -138,8 +132,6 @@ async def cmd_start(
 
     if client_profile and client_has_phone(client_profile):
         greeting = f"Снова здравствуйте! {tenant.name}"
-        if not bot_reply_keyboard_enabled():
-            greeting += f"\n\n{miniapp_open_hint()}"
         await message.answer(
             greeting,
             reply_markup=_reply_menu(
@@ -154,7 +146,7 @@ async def cmd_start(
             start_param
             and not invite_token
             and active_ui_role == "client"
-            and bot_reply_keyboard_enabled()
+            and bot_chat_write_enabled()
         ):
             from app.bot.client.book import start_book_flow
 
@@ -164,9 +156,7 @@ async def cmd_start(
 
     if staff_member is not None and client_profile is None:
         lines = [f"Здравствуйте, {staff_member.display_name}!"]
-        if not bot_reply_keyboard_enabled():
-            lines.append(miniapp_open_hint())
-        elif is_manager(roles):
+        if bot_chat_write_enabled() and is_manager(roles):
             lines.append(
                 "Вы управляете салоном: добавьте услуги в «Услуги», "
                 "мастеров в «Команда», записи — в «Сегодня»."
@@ -176,7 +166,7 @@ async def cmd_start(
                     f"Сейчас режим «{UI_ROLE_LABELS.get(active_ui_role, active_ui_role)}». "
                     "Другие роли — кнопка «Сменить режим»."
                 )
-        else:
+        elif bot_chat_write_enabled():
             lines.append("Ваш рабочий день — кнопка «Мой день».")
         await message.answer(
             "\n".join(lines),
@@ -194,13 +184,7 @@ async def cmd_start(
     intro = f"Добро пожаловать в {tenant.name}!"
     if policy:
         intro += f"\nПолитика: {policy}"
-    if bot_reply_keyboard_enabled():
-        intro += "\n\nДля записи нужен номер телефона (кнопка ниже)."
-    else:
-        intro += (
-            "\n\nЧтобы смотреть свои записи в чате, нужен номер телефона (кнопка ниже). "
-            "Записаться можно в мини-приложении."
-        )
+    intro += "\n\nНужен номер телефона — кнопка ниже."
     await state.set_state(ClientOnboarding.waiting_contact)
     await message.answer(intro, reply_markup=contact_request_keyboard())
 
@@ -297,9 +281,8 @@ async def marketing_choice(
     await state.clear()
     if callback.message:
         await callback.message.edit_text(f"Готово! Добро пожаловать в {tenant.name}.")
-    menu_note = "Меню:" if bot_reply_keyboard_enabled() else miniapp_open_hint()
     await callback.message.answer(  # type: ignore[union-attr]
-        menu_note,
+        "Готово.",
         reply_markup=_reply_menu(
             roles,
             staff_member,
@@ -308,7 +291,7 @@ async def marketing_choice(
             can_switch_ui_role=can_switch_ui_role,
         ),
     )
-    if book_entry and callback.message and active_ui_role == "client" and bot_reply_keyboard_enabled():
+    if book_entry and callback.message and active_ui_role == "client" and bot_chat_write_enabled():
         from app.bot.client.book import start_book_flow
 
         await start_book_flow(
