@@ -120,8 +120,8 @@ export function plural(n, one, few, many) {
 
 export function hueFor(text) {
   let hash = 0;
-  for (const ch of String(text)) hash = (hash * 31 + ch.codePointAt(0)) % 360;
-  return hash;
+  for (const ch of String(text)) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  return 34 + (hash % 22);
 }
 export const initials = (name) => (name || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
