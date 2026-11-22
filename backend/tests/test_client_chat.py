@@ -1,5 +1,7 @@
 """Client messenger: inbound classification and manager chat API."""
 
+from collections.abc import AsyncIterator
+
 import httpx
 import pytest
 from aiogram.types import Chat, PhotoSize, User, Voice
@@ -72,10 +74,15 @@ async def chat_salon(session: AsyncSession) -> dict[str, object]:
 
 
 @pytest.fixture
-async def web_client() -> httpx.AsyncClient:
+async def web_client() -> AsyncIterator[httpx.AsyncClient]:
+    from app.core.db import engine
+
     c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
-    yield c
-    await c.aclose()
+    try:
+        yield c
+    finally:
+        await c.aclose()
+        await engine.dispose()
 
 
 async def test_chat_api_list_and_thread(
@@ -118,19 +125,27 @@ async def test_chat_api_list_and_thread(
 async def test_send_requires_telegram(
     session: AsyncSession,
     chat_salon: dict[str, object],
-    web_client: httpx.AsyncClient,
 ) -> None:
-    pid = str(chat_salon["public_id"])
-    owner_tg = int(chat_salon["owner_tg"])  # type: ignore[arg-type]
-    tenant = await session.scalar(select(Tenant).where(Tenant.public_id == pid))
+    from app.domain.exceptions import ValidationError
+    from app.domain.models import StaffMember
+    from app.domain.services.client_chat_service import send_manager_message
+
+    tenant = await session.get(Tenant, chat_salon["tenant_id"])  # type: ignore[arg-type]
     assert tenant is not None
     manual = ClientProfile(tenant_id=tenant.id, name="Manual", phone="+79990001122")
     session.add(manual)
+    await session.flush()
+    staff = await session.scalar(
+        select(StaffMember).where(StaffMember.tenant_id == tenant.id).limit(1)
+    )
+    assert staff is not None
     await session.commit()
 
-    await web_client.post(f"/api/t/{pid}/auth/dev", json={"telegram_user_id": owner_tg, "name": "Owner"})
-    res = await web_client.post(
-        f"/api/t/{pid}/manager/chat/clients/{manual.id}/messages",
-        data={"text": "hi"},
-    )
-    assert res.status_code == 400
+    with pytest.raises(ValidationError, match="Telegram"):
+        await send_manager_message(
+            session,
+            tenant,
+            manual.id,
+            staff_member_id=staff.id,
+            text="hi",
+        )
