@@ -8,7 +8,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.chat_readonly import open_miniapp_markup
 from app.bot.filters.roles import HasActiveClientRole
+from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, Tenant
 from app.domain.services.booking_service import cancel_booking
@@ -102,14 +104,17 @@ async def booking_detail(
         f"{r.service_name}\n{when}\nМастер: {r.staff_name or '—'}\n"
         f"Статус: {r.status}\n{(r.total_price_cents or 0) // 100} ₽"
     )
-    kb = InlineKeyboardBuilder()
-    if r.status in ("booked", "confirmed", "held"):
+    if bot_chat_write_enabled() and r.status in ("booked", "confirmed", "held"):
+        kb = InlineKeyboardBuilder()
         kb.button(text="Подтвердить визит", callback_data=f"confirm_visit:{booking_id}")
         kb.button(text="Отменить", callback_data=f"c:cn:ask:{booking_id}")
         kb.button(text="Перенести", callback_data=f"c:rs:{booking_id}")
-    kb.adjust(1)
+        kb.adjust(1)
+        markup = kb.as_markup()
+    else:
+        markup = open_miniapp_markup(tenant, text="Открыть в приложении")
     if callback.message:
-        await callback.message.edit_text(text_msg, reply_markup=kb.as_markup())
+        await callback.message.edit_text(text_msg, reply_markup=markup)
     await callback.answer()
 
 

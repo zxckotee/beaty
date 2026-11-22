@@ -4,7 +4,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
+from app.bot.chat_readonly import reply_use_miniapp
 from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
+from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
 from app.domain.models import Tenant  # noqa: TC001 — aiogram DI
 
 common_router = Router(name="common")
@@ -25,9 +27,36 @@ async def cmd_help(message: Message, tenant: Tenant, roles: set[str], active_ui_
         f"Салон: {tenant.name}",
         f"Бот: @{username}",
         "",
-        "Команды:",
-        "/cancel — отменить текущий шаг",
     ]
+    if not bot_chat_write_enabled():
+        lines.extend(
+            [
+                "В чате можно только смотреть информацию. Запись и управление — в мини-приложении.",
+                "",
+                "/my — мои записи",
+            ]
+        )
+        if is_manager(roles):
+            lines.extend(
+                [
+                    "/today — записи салона на сегодня",
+                    "/staff — команда",
+                    "/services — услуги",
+                    "/find_client имя — поиск клиента",
+                    "/pending — нерешённые переносы",
+                ]
+            )
+        if is_staff(roles):
+            lines.append("/day — мой рабочий день")
+        lines.extend(["/help — эта справка", "", miniapp_open_hint()])
+        await message.answer("\n".join(lines))
+        return
+    lines.extend(
+        [
+            "Команды:",
+            "/cancel — отменить текущий шаг",
+        ]
+    )
     if active_ui_role == UI_ROLE_MANAGER and is_manager(roles):
         lines.extend(
             [
@@ -49,6 +78,9 @@ async def text_book(
     tenant: Tenant,
     db_session,
 ) -> None:
+    if not bot_chat_write_enabled():
+        await reply_use_miniapp(message, tenant)
+        return
     from app.bot.client.book import start_book_flow
 
     await start_book_flow(message, state, entry="service", tenant=tenant, db_session=db_session)
@@ -66,6 +98,9 @@ async def text_repeat(
 
     from app.bot.client.book import start_book_flow
 
+    if not bot_chat_write_enabled():
+        await reply_use_miniapp(message, tenant)
+        return
     if not client_profile:
         await message.answer("Сначала /start и телефон для записи.")
         return

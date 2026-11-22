@@ -8,7 +8,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.chat_readonly import open_miniapp_markup
 from app.bot.filters.roles import HasManagerRole, is_manager
+from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.models import Tenant
 
 today_router = Router(name="manager_today")
@@ -109,12 +111,41 @@ async def day_nav(callback: CallbackQuery, tenant: Tenant, db_session: AsyncSess
 @today_router.callback_query(F.data.startswith("m:bdg:"))
 async def booking_card(callback: CallbackQuery, tenant: Tenant, db_session: AsyncSession) -> None:
     bid = (callback.data or "").split(":")[2]
-    kb = InlineKeyboardBuilder()
-    kb.button(text="Пришёл", callback_data=f"s:st:{bid}:arrived")
-    kb.button(text="Выполнено", callback_data=f"s:st:{bid}:completed")
-    kb.button(text="Неявка", callback_data=f"s:st:{bid}:no_show")
-    kb.button(text="Отменить", callback_data=f"m:bcn:{bid}")
-    kb.adjust(1)
+    row = await db_session.execute(
+        text(
+            """
+            SELECT b.status, cp.name AS client_name, s.name AS service_name,
+                   sm.display_name AS staff_name, lower(bi.during) AS start_at
+            FROM booking b
+            JOIN booking_item bi ON bi.booking_id = b.id AND bi.is_active = true
+            JOIN client_profile cp ON cp.id = b.client_profile_id
+            JOIN service s ON s.id = bi.service_id
+            JOIN staff_member sm ON sm.id = bi.staff_member_id
+            WHERE b.id = :id AND b.tenant_id = :tenant_id
+            """
+        ),
+        {"id": bid, "tenant_id": str(tenant.id)},
+    )
+    r = row.one_or_none()
+    if r is None:
+        await callback.answer("Не найдено", show_alert=True)
+        return
+    when = r.start_at.strftime("%d.%m.%Y %H:%M") if r.start_at else "—"
+    text_msg = (
+        f"{r.client_name}\n{when}\n{r.service_name} / {r.staff_name}\nСтатус: {r.status}"
+    )
+    if bot_chat_write_enabled():
+        kb = InlineKeyboardBuilder()
+        kb.button(text="Пришёл", callback_data=f"s:st:{bid}:arrived")
+        kb.button(text="Выполнено", callback_data=f"s:st:{bid}:completed")
+        kb.button(text="Неявка", callback_data=f"s:st:{bid}:no_show")
+        kb.button(text="Отменить", callback_data=f"m:bcn:{bid}")
+        kb.adjust(1)
+        markup = kb.as_markup()
+        prefix = "Действия с записью:\n"
+    else:
+        markup = open_miniapp_markup(tenant, text="Открыть в приложении")
+        prefix = ""
     if callback.message:
-        await callback.message.answer("Действия с записью:", reply_markup=kb.as_markup())
+        await callback.message.answer(prefix + text_msg, reply_markup=markup)
     await callback.answer()
