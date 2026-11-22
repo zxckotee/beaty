@@ -14,11 +14,11 @@ from sqlalchemy import select
 
 from app.bot.dispatcher_setup import dispatcher
 from app.bot.factory import create_bot
+from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
 from app.core.crypto import decrypt_bot_token
 from app.core.db import SessionLocal
 from app.core.logging_config import setup_logging
 from app.domain.models import Tenant
-from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
 from app.domain.services.bot_token_alerts import notify_owner_bot_token_revoked
 from app.domain.services.provisioning import mark_tenant_bot_revoked
 
