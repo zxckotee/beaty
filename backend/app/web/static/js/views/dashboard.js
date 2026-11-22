@@ -1,5 +1,5 @@
 import { api, friendly } from '../api.js';
-import { addDays, cssVarColor, duration, h, icon, money, rgbaFromRgb, todayIn } from '../util.js';
+import { addDays, chartPalette, duration, h, icon, money, rgbaFromRgb, todayIn } from '../util.js';
 import { store } from '../store.js';
 import { emptyState, field, spinner, toast, withBusy } from '../ui.js';
 import { dayView } from './day.js';
@@ -67,7 +67,7 @@ export async function dashboardView(sub = '') {
   const blocksCard = h('div', { class: 'card pad col' });
   const scheduleMount = h('div', { class: 'dash-schedule' });
 
-  let range = { from: '2020-01-01', to: today };
+  let range = { from: addDays(today, -29), to: today };
   let granularity = 'day';
 
   const presets = [
@@ -147,26 +147,32 @@ export async function dashboardView(sub = '') {
     const el = h('div', { class: 'dash-chart', style: { height: '220px' } });
     wrap.append(el);
     parent.append(wrap);
-    const textColor = cssVarColor('--text');
-    const gold = cssVarColor('--ui-gold');
-    const chart = L.createChart(el, {
+    const { text: textColor, gold } = chartPalette();
+    let chart;
+    try {
+      chart = L.createChart(el, {
       layout: { background: { color: 'transparent' }, textColor },
       rightPriceScale: { borderVisible: false },
       timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
-      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
-    });
-    const series = chart.addAreaSeries({
-      lineColor: gold,
-      topColor: rgbaFromRgb(gold, 0.35),
-      bottomColor: 'transparent',
-    });
-    const data = points.map((p, i) => ({
-      time: chartTime(p.period, i, gran),
-      value: isMoney ? p.value / 100 : p.value,
-    }));
-    series.setData(data.length ? data : [{ time: range.to, value: 0 }]);
-    chart.timeScale().fitContent();
+        handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+      });
+      const series = chart.addAreaSeries({
+        lineColor: gold,
+        topColor: rgbaFromRgb(gold, 0.35),
+        bottomColor: 'transparent',
+      });
+      const data = points.map((p, i) => ({
+        time: chartTime(p.period, i, gran),
+        value: isMoney ? p.value / 100 : p.value,
+      }));
+      series.setData(data.length ? data : [{ time: range.to, value: 0 }]);
+      chart.timeScale().fitContent();
+    } catch (e) {
+      wrap.replaceChildren(h('p', { class: 'small muted' }, 'График не удалось отрисовать'));
+      console.warn('chart render failed', e);
+      return null;
+    }
     return chart;
   }
 
@@ -272,7 +278,7 @@ export async function dashboardView(sub = '') {
       setRange(p.from, p.to);
     });
     btn.classList.add('preset');
-    if (p.id === 'all') btn.classList.add('active');
+    if (p.id === '30d') btn.classList.add('active');
     rangeBar.append(btn);
   }
   const customFrom = field({ label: 'С', tag: 'input', props: { type: 'date', value: range.from } });
@@ -308,10 +314,12 @@ export async function dashboardView(sub = '') {
     /* hash only; schedule always shown */
   }
 
-  const scheduleEl = await dayView({ manager: true, embedded: true });
-  scheduleMount.append(scheduleEl);
+  scheduleMount.append(spinner());
+  const scheduleP = dayView({ manager: true, embedded: true })
+    .then((el) => scheduleMount.replaceChildren(el))
+    .catch((e) => scheduleMount.replaceChildren(emptyState('📅', 'Расписание недоступно', friendly(e))));
 
-  await Promise.all([renderSummary(), renderCharts(), renderBlocks()]);
+  await Promise.all([scheduleP, renderSummary(), renderCharts(), renderBlocks()]);
 
   return root;
 }
