@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import enum
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import Iterator
 from uuid import UUID
 
 
-class OutboundLogKind(str, enum.Enum):
+class OutboundLogKind(enum.StrEnum):
     INTERACTIVE = "interactive"
     NOTIFICATION = "notification"
     MANAGER = "manager"
