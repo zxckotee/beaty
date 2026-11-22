@@ -19,6 +19,7 @@ from app.core.telegram_auth import verify_webapp_init_data
 from app.domain.active_role import UI_ROLE_LABELS, write_stored_ui_role
 from app.domain.models import Branch, Tenant
 from app.domain.services.cell_service import get_default_branch, work_day_hours
+from app.domain.services.landing_service import get_or_create_landing
 from app.domain.services.client_service import get_or_create_user_account, upsert_client_profile
 from app.domain.services.web_auth_service import create_login_request, poll_login, start_param_for
 from app.web.deps import WebContext, cookie_name, get_context, get_tenant, require_auth, writable
@@ -59,6 +60,7 @@ def _set_session_cookie(response: Response, tenant: Tenant, user_id: UUID, name:
 async def _tenant_info(session: AsyncSession, tenant: Tenant) -> dict[str, object]:
     branch: Branch = await get_default_branch(session, tenant)
     work_start, work_end = work_day_hours(tenant)
+    landing = await get_or_create_landing(session, tenant.id)
     return {
         "public_id": tenant.public_id,
         "name": tenant.name,
@@ -68,6 +70,7 @@ async def _tenant_info(session: AsyncSession, tenant: Tenant) -> dict[str, objec
         "work_start": work_start,
         "work_end": work_end,
         "grid_step_minutes": int((tenant.rules or {}).get("grid_step_minutes", 30)),
+        "avatar_url": landing.avatar_url,
         **({"dev_login": True} if dev_login_enabled() else {}),
         "read_only": tenant.subscription_status in {"expired", "suspended", "cancelled"},
     }

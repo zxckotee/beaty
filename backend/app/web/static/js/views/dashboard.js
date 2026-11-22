@@ -1,5 +1,5 @@
 import { api, friendly } from '../api.js';
-import { addDays, duration, h, icon, money, todayIn } from '../util.js';
+import { addDays, cssVarColor, duration, h, icon, money, rgbaFromRgb, todayIn } from '../util.js';
 import { store } from '../store.js';
 import { emptyState, field, spinner, toast, withBusy } from '../ui.js';
 import { dayView } from './day.js';
@@ -147,14 +147,20 @@ export async function dashboardView(sub = '') {
     const el = h('div', { class: 'dash-chart', style: { height: '220px' } });
     wrap.append(el);
     parent.append(wrap);
+    const textColor = cssVarColor('--text');
+    const gold = cssVarColor('--ui-gold');
     const chart = L.createChart(el, {
-      layout: { background: { color: 'transparent' }, textColor: 'var(--text)' },
+      layout: { background: { color: 'transparent' }, textColor },
       rightPriceScale: { borderVisible: false },
       timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
     });
-    const series = chart.addAreaSeries({ lineColor: 'var(--ui-gold)', topColor: 'color-mix(in srgb, var(--ui-gold) 35%, transparent)', bottomColor: 'transparent' });
+    const series = chart.addAreaSeries({
+      lineColor: gold,
+      topColor: rgbaFromRgb(gold, 0.35),
+      bottomColor: 'transparent',
+    });
     const data = points.map((p, i) => ({
       time: chartTime(p.period, i, gran),
       value: isMoney ? p.value / 100 : p.value,
