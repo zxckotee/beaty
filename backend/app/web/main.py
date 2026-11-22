@@ -34,6 +34,7 @@ from app.web.routes import (
     analytics,
     auth,
     client,
+    client_chat,
     landing,
     manager,
     messages,
@@ -130,6 +131,8 @@ app.include_router(client.router)
 app.include_router(landing.public_router)
 app.include_router(landing.manager_router)
 app.include_router(messages.router)
+app.include_router(client_chat.router)
+app.include_router(client_chat.media_router)
 
 
 @app.get("/health")
