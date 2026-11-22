@@ -38,7 +38,7 @@ def _clamp_range(start: date, end: date) -> tuple[date, date]:
     if end < start:
         start, end = end, start
     if (end - start).days > MAX_RANGE_DAYS:
-        end = start + timedelta(days=MAX_RANGE_DAYS)
+        start = end - timedelta(days=MAX_RANGE_DAYS)
     return start, end
 
 
