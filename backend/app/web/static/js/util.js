@@ -125,6 +125,13 @@ export function hueFor(text) {
 }
 export const initials = (name) => (name || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
+const CHART_COLOR_FALLBACK = { text: '#ececec', gold: '#B8A06A' };
+
+function chartParsableColor(value) {
+  if (!value || value.includes('var(')) return false;
+  return /^#([0-9a-f]{3,8})$/i.test(value) || /^rgba?\(/i.test(value);
+}
+
 /** Resolve a CSS variable to rgb/rgba for APIs that cannot parse var(...). */
 export function cssVarColor(varName, host = document.documentElement) {
   const probe = document.createElement('span');
@@ -136,7 +143,22 @@ export function cssVarColor(varName, host = document.documentElement) {
   host.appendChild(probe);
   const resolved = getComputedStyle(probe).color;
   host.removeChild(probe);
-  return resolved || '#e8e4dc';
+  if (chartParsableColor(resolved)) return resolved;
+  if (varName === '--text') {
+    const body = getComputedStyle(document.body).color;
+    if (chartParsableColor(body)) return body;
+    return CHART_COLOR_FALLBACK.text;
+  }
+  if (varName === '--ui-gold') return CHART_COLOR_FALLBACK.gold;
+  return CHART_COLOR_FALLBACK.text;
+}
+
+/** Colors safe for Lightweight Charts (never CSS variables). */
+export function chartPalette() {
+  const text = cssVarColor('--text');
+  let gold = cssVarColor('--ui-gold');
+  if (!chartParsableColor(gold) || gold === CHART_COLOR_FALLBACK.text) gold = CHART_COLOR_FALLBACK.gold;
+  return { text, gold };
 }
 
 export function rgbaFromRgb(rgb, alpha) {
@@ -149,9 +171,26 @@ export function brandMark(info) {
   const name = info?.name || 'B';
   const url = info?.avatar_url;
   if (url) {
-    return h('div', { class: 'brand-mark' }, h('img', { src: url, alt: name }));
+    const img = h('img', { src: url, alt: name, loading: 'lazy', decoding: 'async' });
+    img.addEventListener('error', () => {
+      const el = img.closest('.brand-mark');
+      if (el) el.replaceChildren(document.createTextNode(name[0].toUpperCase()));
+    });
+    return h('div', { class: 'brand-mark' }, img);
   }
   return h('div', { class: 'brand-mark' }, name[0].toUpperCase());
+}
+
+export function syncHeaderBrand(info) {
+  if (!info) return;
+  const host = document.querySelector('header .brand');
+  if (!host) return;
+  const nameEl = host.querySelector('.brand-name');
+  const next = brandMark(info);
+  const old = host.querySelector('.brand-mark');
+  if (old) old.replaceWith(next);
+  else host.prepend(next);
+  if (nameEl && !host.contains(nameEl)) host.append(nameEl);
 }
 
 export function debounce(fn, ms) {

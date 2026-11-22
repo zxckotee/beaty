@@ -107,8 +107,8 @@ img { max-width: 100%; display: block; }
 /* ---------- shell ---------- */
 .shell { min-height: 100dvh; padding-bottom: calc(var(--nav-h) + var(--safe-b) + 12px); }
 .header {
-  position: sticky; top: 0; z-index: 30; height: var(--header-h);
-  display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  position: sticky; top: 0; z-index: 30; height: var(--header-h); min-height: var(--header-h);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px; overflow: hidden;
   background: var(--header-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
@@ -118,8 +118,8 @@ img { max-width: 100%; display: block; }
 .brand-mark {
   width: 34px; height: 34px; border-radius: 11px; flex: none;
   display: flex; align-items: center; justify-content: center;
-  line-height: 1; font-size: 0.95rem; overflow: hidden;
-  color: var(--accent-ink); font-weight: 800;
+  line-height: 1; font-size: 0.92rem; overflow: hidden; padding: 0; margin: 0;
+  font-family: var(--font); color: var(--accent-ink); font-weight: 800;
   background: var(--ui-gold);
   box-shadow: var(--shadow-gold);
 }
@@ -130,11 +130,17 @@ img { max-width: 100%; display: block; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .page-head p { color: var(--muted); margin-top: 4px; }
 
-.nav-top { display: none; gap: 4px; }
+.nav-top {
+  display: none; gap: 4px; align-items: center; flex: 1 1 auto; min-width: 0;
+  max-height: var(--header-h); overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.nav-top::-webkit-scrollbar { display: none; }
 .nav-top a, .nav-bottom a {
   display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600;
+  flex-shrink: 0;
 }
-.nav-top a { padding: 8px 14px; border-radius: 999px; }
+.nav-top a { padding: 6px 10px; border-radius: 999px; font-size: .84rem; line-height: 1.15; white-space: nowrap; }
 .nav-top a.active { background: var(--accent-soft); color: var(--accent); }
 .nav-bottom {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;

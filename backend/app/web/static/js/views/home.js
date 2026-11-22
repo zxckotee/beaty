@@ -2,7 +2,7 @@ import { api, friendly } from '../api.js';
 import { navigate } from '../main.js';
 import { isManager, store } from '../store.js';
 import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
-import { h, hueFor, icon, initials } from '../util.js';
+import { h, hueFor, icon, initials, syncHeaderBrand } from '../util.js';
 
 let leafletPromise = null;
 
@@ -51,6 +51,10 @@ export async function homeView() {
 
   async function load() {
     data = await api.get(edit ? '/manager/landing' : '/landing');
+    if (store.info && data.avatar_url) {
+      store.info.avatar_url = data.avatar_url;
+      syncHeaderBrand(store.info);
+    }
   }
 
   function destroyMap() {
@@ -427,6 +431,10 @@ export async function homeView() {
           try {
             const r = await api.upload('/manager/landing/photo/avatar', f);
             data.avatar_url = r.avatar_url;
+            if (store.info) {
+              store.info.avatar_url = r.avatar_url;
+              syncHeaderBrand(store.info);
+            }
             draw();
             toast('Аватар обновлён');
           } catch (e) {
