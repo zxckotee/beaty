@@ -254,6 +254,15 @@ async def test_schedule_and_manual_booking(salon: Salon, client_factory) -> None
     assert bad.status_code == 409
 
 
+async def test_public_landing_always(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
+    c = client_factory()
+    r = await c.get(f"/api/t/{salon.public_id}/landing")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["title"] == "Web salon"
+    assert "portfolio" in body and "posts" in body
+
+
 async def test_staff_options(salon: Salon, client_factory) -> None:  # type: ignore[no-untyped-def]
     base = f"/api/t/{salon.public_id}"
     anon = client_factory()

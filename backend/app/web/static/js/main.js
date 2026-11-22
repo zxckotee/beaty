@@ -11,7 +11,7 @@ import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
 import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
-import { landingView } from './views/landing.js';
+import { homeView } from './views/home.js';
 import { messagesView } from './views/messages.js';
 
 const app = document.getElementById('app');
@@ -23,12 +23,16 @@ const NAV = {
     { route: 'day', label: 'Расписание', icon: 'calendar' },
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
-    { route: 'landing', label: 'Лендинг', icon: 'globe' },
+    { route: 'home', label: 'Профиль', icon: 'globe' },
     { route: 'messages', label: 'Сообщения', icon: 'chat' },
     { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
-  specialist: [{ route: 'day', label: 'Мой день', icon: 'calendar' }],
+  specialist: [
+    { route: 'home', label: 'Профиль', icon: 'globe' },
+    { route: 'day', label: 'Мой день', icon: 'calendar' },
+  ],
   client: [
+    { route: 'home', label: 'Профиль', icon: 'globe' },
     { route: 'book', label: 'Запись', icon: 'scissors' },
     { route: 'mine', label: 'Мои записи', icon: 'list' },
   ],
@@ -40,7 +44,7 @@ const ROUTES = {
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
   'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
   services: { roles: ['manager'], view: () => servicesView() },
-  landing: { roles: ['manager'], view: () => landingView() },
+  home: { roles: ['client', 'manager', 'specialist'], view: () => homeView() },
   messages: { roles: ['manager'], view: () => messagesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },
@@ -48,7 +52,9 @@ const ROUTES = {
 };
 
 const activeRole = () => (store.me.authenticated ? store.me.active_role : 'client');
-const defaultRoute = () => (activeRole() === 'client' ? 'book' : 'day');
+const defaultRoute = () => (activeRole() === 'client' ? 'home' : 'day');
+
+const isHomeGuest = (route) => route === 'home' && !store.me.authenticated;
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '');
@@ -71,6 +77,15 @@ function applyBrand() {
 }
 
 function header(route) {
+  if (isHomeGuest(route)) {
+    return h(
+      'header',
+      { class: 'header header--profile-guest' },
+      h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (store.info?.name || 'B')[0].toUpperCase())),
+      h('div', { class: 'header-spacer' }),
+      h('a', { class: 'btn sm primary', href: '#/book' }, 'Записаться'),
+    );
+  }
   const items = NAV[activeRole()] || NAV.client;
   const me = store.me;
   const nav = h(
@@ -111,6 +126,7 @@ function header(route) {
 }
 
 function bottomNav(route) {
+  if (isHomeGuest(route)) return null;
   const items = NAV[activeRole()] || NAV.client;
   return h(
     'nav',
@@ -122,7 +138,7 @@ function bottomNav(route) {
 async function logout() {
   await api.post('/auth/logout');
   store.me = { authenticated: false };
-  navigate('book');
+  navigate('home');
 }
 
 async function render() {
@@ -142,8 +158,12 @@ async function render() {
     route = 'login';
     def = ROUTES.login;
   }
-  const main = h('main', { class: 'main', id: 'main' });
-  clear(app).append(h('div', { class: 'shell' }, header(route), main, bottomNav(route)));
+  const shellCls = ['shell'];
+  if (route === 'home') shellCls.push('shell--home');
+  if (isHomeGuest(route)) shellCls.push('shell--home-guest');
+  const main = h('main', { class: route === 'home' ? 'main main--profile' : 'main', id: 'main' });
+  const nav = bottomNav(route);
+  clear(app).append(h('div', { class: shellCls.join(' ') }, header(route), main, nav));
   if (store.info && store.info.read_only) main.append(h('div', { class: 'banner' }, 'Подписка неактивна: сервис работает в режиме просмотра.'));
   try {
     const node = await def.view(sub);

@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -49,24 +49,18 @@ _STATUS_BY_ERROR: tuple[tuple[type[DomainError], int], ...] = (
 )
 
 CSP_BROWSER = (
-    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "script-src 'self' https://telegram.org https://unpkg.com; "
+    "connect-src 'self' https://*.tile.openstreetmap.org; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 
 CSP_TELEGRAM = (
-    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self' https://telegram.org; connect-src 'self'; "
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    "script-src 'self' https://telegram.org https://unpkg.com; "
+    "connect-src 'self' https://*.tile.openstreetmap.org; "
     "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
     "base-uri 'none'; form-action 'self'"
-)
-
-CSP_STUDIO = (
-    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
-    "script-src 'self' https://unpkg.com https://floors-widget.api.2gis.ru; "
-    "connect-src 'self' https://*.tile.openstreetmap.org; "
-    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com https://map-widget.api.2gis.com; "
-    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 
 
@@ -96,9 +90,7 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "same-origin")
-    if request.url.path.rstrip("/").endswith("/studio") or request.url.path.endswith("/studio/"):
-        csp = CSP_STUDIO
-    elif _telegram_miniapp_context(request):
+    if _telegram_miniapp_context(request):
         csp = CSP_TELEGRAM
     else:
         csp = CSP_BROWSER
@@ -171,7 +163,7 @@ async def spa(tenant_public_id: str) -> FileResponse:
 
 @app.get("/t/{tenant_public_id}/studio")
 @app.get("/t/{tenant_public_id}/studio/")
-async def studio(tenant_public_id: str) -> FileResponse:
-    return FileResponse(STATIC_DIR / "landing.html", headers={"Cache-Control": "no-cache"})
+async def studio_redirect(tenant_public_id: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/t/{tenant_public_id}/", status_code=301)
 
 
