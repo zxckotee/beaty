@@ -252,11 +252,16 @@ async def my_bookings(
     return await _my_bookings(session, ctx)
 
 
-@router.delete("/bookings/{booking_id}")
-async def cancel_my_booking(
+class ClientCancelBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+async def _cancel_owned_booking(
+    session: AsyncSession,
+    ctx: WebContext,
     booking_id: UUID,
-    ctx: WebContext = Depends(require_auth),
-    session: AsyncSession = Depends(get_session),
+    *,
+    message: str | None,
 ) -> dict[str, str]:
     tenant = writable(ctx)
     booking = await session.get(Booking, booking_id)
@@ -267,7 +272,31 @@ async def cancel_my_booking(
         raise ForbiddenError("booking cannot be cancelled")
     assert ctx.user is not None
     await cancel_booking(
-        session, tenant=tenant, booking_id=booking_id, reason="client_cancel_web", actor_user_id=ctx.user.id
+        session,
+        tenant=tenant,
+        booking_id=booking_id,
+        reason="client_cancel_web",
+        message=message,
+        actor_user_id=ctx.user.id,
     )
     await session.commit()
     return {"status": "cancelled"}
+
+
+@router.post("/bookings/{booking_id}/cancel")
+async def cancel_my_booking_post(
+    booking_id: UUID,
+    body: ClientCancelBody,
+    ctx: WebContext = Depends(require_auth),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    return await _cancel_owned_booking(session, ctx, booking_id, message=body.reason.strip())
+
+
+@router.delete("/bookings/{booking_id}")
+async def cancel_my_booking(
+    booking_id: UUID,
+    ctx: WebContext = Depends(require_auth),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    return await _cancel_owned_booking(session, ctx, booking_id, message=None)

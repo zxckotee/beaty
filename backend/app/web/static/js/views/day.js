@@ -16,13 +16,24 @@ const PX_PER_MIN_MOBILE = 2.55;
 const PX_PER_MIN_DESKTOP = 2.85;
 const APPT_COMPACT_W = 92;
 const ROW_TRACK_H = 72;
+const APPT_LANE_H = 52;
+const APPT_LANE_GAP = 6;
+const ACTIVE_BOOKING = new Set(['held', 'booked', 'confirmed', 'arrived']);
 /** Левая колонка имён — шкала времени начинается справа от неё */
 const TIMELINE_LABEL_W = 148;
 
 const STATUS_LABEL = { free: 'Свободна', partial: 'Частично занята', full: 'Занята' };
-const BOOKING_STATUS = { booked: 'Записан', confirmed: 'Подтверждён', held: 'Удержание', arrived: 'Пришёл' };
+const BOOKING_STATUS = {
+  booked: 'Записан',
+  confirmed: 'Подтверждён',
+  held: 'Удержание',
+  arrived: 'Пришёл',
+  completed: 'Услуга оказана',
+  cancelled: 'Отменена',
+  no_show: 'Не пришёл',
+};
 
-export function dayView({ manager }) {
+export function dayView({ manager, embedded = false }) {
   const tz = store.info.timezone;
   const today = todayIn(tz);
   let date = sessionStorage.getItem('beaty.day') || today;
@@ -61,7 +72,7 @@ export function dayView({ manager }) {
     const title = h(
       'div',
       null,
-      h('h1', null, manager ? 'Расписание' : 'Мой день'),
+      h(embedded ? 'h2' : 'h1', null, manager ? 'Расписание' : 'Мой день'),
       h('p', null, `${longDayLabel(date)}${date === today ? ' · сегодня' : ''}`),
     );
     head.replaceChildren(title, nav);
@@ -77,7 +88,7 @@ export function dayView({ manager }) {
           ),
         );
       }
-      if (shiftCells().length) {
+      if (!isPastDay() && shiftCells().length) {
         nav.append(
           h(
             'button',
@@ -91,6 +102,9 @@ export function dayView({ manager }) {
           ),
         );
       }
+    }
+    if (isPastDay()) {
+      title.append(h('p', { class: 'small muted', style: { marginTop: '6px' } }, 'Прошедший день — только просмотр и статусы записей.'));
     }
     if (!manager) {
       head.append(
@@ -141,6 +155,30 @@ export function dayView({ manager }) {
 
   const statBox = (value, label) => h('div', { class: 'card stat' }, h('b', null, value), h('span', null, label));
 
+  function isPastDay() {
+    return data?.meta?.is_past === true || date < today;
+  }
+
+  function layoutBookingLanes(bookings) {
+    const laneEnds = [];
+    const placed = [];
+    const sorted = [...bookings].sort(
+      (a, b) => toMin(a.start) - toMin(b.start) || toMin(a.end) - toMin(b.end),
+    );
+    for (const b of sorted) {
+      const s = toMin(b.start);
+      const e = toMin(b.end);
+      let lane = laneEnds.findIndex((end) => end <= s);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(0);
+      }
+      laneEnds[lane] = e;
+      placed.push({ b, lane });
+    }
+    return { placed, lanes: Math.max(laneEnds.length, 1) };
+  }
+
   function layoutLanes(cells) {
     const laneEnds = [];
     const placed = [];
@@ -174,7 +212,14 @@ export function dayView({ manager }) {
     return { startMin, endMin, pxm };
   }
 
-  function buildApptBlock(b, cell, startMin, pxm) {
+  function apptStatusClass(status) {
+    if (status === 'completed') return 'status-completed';
+    if (status === 'cancelled') return 'status-cancelled';
+    if (status === 'no_show') return 'status-noshow';
+    return 'status-active';
+  }
+
+  function buildApptBlock(b, cell, startMin, pxm, lane, laneCount, trackHeight) {
     const bs = toMin(b.start);
     const be = toMin(b.end);
     const bw = Math.max((be - bs) * pxm - 3, 24);
@@ -182,18 +227,25 @@ export function dayView({ manager }) {
     const title = `${b.start}–${b.end} · ${b.client_name || 'Клиент'} · ${(b.service_names || []).join(', ')}`;
     const compact = bw < APPT_COMPACT_W;
     const mid = !compact && bw < APPT_COMPACT_W + 48;
+    const laneH = laneCount > 1
+      ? Math.max(36, Math.floor((trackHeight - 8 - APPT_LANE_GAP * (laneCount - 1)) / laneCount))
+      : trackHeight - 20;
+    const top = laneCount > 1 ? 4 + lane * (laneH + APPT_LANE_GAP) : 10;
     const kids = compact
-      ? [h('span', { class: 'appt-glyph', 'aria-hidden': 'true' }, '📋')]
+      ? [h('span', { class: 'appt-glyph', 'aria-hidden': 'true' }, b.status === 'cancelled' ? '✕' : '📋')]
       : [
           h('span', { class: 'appt-time num' }, `${b.start}–${b.end}`),
           mid ? null : h('span', { class: 'appt-who' }, b.client_name || 'Клиент'),
         ];
+    const statusCls = apptStatusClass(b.status);
     return h(
       'button',
       {
-        class: `appt-block${compact ? ' compact' : mid ? ' slim' : ''}`,
+        class: `appt-block ${statusCls}${compact ? ' compact' : mid ? ' slim' : ''}${laneCount > 1 ? ' multilane' : ''}`,
         type: 'button',
-        style: { left: `${bl}px`, width: `${bw}px` },
+        style: laneCount > 1
+          ? { left: `${bl}px`, width: `${bw}px`, top: `${top}px`, height: `${laneH}px` }
+          : { left: `${bl}px`, width: `${bw}px` },
         title,
         'aria-label': title,
         onclick: () => openBookingDetail(b, cell),
@@ -236,14 +288,19 @@ export function dayView({ manager }) {
               'div',
               { class: 'row wrap', style: { gap: '6px', marginLeft: 'auto' } },
               h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openScheduleEditor(cell.staff.id, { anchorDate: date, onSaved: () => load() }) }, icon('calendar'), 'График'),
-              cell.free_minutes > 0
+              !isPastDay() && cell.free_minutes > 0
                 ? h('button', { class: 'btn sm primary', type: 'button', onclick: () => loadCatalog().then((cat) => openManualBooking(cell, cat)) }, icon('plus'), 'Запись')
                 : null,
             )
           : null,
       );
 
-      const track = h('div', { class: 'staff-track', style: { height: `${ROW_TRACK_H}px`, width: `${width}px` } });
+      const bookings = cell.bookings || [];
+      const { placed, lanes } = layoutBookingLanes(bookings);
+      const trackHeight = lanes > 1
+        ? lanes * APPT_LANE_H + APPT_LANE_GAP * (lanes - 1) + 8
+        : ROW_TRACK_H;
+      const track = h('div', { class: 'staff-track', style: { height: `${trackHeight}px`, width: `${width}px` } });
       if (date === today) {
         const nowMin = nowMinutesIn(tz);
         if (nowMin >= startMin && nowMin <= endMin) {
@@ -254,8 +311,8 @@ export function dayView({ manager }) {
         track.append(h('i', { class: 'gridline', style: { left: `${(m - startMin) * pxm}px` } }));
       }
 
-      for (const b of cell.bookings || []) {
-        track.append(buildApptBlock(b, cell, startMin, pxm));
+      for (const { b, lane } of placed) {
+        track.append(buildApptBlock(b, cell, startMin, pxm, lane, lanes, trackHeight));
       }
 
       rows.append(h('section', { class: 'staff-row' }, rowHead, track));
@@ -310,7 +367,7 @@ export function dayView({ manager }) {
         ),
       );
     }
-    if (manager) {
+    if (manager && !isPastDay()) {
       const lastEnd = placed.reduce((m, p) => Math.max(m, p.e), 0);
       wrap.append(
         h('button', {
@@ -336,8 +393,22 @@ export function dayView({ manager }) {
     openScheduleRulesPicker(uniq, { anchorDate: date, onSaved: () => load() });
   }
 
+  async function setBookingStatus(booking, action, extra) {
+    const path = `${prefix}/bookings/${booking.booking_id}/${action}`;
+    if (action === 'cancel' && extra?.reason != null) {
+      await api.post(path, { reason: extra.reason });
+    } else {
+      await api.post(path, {});
+    }
+    toast(action === 'complete' ? 'Услуга оказана' : 'Запись отменена');
+    await load();
+  }
+
   function openBookingDetail(booking, cell) {
     const mins = Math.max(0, toMin(booking.end) - toMin(booking.start));
+    const statusLabel = BOOKING_STATUS[booking.status] || booking.status;
+    const statusTone = booking.status === 'completed' ? 'ok' : booking.status === 'cancelled' ? 'bad' : 'warn';
+    const canAct = !store.info?.read_only && ACTIVE_BOOKING.has(booking.status);
     openSheet({
       title: 'Запись',
       build: (sheet) => {
@@ -350,11 +421,50 @@ export function dayView({ manager }) {
             booking.client_phone ? h('dd', null, h('a', { href: `tel:+${booking.client_phone}` }, `+${booking.client_phone}`)) : null,
             booking.comment ? h('dt', null, 'Комментарий') : null,
             booking.comment ? h('dd', null, booking.comment) : null,
+            booking.cancel_reason ? h('dt', null, 'Отмена') : null,
+            booking.cancel_reason ? h('dd', null, `«${booking.cancel_reason}»`) : null,
             h('dt', null, 'Сумма'), h('dd', null, money(booking.total_price_cents)),
-            h('dt', null, 'Статус'), h('dd', null, BOOKING_STATUS[booking.status] || booking.status),
+            h('dt', null, 'Статус'), h('dd', null, h('span', { class: `chip ${statusTone}` }, statusLabel)),
           ),
         );
-        sheet.setFooter(h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'));
+        const foot = h('div', { class: 'row wrap', style: { gap: '8px', width: '100%', justifyContent: 'flex-end' } });
+        if (canAct) {
+          foot.append(
+            h(
+              'button',
+              {
+                class: 'btn danger',
+                type: 'button',
+                onclick: () => withBusy(foot, async () => {
+                  const ok = await confirmDialog({
+                    title: 'Отменить запись?',
+                    text: 'Слот освободится для других клиентов.',
+                    confirmLabel: 'Отменить',
+                    danger: true,
+                  });
+                  if (!ok) return;
+                  await setBookingStatus(booking, 'cancel');
+                  sheet.close();
+                }),
+              },
+              'Отменена',
+            ),
+            h(
+              'button',
+              {
+                class: 'btn ok',
+                type: 'button',
+                onclick: () => withBusy(foot, async () => {
+                  await setBookingStatus(booking, 'complete');
+                  sheet.close();
+                }),
+              },
+              'Услуга оказана',
+            ),
+          );
+        }
+        foot.append(h('button', { class: 'btn ghost', type: 'button', onclick: () => sheet.close() }, 'Закрыть'));
+        sheet.setFooter(foot);
       },
     });
   }

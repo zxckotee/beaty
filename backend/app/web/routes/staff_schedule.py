@@ -7,16 +7,18 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.domain.exceptions import ValidationError
-from app.domain.models import StaffMember
+from app.domain.models import ScheduleException, StaffMember
 from app.domain.services.card_service import get_specialist
 from app.domain.services.cell_service import get_default_branch
 from app.domain.services.schedule_service import (
     WEEKDAY_LABELS,
     add_day_off,
+    add_exception,
     add_work_override,
     assign_rule_to_staff_members,
     assign_staff_schedule_rule,
@@ -34,7 +36,7 @@ from app.domain.services.schedule_service import (
     weekly_template_payload,
 )
 from app.web.deps import WebContext, require_manager, require_staff, writable
-from app.web.serializers import hhmm, local_date
+from app.web.serializers import hhmm, local_date, parse_local
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["staff-schedule"])
 
@@ -86,6 +88,15 @@ class WorkOverrideBody(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+class TimeBlockBody(BaseModel):
+    staff_member_ids: list[UUID] = Field(min_length=1, max_length=50)
+    start_date: date
+    start_time: str = Field(pattern=HHMM)
+    end_date: date
+    end_time: str = Field(pattern=HHMM)
+    note: str | None = Field(default=None, max_length=500)
+
+
 def _exception_dict(exc, tz: ZoneInfo) -> dict[str, object]:
     during = exc.during
     assert during and during.lower and during.upper
@@ -98,7 +109,7 @@ def _exception_dict(exc, tz: ZoneInfo) -> dict[str, object]:
         "start_at": during.lower.isoformat(),
         "end_at": during.upper.isoformat(),
         "start": hhmm(start_local),
-        "end": hhmm(end_local) if exc.kind == "work_override" else None,
+        "end": hhmm(end_local) if exc.kind in ("work_override", "block") else None,
         "note": exc.note,
     }
 
@@ -307,6 +318,82 @@ async def get_staff_exceptions(
         range_end=end,
     )
     return {"items": [_exception_dict(e, tz) for e in items]}
+
+
+@router.get("/manager/blocks")
+async def list_time_blocks(
+    from_date: date = Query(alias="from"),
+    days: int = Query(default=90, ge=1, le=180),
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    branch = await get_default_branch(session, ctx.tenant)
+    tz = ZoneInfo(branch.timezone or "Europe/Moscow")
+    range_start = datetime.combine(from_date, time.min, tzinfo=tz).astimezone(UTC)
+    range_end = datetime.combine(from_date + timedelta(days=days), time.min, tzinfo=tz).astimezone(UTC)
+    rows = list(
+        (
+            await session.scalars(
+                select(ScheduleException)
+                .where(
+                    ScheduleException.tenant_id == ctx.tenant.id,
+                    ScheduleException.kind == "block",
+                )
+                .order_by(ScheduleException.id.desc())
+            )
+        ).all()
+    )
+    items: list[dict[str, object]] = []
+    staff_names: dict[UUID, str] = {}
+    for exc in rows:
+        during = exc.during
+        if not during or not during.lower or not during.upper:
+            continue
+        if during.upper <= range_start or during.lower >= range_end:
+            continue
+        if exc.staff_member_id not in staff_names:
+            st = await session.get(StaffMember, exc.staff_member_id)
+            staff_names[exc.staff_member_id] = st.display_name if st else "—"
+        row = _exception_dict(exc, tz)
+        row["staff_member_id"] = str(exc.staff_member_id)
+        row["staff_name"] = staff_names[exc.staff_member_id]
+        items.append(row)
+    return {"items": items}
+
+
+@router.post("/manager/blocks", status_code=201)
+async def post_time_blocks(
+    body: TimeBlockBody,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    writable(ctx)
+    branch = await get_default_branch(session, ctx.tenant)
+    tz = ZoneInfo(branch.timezone or "Europe/Moscow")
+    start = parse_local(body.start_date, body.start_time, tz)
+    end = parse_local(body.end_date, body.end_time, tz)
+    if end <= start:
+        raise ValidationError("end must be after start")
+    if end - start > timedelta(days=90):
+        raise ValidationError("block interval too long")
+    created: list[dict[str, object]] = []
+    for staff_id in body.staff_member_ids:
+        await _ensure_staff(session, ctx, staff_id)
+        exc = await add_exception(
+            session,
+            tenant_id=ctx.tenant.id,
+            staff_member_id=staff_id,
+            kind="block",
+            start=start,
+            end=end,
+            note=body.note or "blocked",
+            actor_user_id=ctx.user.id if ctx.user else None,
+        )
+        row = _exception_dict(exc, tz)
+        row["staff_member_id"] = str(staff_id)
+        created.append(row)
+    await session.commit()
+    return {"items": created}
 
 
 @router.post("/manager/staff/{staff_member_id}/exceptions/day-off", status_code=201)

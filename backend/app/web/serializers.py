@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from app.domain.models import Service, StaffMember, TimeCell
 from app.domain.services.availability_service import ScheduleDayWindow, ScheduleOffer
-from app.domain.services.cell_service import CellBooking, CellOffer, CellView
+from app.domain.services.cell_service import ACTIVE_STATUSES, CellBooking, CellOffer, CellView
 
 
 def photo_url_for_staff(staff: StaffMember, tenant_public_id: str) -> str | None:
@@ -74,7 +74,10 @@ def booking_dict(b: CellBooking, tz: ZoneInfo, *, reveal: bool) -> dict[str, obj
         "end": hhmm(b.end, tz),
         "service_names": b.service_names,
         "total_price_cents": b.total_price_cents,
+        "is_active_booking": b.status in ACTIVE_STATUSES,
     }
+    if b.cancel_reason:
+        data["cancel_reason"] = b.cancel_reason
     if reveal:
         data.update({"client_name": b.client_name, "client_phone": b.client_phone, "comment": b.comment})
     return data
