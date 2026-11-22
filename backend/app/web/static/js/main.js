@@ -73,11 +73,11 @@ export function navigate(route) {
 }
 
 function applyBrand() {
+  const root = document.documentElement;
+  root.style.removeProperty('--brand');
+  root.style.removeProperty('--accent');
   const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) {
-    const gold = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim();
-    if (gold) meta.setAttribute('content', gold);
-  }
+  if (meta) meta.setAttribute('content', '#323232');
   document.title = store.info ? `${store.info.name} · запись онлайн` : 'Запись онлайн';
 }
 
