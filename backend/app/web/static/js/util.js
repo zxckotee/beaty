@@ -125,6 +125,35 @@ export function hueFor(text) {
 }
 export const initials = (name) => (name || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
+/** Resolve a CSS variable to rgb/rgba for APIs that cannot parse var(...). */
+export function cssVarColor(varName, host = document.documentElement) {
+  const probe = document.createElement('span');
+  probe.style.color = `var(${varName})`;
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.position = 'absolute';
+  probe.style.pointerEvents = 'none';
+  probe.style.visibility = 'hidden';
+  host.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  host.removeChild(probe);
+  return resolved || '#e8e4dc';
+}
+
+export function rgbaFromRgb(rgb, alpha) {
+  const m = rgb.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return rgb;
+  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
+}
+
+export function brandMark(info) {
+  const name = info?.name || 'B';
+  const url = info?.avatar_url;
+  if (url) {
+    return h('div', { class: 'brand-mark' }, h('img', { src: url, alt: name }));
+  }
+  return h('div', { class: 'brand-mark' }, name[0].toUpperCase());
+}
+
 export function debounce(fn, ms) {
   let t;
   return (...args) => {

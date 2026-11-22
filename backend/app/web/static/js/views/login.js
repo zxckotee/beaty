@@ -1,6 +1,6 @@
 import { api, friendly } from '../api.js';
 import { isTelegramWebApp } from '../telegram.js';
-import { h, icon } from '../util.js';
+import { brandMark, h, icon } from '../util.js';
 import { loadMe, store } from '../store.js';
 import { toast } from '../ui.js';
 
@@ -122,7 +122,7 @@ export function loginView(onSuccess) {
   const el = h(
     'div',
     { class: 'card login' },
-    h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()),
+    brandMark(store.info),
     h('div', null, h('h1', null, 'Вход'), h('p', { class: 'muted', style: { marginTop: '6px' } }, `Войдите, чтобы записываться и управлять записями в «${name}».`)),
     panel,
   );
