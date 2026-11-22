@@ -56,7 +56,7 @@ export async function messagesView() {
       previewEl.textContent = 'Не удалось построить превью';
       previewEl.classList.add('msg-preview-empty');
     }
-  }, 400);
+  }, 500);
 
   async function reload() {
     meta = await api.get('/manager/messages/meta');
@@ -87,7 +87,14 @@ export async function messagesView() {
     );
   }
 
+  function schedulePreview() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => runPreview());
+    });
+  }
+
   function drawEditor() {
+    runPreview.cancel();
     const tpl = templates[activeKind] || { body: '', photo_slots: [], parse_mode: 'HTML' };
 
     editor = createTokenEditor({
@@ -181,7 +188,7 @@ export async function messagesView() {
     );
 
     panel.replaceChildren(layout);
-    runPreview();
+    schedulePreview();
   }
 
   function slotHas(tpl, name) {

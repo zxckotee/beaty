@@ -722,7 +722,10 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
   .messages-layout { grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 20px; }
 }
 .messages-text { min-height: 180px; font-size: .95rem; line-height: 1.45; }
-.msg-token-editable { white-space: pre-wrap; word-break: break-word; outline: none; }
+.msg-token-editable {
+  white-space: pre-wrap; word-break: break-word; outline: none;
+  contain: layout style; content-visibility: auto;
+}
 .msg-token-editable:focus { border-color: var(--accent-line); box-shadow: 0 0 0 2px var(--accent-soft); }
 .msg-token {
   display: inline-block;
@@ -769,6 +772,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 }
 .msg-preview-body {
   display: inline-block; max-width: 100%; text-align: left;
+  min-height: 120px; contain: layout style;
   padding: 12px 14px; border-radius: 16px 16px 16px 6px;
   background: var(--surface); border: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
@@ -778,6 +782,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .msg-preview-empty { color: var(--muted); font-style: italic; }
 .messages-preview-note { margin: 10px 4px 0; }
 .messages-aside { position: sticky; top: calc(var(--header-h) + 12px); }
+.messages-panel { min-height: 320px; }
 
 .chats-page { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
 .chat-list { display: flex; flex-direction: column; gap: 8px; }

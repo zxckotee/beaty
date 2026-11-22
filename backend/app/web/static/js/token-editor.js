@@ -11,7 +11,12 @@ export function createTokenEditor({ body = '', tokens = [], onInput } = {}) {
   el.contentEditable = 'true';
   el.setAttribute('role', 'textbox');
   el.setAttribute('aria-multiline', 'true');
+  el.setAttribute('autocomplete', 'off');
+  el.setAttribute('autocorrect', 'off');
+  el.setAttribute('autocapitalize', 'off');
+  el.setAttribute('inputmode', 'text');
   el.spellcheck = false;
+  el.translate = false;
 
   function setBody(raw) {
     el.replaceChildren(...bodyToFragment(String(raw || ''), tokenMap));
@@ -81,12 +86,42 @@ function bodyToFragment(body, tokenMap) {
   return nodes;
 }
 
+const ALLOWED_HTML_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'A', 'BR', 'DIV', 'P', 'SPAN']);
+
 function appendHtmlChunk(nodes, html) {
   if (!html) return;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  while (wrap.firstChild) {
-    nodes.push(wrap.firstChild);
+  if (!/[<]/.test(html)) {
+    nodes.push(document.createTextNode(html));
+    return;
+  }
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  importHtmlNodes(tpl.content, nodes);
+}
+
+function importHtmlNodes(src, out) {
+  for (const child of src.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const text = child.textContent;
+      if (text) out.push(document.createTextNode(text));
+      continue;
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+    const tag = child.tagName;
+    if (!ALLOWED_HTML_TAGS.has(tag)) {
+      importHtmlNodes(child, out);
+      continue;
+    }
+    if (tag === 'BR') {
+      out.push(document.createElement('br'));
+      continue;
+    }
+    const el = document.createElement(tag === 'STRONG' ? 'b' : tag === 'EM' ? 'i' : tag.toLowerCase());
+    if (tag === 'A') el.setAttribute('href', child.getAttribute('href') || '');
+    const nested = [];
+    importHtmlNodes(child, nested);
+    el.append(...nested);
+    out.push(el);
   }
 }
 
