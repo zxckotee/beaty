@@ -320,7 +320,7 @@ export async function homeView() {
 
     if (edit) {
       sections.push(
-        h('div', { class: 'profile-edit-bar card' }, h('span', { class: 'tiny' }, 'Режим редактирования'), h('a', { class: 'btn sm ghost', href: '#/day' }, 'Расписание')),
+        h('div', { class: 'profile-edit-bar card' }, h('span', { class: 'tiny' }, 'Режим редактирования'), h('a', { class: 'btn sm ghost', href: '#/schedule' }, 'Расписание')),
       );
     }
 

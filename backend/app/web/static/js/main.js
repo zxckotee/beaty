@@ -20,7 +20,7 @@ let renderToken = 0;
 
 const NAV = {
   manager: [
-    { route: 'day', label: 'Расписание', icon: 'calendar' },
+    { route: 'schedule', label: 'Расписание', icon: 'calendar' },
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
     { route: 'home', label: 'Профиль', icon: 'globe' },
@@ -29,7 +29,7 @@ const NAV = {
   ],
   specialist: [
     { route: 'home', label: 'Профиль', icon: 'globe' },
-    { route: 'day', label: 'Мой день', icon: 'calendar' },
+    { route: 'schedule', label: 'Мой день', icon: 'calendar' },
   ],
   client: [
     { route: 'home', label: 'Профиль', icon: 'globe' },
@@ -39,7 +39,7 @@ const NAV = {
 };
 
 const ROUTES = {
-  day: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
+  schedule: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
   team: { roles: ['manager'], view: () => teamView() },
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
   'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
@@ -52,14 +52,19 @@ const ROUTES = {
 };
 
 const activeRole = () => (store.me.authenticated ? store.me.active_role : 'client');
-const defaultRoute = () => (activeRole() === 'client' ? 'home' : 'day');
+const defaultRoute = () => 'home';
 
 const isHomeGuest = (route) => route === 'home' && !store.me.authenticated;
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '');
-  const [route, sub] = raw.split('/');
-  return { route: route || defaultRoute(), sub: sub || '' };
+  const [routePart, sub] = raw.split('/');
+  let route = routePart || defaultRoute();
+  if (route === 'day') {
+    route = 'home';
+    history.replaceState(null, '', '#/home');
+  }
+  return { route, sub: sub || '' };
 }
 
 export function navigate(route) {
@@ -118,7 +123,7 @@ function header(route) {
   return h(
     'header',
     { class: 'header' },
-    h('a', { class: 'brand', href: `#/${defaultRoute()}` }, h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()), h('span', { class: 'brand-name' }, name)),
+    h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()), h('span', { class: 'brand-name' }, name)),
     nav,
     h('div', { class: 'header-spacer' }),
     right,
