@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.active_role import UI_ROLE_LABELS, available_ui_roles, read_stored_ui_role, resolve_active_ui_role
 from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
-from app.bot.keyboards.builders import contact_request_keyboard, main_menu_reply
-from app.bot.miniapp import miniapp_url_for_tenant
+from app.bot.keyboards.builders import contact_request_keyboard, tenant_reply_keyboard
+from app.bot.miniapp import bot_reply_keyboard_enabled, miniapp_open_hint
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -50,10 +50,9 @@ def _reply_menu(
     )
     active = active_ui_role or resolve_active_ui_role(read_stored_ui_role(staff_member), avail)
     can_switch = can_switch_ui_role if can_switch_ui_role is not None else len(avail) > 1
-    return main_menu_reply(
+    return tenant_reply_keyboard(
         active_ui_role=active,  # type: ignore[arg-type]
         can_switch_ui_role=can_switch,
-        miniapp_web_url=miniapp_url_for_tenant(tenant),
     )
 
 
@@ -106,10 +105,9 @@ async def cmd_start(
             active = resolve_active_ui_role(read_stored_ui_role(staff), avail)
             await message.answer(
                 f"Вы присоединились к {tenant.name} как {staff.display_name}.",
-                reply_markup=main_menu_reply(
+                reply_markup=tenant_reply_keyboard(
                     active_ui_role=active,
                     can_switch_ui_role=len(avail) > 1,
-                    miniapp_web_url=miniapp_url_for_tenant(tenant),
                 ),
             )
             return
@@ -120,7 +118,9 @@ async def cmd_start(
 
     await state.update_data(start_param=start_param, book_entry=None)
 
-    if not start_param:
+    if not start_param and not bot_reply_keyboard_enabled():
+        await message.answer(miniapp_open_hint())
+    elif not start_param:
         await message.answer(
             "Для входа на сайт: нажмите на сайте «Войти через Telegram», откроется этот чат — "
             "там же нажмите START BOT. Если открыли @"
@@ -137,8 +137,11 @@ async def cmd_start(
             await state.update_data(promo_code=start_param[6:])
 
     if client_profile and client_has_phone(client_profile):
+        greeting = f"Снова здравствуйте! {tenant.name}"
+        if not bot_reply_keyboard_enabled():
+            greeting += f"\n\n{miniapp_open_hint()}"
         await message.answer(
-            f"Снова здравствуйте! {tenant.name}",
+            greeting,
             reply_markup=_reply_menu(
                 roles,
                 staff_member,
@@ -147,7 +150,12 @@ async def cmd_start(
                 can_switch_ui_role=can_switch_ui_role,
             ),
         )
-        if start_param and not invite_token and active_ui_role == "client":
+        if (
+            start_param
+            and not invite_token
+            and active_ui_role == "client"
+            and bot_reply_keyboard_enabled()
+        ):
             from app.bot.client.book import start_book_flow
 
             entry = (await state.get_data()).get("book_entry") or "service"
@@ -156,7 +164,9 @@ async def cmd_start(
 
     if staff_member is not None and client_profile is None:
         lines = [f"Здравствуйте, {staff_member.display_name}!"]
-        if is_manager(roles):
+        if not bot_reply_keyboard_enabled():
+            lines.append(miniapp_open_hint())
+        elif is_manager(roles):
             lines.append(
                 "Вы управляете салоном: добавьте услуги в «Услуги», "
                 "мастеров в «Команда», записи — в «Сегодня»."
@@ -281,8 +291,9 @@ async def marketing_choice(
     await state.clear()
     if callback.message:
         await callback.message.edit_text(f"Готово! Добро пожаловать в {tenant.name}.")
+    menu_note = "Меню:" if bot_reply_keyboard_enabled() else miniapp_open_hint()
     await callback.message.answer(  # type: ignore[union-attr]
-        "Меню:",
+        menu_note,
         reply_markup=_reply_menu(
             roles,
             staff_member,
@@ -291,7 +302,7 @@ async def marketing_choice(
             can_switch_ui_role=can_switch_ui_role,
         ),
     )
-    if book_entry and callback.message and active_ui_role == "client":
+    if book_entry and callback.message and active_ui_role == "client" and bot_reply_keyboard_enabled():
         from app.bot.client.book import start_book_flow
 
         await start_book_flow(

@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.bot.factory import create_bot
 from app.bot.telegram_format import bot_mention_html
+from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
 from app.core.db import SessionLocal
 from app.domain.exceptions import BotAlreadyLinkedError
 from app.domain.services.provisioning import (
@@ -119,6 +120,7 @@ async def platform_token(message: Message, state: FSMContext) -> None:
             )
             await session.commit()
             public_id = tenant.public_id
+            tenant_snapshot = tenant
         except BotAlreadyLinkedError:
             await session.rollback()
             await message.answer(
@@ -127,11 +129,28 @@ async def platform_token(message: Message, state: FSMContext) -> None:
             )
             return
     await state.clear()
+    setup_bot = create_bot(token)
+    try:
+        await sync_tenant_bot_telegram_ui(setup_bot, tenant_snapshot)
+    except TelegramAPIError:
+        pass
+    finally:
+        await setup_bot.session.close()
     bot_line = bot_mention_html(bot_info.get("username") or None)
+    from app.bot.miniapp import miniapp_enabled
+
+    if miniapp_enabled():
+        after_connect = (
+            f"Откройте {bot_line} — в чате и в списке диалогов появится кнопка «Открыть» "
+            "для записи и кабинета."
+        )
+    else:
+        after_connect = (
+            f"Откройте {bot_line} и нажмите /start — запись идёт через чат и кнопки, "
+            "отдельный сайт не нужен."
+        )
     await message.answer(
-        f"Бизнес подключён.\nPublic ID: <code>{public_id}</code>\n\n"
-        f"Откройте {bot_line} и нажмите /start — запись идёт через чат и кнопки, "
-        "отдельный сайт не нужен.",
+        f"Бизнес подключён.\nPublic ID: <code>{public_id}</code>\n\n{after_connect}",
         parse_mode="HTML",
     )
 
