@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import Booking, BookingItem, BookingStatus, Branch, Service, StaffMember, Tenant
 from app.domain.services.availability_service import list_schedule_day_windows
-from app.domain.services.cell_service import ACTIVE_STATUSES, get_default_branch
+from app.domain.services.cell_service import ACTIVE_STATUSES
 
 ACTIVE = tuple(ACTIVE_STATUSES)
 MAX_RANGE_DAYS = 366

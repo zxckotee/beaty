@@ -30,7 +30,18 @@ from app.domain.exceptions import (
     ValidationError,
 )
 from app.domain.models import StaffMember, Tenant
-from app.web.routes import analytics, auth, client, landing, manager, messages, schedule, site_root, staff_schedule, test_login
+from app.web.routes import (
+    analytics,
+    auth,
+    client,
+    landing,
+    manager,
+    messages,
+    schedule,
+    site_root,
+    staff_schedule,
+    test_login,
+)
 from app.web.uploads import media_root
 
 logger = logging.getLogger(__name__)

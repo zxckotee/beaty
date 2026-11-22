@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
-
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field

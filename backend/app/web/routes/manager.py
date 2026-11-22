@@ -11,9 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.domain.exceptions import ValidationError
-from app.domain.exceptions import ForbiddenError, NotFoundError
-from app.domain.models import Booking, BookingItem, BookingStatus, Service, ServiceCategory, StaffMember
+from app.domain.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.domain.models import Service, ServiceCategory, StaffMember
 from app.domain.services.booking_service import book_services_at_start, cancel_booking, mark_booking_completed
 from app.domain.services.card_service import (
     ServiceLink,
