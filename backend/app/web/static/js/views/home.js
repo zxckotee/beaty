@@ -270,7 +270,35 @@ export async function homeView() {
         const t = h('input', { class: 'input', value: post ? post.title || '' : '', placeholder: 'Заголовок' });
         const b = h('textarea', { class: 'textarea' }, post ? post.body || '' : '');
         const vis = h('input', { class: 'check', type: 'checkbox', checked: post ? post.is_visible !== false : true });
-        sheet.body.append(field('Заголовок', t), field('Текст', b), h('label', { class: 'row' }, vis, 'Показывать на профиле'));
+        const firstPhoto = post && post.photo_urls && post.photo_urls[0];
+        const photos = photoPicker({ url: firstPhoto, name: post?.title || 'Пост', square: true });
+        sheet.body.append(
+          field('Фото', photos.el),
+          h('p', { class: 'tiny muted' }, 'Необязательно. Можно добавить при создании или позже.'),
+          field('Заголовок', t),
+          field('Текст', b),
+          h('label', { class: 'row' }, vis, 'Показывать на профиле'),
+        );
+        if (post && post.photo_urls && post.photo_urls.length > 0) {
+          const addPhoto = h('button', { class: 'btn sm', type: 'button' }, icon('camera'), 'Добавить ещё фото');
+          addPhoto.addEventListener('click', () =>
+            pickImage(async (f) => {
+              try {
+                await api.upload(`/manager/landing/posts/${post.id}/photos`, f);
+                toast('Фото добавлено');
+                await load();
+                draw();
+                sheet.close();
+              } catch (e) {
+                toast(friendly(e), true);
+              }
+            }),
+          );
+          if (post.photo_urls.length > 1) {
+            sheet.body.append(h('p', { class: 'tiny muted' }, `В посте ${post.photo_urls.length} фото.`));
+          }
+          sheet.body.append(addPhoto);
+        }
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
@@ -280,11 +308,22 @@ export async function homeView() {
               is_visible: vis.checked,
               sort_order: post ? post.sort_order : 0,
             };
-            if (post) await api.patch(`/manager/landing/posts/${post.id}`, bodyPayload);
-            else await api.post('/manager/landing/posts', bodyPayload);
-            sheet.close();
-            await load();
-            draw();
+            try {
+              let postId = post ? post.id : null;
+              if (post) await api.patch(`/manager/landing/posts/${post.id}`, bodyPayload);
+              else {
+                const created = await api.post('/manager/landing/posts', bodyPayload);
+                postId = created.id;
+              }
+              const file = photos.getFile();
+              if (file && postId) await api.upload(`/manager/landing/posts/${postId}/photos`, file);
+              sheet.close();
+              await load();
+              draw();
+              toast(post ? 'Пост сохранён' : 'Пост добавлен');
+            } catch (e) {
+              toast(friendly(e), true);
+            }
           }),
         );
         sheet.setFooter(save);
