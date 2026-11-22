@@ -7,6 +7,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_url_for_tenant
+from app.bot.outbound_log_context import OutboundLogKind, outbound_log_context
 from app.bot.registry import get_bot_for_tenant
 from app.domain.models import ClientProfile, Notification, NotificationStatus, NotificationType, Tenant
 from app.domain.services.message_tokens import render_booking_notification
@@ -78,25 +79,28 @@ async def send_notification(session: AsyncSession, notification: Notification) -
         notification.status = NotificationStatus.FAILED.value
         return
     try:
-        kwargs: dict = {}
-        if parse_mode:
-            kwargs["parse_mode"] = parse_mode
-        if photo_urls:
-            if len(photo_urls) == 1:
-                await bot.send_photo(chat_id, photo_urls[0], caption=text[:1024], reply_markup=reply_markup, **kwargs)
+        with outbound_log_context(OutboundLogKind.NOTIFICATION):
+            kwargs: dict = {}
+            if parse_mode:
+                kwargs["parse_mode"] = parse_mode
+            if photo_urls:
+                if len(photo_urls) == 1:
+                    await bot.send_photo(
+                        chat_id, photo_urls[0], caption=text[:1024], reply_markup=reply_markup, **kwargs
+                    )
+                else:
+                    cap_kwargs: dict = {"caption": text[:1024]}
+                    if parse_mode:
+                        cap_kwargs["parse_mode"] = parse_mode
+                    media = [InputMediaPhoto(media=photo_urls[0], **cap_kwargs)]
+                    for url in photo_urls[1:10]:
+                        media.append(InputMediaPhoto(media=url))
+                    await bot.send_media_group(chat_id, media)
+                    if reply_markup:
+                        await bot.send_message(chat_id, "👇", reply_markup=reply_markup)
             else:
-                cap_kwargs: dict = {"caption": text[:1024]}
-                if parse_mode:
-                    cap_kwargs["parse_mode"] = parse_mode
-                media = [InputMediaPhoto(media=photo_urls[0], **cap_kwargs)]
-                for url in photo_urls[1:10]:
-                    media.append(InputMediaPhoto(media=url))
-                await bot.send_media_group(chat_id, media)
-                if reply_markup:
-                    await bot.send_message(chat_id, "👇", reply_markup=reply_markup)
-        else:
-            await bot.send_message(chat_id, text, reply_markup=reply_markup, **kwargs)
-        notification.status = NotificationStatus.SENT.value
+                await bot.send_message(chat_id, text, reply_markup=reply_markup, **kwargs)
+            notification.status = NotificationStatus.SENT.value
     except TelegramForbiddenError:
         await session.execute(
             update(ClientProfile)

@@ -159,6 +159,27 @@ class ClientProfile(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class ClientChatMessage(Base):
+    __tablename__ = "client_chat_message"
+    __table_args__ = (Index("ix_client_chat_tenant_client_created", "tenant_id", "client_profile_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    client_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("client_profile.id", ondelete="CASCADE"), index=True)
+    direction: Mapped[str] = mapped_column(String(16))
+    author: Mapped[str] = mapped_column(String(16))
+    kind: Mapped[str] = mapped_column(String(16))
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    telegram_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telegram_file_unique_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    staff_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("staff_member.id", ondelete="SET NULL"), nullable=True
+    )
+    meta: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ServiceCategory(Base):
     __tablename__ = "service_category"
 

@@ -14,6 +14,7 @@ import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
 import { homeView } from './views/home.js';
 import { messagesView } from './views/messages.js';
+import { chatsView } from './views/chats.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -25,7 +26,8 @@ const NAV = {
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
     { route: 'home', label: 'Профиль', icon: 'globe' },
-    { route: 'messages', label: 'Напоминания', icon: 'chat' },
+    { route: 'chats', label: 'Чаты', icon: 'chat' },
+    { route: 'messages', label: 'Напоминания', icon: 'send' },
     { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
   specialist: [
@@ -47,6 +49,7 @@ const ROUTES = {
   'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
   services: { roles: ['manager'], view: () => servicesView() },
   home: { roles: ['client', 'manager', 'specialist'], view: () => homeView() },
+  chats: { roles: ['manager'], view: (sub) => chatsView(sub) },
   messages: { roles: ['manager'], view: () => messagesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },
