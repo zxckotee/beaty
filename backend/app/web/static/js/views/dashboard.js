@@ -314,12 +314,9 @@ export async function dashboardView(sub = '') {
     /* hash only; schedule always shown */
   }
 
-  scheduleMount.append(spinner());
-  const scheduleP = dayView({ manager: true, embedded: true })
-    .then((el) => scheduleMount.replaceChildren(el))
-    .catch((e) => scheduleMount.replaceChildren(emptyState('📅', 'Расписание недоступно', friendly(e))));
+  scheduleMount.replaceChildren(dayView({ manager: true, embedded: true }));
 
-  await Promise.all([scheduleP, renderSummary(), renderCharts(), renderBlocks()]);
+  await Promise.all([renderSummary(), renderCharts(), renderBlocks()]);
 
   return root;
 }
