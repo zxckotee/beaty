@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.domain.models import LandingPortfolioItem, LandingPost, Tenant, TenantLanding
+from app.domain.models import LandingPortfolioItem, LandingPost, Tenant
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (
     get_or_create_landing,
@@ -33,12 +32,9 @@ def _landing_dict(landing, portfolio, posts, *, tenant: Tenant) -> dict[str, obj
         "avatar_url": landing.avatar_url,
         "dgis_url": landing.dgis_url,
         "dgis_firm_id": landing.dgis_firm_id,
-        "dgis_complex_id": landing.dgis_complex_id,
-        "dgis_embed_html": landing.dgis_embed_html,
         "map_lon": landing.map_lon,
         "map_lat": landing.map_lat,
         "map_zoom": landing.map_zoom,
-        "is_published": landing.is_published,
         "bot_username": tenant.bot_username,
         "portfolio": [
             {
@@ -67,11 +63,8 @@ def _landing_dict(landing, portfolio, posts, *, tenant: Tenant) -> dict[str, obj
 async def public_landing(
     tenant: Tenant = Depends(get_tenant), session: AsyncSession = Depends(get_session)
 ) -> dict[str, object]:
-    landing = await session.scalar(
-        select(TenantLanding).where(TenantLanding.tenant_id == tenant.id, TenantLanding.is_published.is_(True))
-    )
-    if landing is None:
-        raise HTTPException(status_code=404, detail="landing not published")
+    landing = await get_or_create_landing(session, tenant.id)
+    await session.commit()
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=True)
     return _landing_dict(landing, portfolio, posts, tenant=tenant)
@@ -81,12 +74,6 @@ class LandingPatch(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     tagline: str | None = Field(default=None, max_length=4000)
     dgis_url: str | None = None
-    dgis_complex_id: str | None = Field(default=None, max_length=64)
-    dgis_embed_html: str | None = Field(default=None, max_length=12000)
-    map_lon: float | None = None
-    map_lat: float | None = None
-    map_zoom: float | None = None
-    is_published: bool | None = None
 
 
 class DgisParseIn(BaseModel):
