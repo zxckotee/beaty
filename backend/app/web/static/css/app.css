@@ -581,3 +581,57 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
   background: var(--surface-2);
 }
 .profile-dgis-embed iframe { display: block; width: 100%; height: clamp(280px, 45vw, 400px); border: 0; }
+
+/* ---------- messages (Telegram templates) ---------- */
+.messages-page .messages-kinds { margin-bottom: 16px; }
+.messages-kind-hint { margin: 0 0 14px; font-size: .92rem; color: var(--muted); }
+.messages-layout {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+@media (min-width: 920px) {
+  .messages-layout { grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 20px; }
+}
+.messages-text { min-height: 180px; font-size: .95rem; line-height: 1.45; }
+.messages-block { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.messages-tokens .chip { font-family: ui-monospace, monospace; font-size: .8rem; }
+.messages-photo-grid { display: grid; gap: 10px; }
+@media (min-width: 560px) {
+  .messages-photo-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.messages-photo-opt {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border-radius: 16px; border: 1.5px solid var(--line); background: var(--surface-2);
+  cursor: pointer; font-weight: 600; font-size: .92rem;
+}
+.messages-photo-opt:has(:checked) { border-color: var(--accent-line); background: var(--accent-soft); }
+.messages-photo-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--surface); color: var(--accent); }
+.messages-photo-icon svg { width: 18px; height: 18px; }
+.messages-photo-custom { cursor: default; flex-direction: column; align-items: stretch; }
+.messages-photo-custom:has(:checked) { border-color: var(--line); background: var(--surface-2); }
+.messages-photo-custom .photo-field { flex-direction: column; align-items: stretch; }
+.messages-actions { margin-top: 18px; gap: 10px; flex-wrap: wrap; }
+.messages-actions .btn.primary { flex: 1; min-width: 140px; }
+.msg-tg-shell { overflow: hidden; padding: 0; }
+.msg-tg-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  font-size: .88rem; font-weight: 650;
+}
+.msg-tg-chat {
+  padding: 16px 14px 20px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)) 0%, var(--surface) 40%);
+  min-height: 200px;
+}
+.msg-preview-body {
+  display: inline-block; max-width: 100%; text-align: left;
+  padding: 12px 14px; border-radius: 16px 16px 16px 6px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  white-space: pre-wrap; word-break: break-word;
+  font-size: .94rem; line-height: 1.45;
+}
+.msg-preview-empty { color: var(--muted); font-style: italic; }
+.messages-preview-note { margin: 10px 4px 0; }
+.messages-aside { position: sticky; top: calc(var(--header-h) + 12px); }
