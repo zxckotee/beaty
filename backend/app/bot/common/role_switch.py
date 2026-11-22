@@ -17,10 +17,18 @@ from app.domain.services.client_onboarding_service import client_has_phone
 role_switch_router = Router(name="role_switch")
 
 
-def _menu(active_ui_role: UiRole, can_switch_ui_role: bool):
+def _menu(
+    active_ui_role: UiRole,
+    can_switch_ui_role: bool,
+    *,
+    granted_roles: set[str] | None = None,
+    has_staff_profile: bool = False,
+):
     return tenant_reply_keyboard(
         active_ui_role=active_ui_role,
         can_switch_ui_role=can_switch_ui_role,
+        granted_roles=granted_roles,
+        has_staff_profile=has_staff_profile,
     )
 
 
@@ -47,6 +55,7 @@ async def apply_switch(
     tenant: Tenant,
     staff_member: StaffMember | None,
     client_profile: ClientProfile | None,
+    roles: set[str],
     available_ui_roles: list[str],
     can_switch_ui_role: bool,
 ) -> None:
@@ -79,6 +88,11 @@ async def apply_switch(
         await callback.message.edit_text(f"Сейчас вы в режиме: {label}.")
         await callback.message.answer(
             "Меню обновлено.",
-            reply_markup=_menu(role, can_switch_ui_role),  # type: ignore[arg-type]
+            reply_markup=_menu(
+                role,  # type: ignore[arg-type]
+                can_switch_ui_role,
+                granted_roles=roles,
+                has_staff_profile=True,
+            ),
         )
     await callback.answer()

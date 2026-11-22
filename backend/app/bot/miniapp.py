@@ -26,16 +26,12 @@ def bot_chat_write_enabled() -> bool:
 
 
 def bot_reply_keyboard_enabled() -> bool:
-    """Classic reply-keyboard bot UI (Сегодня, Запись, …). Same gate as chat writes."""
-    return bot_chat_write_enabled()
+    """Persistent reply keyboard under the input (view buttons, or full bot-mode menu)."""
+    return True
 
 
 def miniapp_open_hint() -> str:
-    return (
-        "Запись, отмена и управление салоном — в мини-приложении. "
-        "В чате можно посмотреть записи: /my, /today, /day. "
-        "Нажмите «Открыть» у поля ввода."
-    )
+    return "Запись и управление — в мини-приложении."
 
 
 def resolve_public_web_url() -> str:
