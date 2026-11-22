@@ -321,7 +321,8 @@ async def test_client_cancel_with_reason(salon: Salon, client_factory) -> None: 
     avail = await client.post(f"{base}/client/availability", json={"service_ids": [salon.service_id]})
     offers = [o for d in avail.json()["days"] for o in d["offers"]]
     assert offers
-    offer = offers[0]
+    offers.sort(key=lambda o: o["start_at"])
+    offer = offers[-1]
     await login(client, salon, salon.client_tg)
     booked = await client.post(
         f"{base}/client/bookings",

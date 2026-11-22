@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
@@ -23,9 +23,11 @@ def _parse_range(
     from_date: date | None,
     to_date: date | None,
     tz: ZoneInfo,
+    *,
+    horizon_days: int,
 ) -> tuple[date, date]:
     today = datetime.now(tz).date()
-    end = to_date or today
+    end = to_date or (today + timedelta(days=max(horizon_days, 1)))
     if from_date is None:
         return date(2020, 1, 1), end
     return from_date, end
@@ -40,7 +42,8 @@ async def get_analytics_summary(
 ) -> dict[str, object]:
     branch = await get_default_branch(session, ctx.tenant)
     tz = ZoneInfo(branch.timezone or "Europe/Moscow")
-    start, end = _parse_range(from_date, to_date, tz)
+    horizon = int((ctx.tenant.rules or {}).get("booking_horizon_days", 30))
+    start, end = _parse_range(from_date, to_date, tz, horizon_days=horizon)
     summary = await analytics_summary(
         session, tenant=ctx.tenant, branch=branch, start_day=start, end_day=end
     )
@@ -85,7 +88,8 @@ async def get_analytics_series(
 ) -> dict[str, object]:
     branch = await get_default_branch(session, ctx.tenant)
     tz = ZoneInfo(branch.timezone or "Europe/Moscow")
-    start, end = _parse_range(from_date, to_date, tz)
+    horizon = int((ctx.tenant.rules or {}).get("booking_horizon_days", 30))
+    start, end = _parse_range(from_date, to_date, tz, horizon_days=horizon)
     points = await analytics_series(
         session,
         tenant=ctx.tenant,
