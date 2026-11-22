@@ -713,8 +713,23 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
   .messages-layout { grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 20px; }
 }
 .messages-text { min-height: 180px; font-size: .95rem; line-height: 1.45; }
+.msg-token-editable { white-space: pre-wrap; word-break: break-word; outline: none; }
+.msg-token-editable:focus { border-color: var(--accent-line); box-shadow: 0 0 0 2px var(--accent-soft); }
+.msg-token {
+  display: inline-block;
+  background: #fff;
+  color: #111;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-weight: 600;
+  font-size: .88em;
+  line-height: 1.35;
+  vertical-align: baseline;
+  margin: 0 1px;
+  user-select: none;
+}
 .messages-block { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
-.messages-tokens .chip { font-family: ui-monospace, monospace; font-size: .8rem; }
+.messages-tokens .chip { font-size: .88rem; font-weight: 600; }
 .messages-photo-grid { display: grid; gap: 10px; }
 @media (min-width: 560px) {
   .messages-photo-grid { grid-template-columns: repeat(2, 1fr); }

@@ -16,6 +16,7 @@ from app.bot.shared import assert_can_write
 from app.domain.exceptions import DomainError
 from app.domain.models import Booking, BookingItem, BookingStatus, StaffMember, Tenant
 from app.domain.services.force_majeure import declare_unavailable
+from app.domain.user_labels import booking_status_display
 
 staff_router = Router(name="staff")
 staff_router.message.filter(HasStaffRole())
@@ -93,7 +94,9 @@ async def cmd_day(
     kb = InlineKeyboardBuilder()
     for r in items:
         t = r.start_at.strftime("%H:%M") if r.start_at else "?"
-        lines.append(f"{t} {r.client_name} — {r.service_name} ({r.status})")
+        lines.append(
+            f"{t} {r.client_name} — {r.service_name} ({booking_status_display(r.status)})"
+        )
         if bot_chat_write_enabled():
             kb.button(text=f"{t} {r.client_name}"[:40], callback_data=f"s:st:menu:{r.id}")
     if bot_chat_write_enabled():
@@ -189,7 +192,7 @@ async def staff_status(
         return
     await callback.answer("Сохранено")
     if callback.message:
-        await callback.message.edit_text(f"Статус записи: {mapping[status]}")
+        await callback.message.edit_text(f"Статус записи: {booking_status_display(mapping[status])}")
 
 
 @staff_router.message(Command("sick"))

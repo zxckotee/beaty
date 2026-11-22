@@ -8,25 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.domain.models import NotificationTemplate
 from app.domain.services.message_tokens import DEFAULT_BODIES, TOKEN_PREVIEW_CONTEXT, render_template
+from app.domain.user_labels import message_token_choices
 from app.web.deps import WebContext, require_manager, writable
 from app.web.uploads import save_image
 
 router = APIRouter(prefix="/api/t/{tenant_public_id}/manager/messages", tags=["messages"])
 
 TEMPLATE_KINDS = ("booking_confirmed", "reminder_24h", "reminder_2h", "booking_cancelled")
-
-TOKEN_LABELS = [
-    ("service", "Услуга"),
-    ("date", "Дата"),
-    ("time", "Время"),
-    ("datetime", "Дата и время"),
-    ("staff", "Мастер"),
-    ("address", "Адрес"),
-    ("price", "Цена"),
-    ("tenant_name", "Салон"),
-    ("dgis_url", "Ссылка 2ГИС"),
-]
-
 
 class TemplatePatch(BaseModel):
     body: str = Field(default="", max_length=8000)
@@ -42,7 +30,7 @@ class PreviewIn(BaseModel):
 @router.get("/meta")
 async def template_meta(ctx: WebContext = Depends(require_manager)) -> dict[str, object]:
     writable(ctx)
-    return {"kinds": TEMPLATE_KINDS, "tokens": TOKEN_LABELS, "defaults": DEFAULT_BODIES}
+    return {"kinds": TEMPLATE_KINDS, "tokens": message_token_choices(), "defaults": DEFAULT_BODIES}
 
 
 @router.get("")
