@@ -52,6 +52,7 @@
     --surface-2: #e8e8e8;
     --glass-bg: color-mix(in srgb, var(--surface) 88%, transparent);
     --shell-chrome-bg: color-mix(in srgb, var(--bg) 82%, transparent);
+    --header-bg: color-mix(in srgb, #000000 14%, transparent);
     --text: #1a1a1a;
     --muted: #6b6b6b;
     --line: #cfcfcf;
@@ -109,10 +110,10 @@ img { max-width: 100%; display: block; }
 .header {
   position: sticky; top: 0; z-index: 30; height: var(--header-h);
   display: flex; align-items: center; gap: 12px; padding: 0 16px;
-  background: var(--shell-chrome-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border-bottom: 1px solid var(--glass-border);
+  background: var(--header-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.1);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.01em; min-width: 0; }
 .brand-mark {
@@ -539,7 +540,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .shell--home-guest { padding-bottom: calc(var(--safe-b) + 16px); }
 .shell--home .main--profile { max-width: none; width: 100%; padding: 0; }
 .shell--home .header { max-width: none; }
-.header--profile-guest { backdrop-filter: blur(var(--glass-blur)); background: var(--shell-chrome-bg); }
+.header--profile-guest { background: var(--header-bg); backdrop-filter: blur(var(--glass-blur)) saturate(1.1); }
 .main--profile #toast-root { bottom: calc(var(--safe-b) + 24px); }
 
 .profile { padding-bottom: 32px; width: 100%; }
