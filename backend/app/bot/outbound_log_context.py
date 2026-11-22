@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import enum
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from typing import Iterator
 from uuid import UUID
 
 
-class OutboundLogKind(str, enum.Enum):
+class OutboundLogKind(enum.StrEnum):
     INTERACTIVE = "interactive"
     NOTIFICATION = "notification"
     MANAGER = "manager"
@@ -31,8 +31,8 @@ def outbound_log_context(
     *,
     staff_member_id: UUID | None = None,
 ) -> Iterator[None]:
-    t_kind: Token = _kind_var.set(kind)
-    t_staff: Token | None = None
+    t_kind: Token[OutboundLogKind] = _kind_var.set(kind)
+    t_staff: Token[UUID | None] | None = None
     if staff_member_id is not None:
         t_staff = _staff_var.set(staff_member_id)
     try:

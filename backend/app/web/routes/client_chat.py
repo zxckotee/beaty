@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile

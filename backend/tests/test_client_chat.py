@@ -1,13 +1,15 @@
 """Client messenger: inbound classification and manager chat API."""
 
+from collections.abc import AsyncIterator
+
 import httpx
 import pytest
-from aiogram.types import Message as TgMessage
 from aiogram.types import Chat, PhotoSize, User, Voice
+from aiogram.types import Message as TgMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import ClientChatMessage, ClientProfile, Tenant, UserAccount
+from app.domain.models import ClientProfile, Tenant, UserAccount
 from app.domain.services.client_chat_log import inbound_from_telegram_message, record_outbound
 from app.domain.services.provisioning import create_tenant_for_owner
 from app.web.main import app
@@ -72,10 +74,12 @@ async def chat_salon(session: AsyncSession) -> dict[str, object]:
 
 
 @pytest.fixture
-async def web_client() -> httpx.AsyncClient:
-    c = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
-    yield c
-    await c.aclose()
+async def web_client() -> AsyncIterator[httpx.AsyncClient]:
+    from app.core.db import engine
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    await engine.dispose()
 
 
 async def test_chat_api_list_and_thread(
