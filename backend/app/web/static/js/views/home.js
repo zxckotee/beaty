@@ -66,6 +66,12 @@ export async function homeView() {
     draw();
   }
 
+  function embedMapNode(html) {
+    const wrap = h('div', { class: 'profile-dgis-embed' });
+    if (html) wrap.insertAdjacentHTML('beforeend', html);
+    return wrap;
+  }
+
   function editDgisSheet() {
     openSheet({
       title: 'Как нас найти',
@@ -81,12 +87,33 @@ export async function homeView() {
             toast(friendly(e), true);
           }
         });
-        sheet.body.append(field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)));
+        const embed = h('textarea', {
+          class: 'textarea',
+          placeholder: 'Вставьте код iframe из конструктора карт 2ГИС (необязательно)',
+          style: { minHeight: '120px' },
+        }, data.dgis_embed_html ? stripIframeWrapper(data.dgis_embed_html) : '');
+        sheet.body.append(
+          field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)),
+          h(
+            'div',
+            { class: 'field' },
+            h('label', null, 'Виджет карты 2ГИС'),
+            embed,
+            h(
+              'p',
+              { class: 'tiny muted' },
+              'В личном кабинете 2ГИС: конструктор карт → скопируйте iframe. Если виджета нет, на профиле покажется карта OpenStreetMap по ссылке.',
+            ),
+          ),
+        );
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
             try {
-              await patchLanding({ dgis_url: url.value.trim() || null });
+              await patchLanding({
+                dgis_url: url.value.trim() || null,
+                dgis_embed_html: embed.value.trim() || null,
+              });
               sheet.close();
               toast('Адрес сохранён');
             } catch (e) {
@@ -97,6 +124,11 @@ export async function homeView() {
         sheet.setFooter(save);
       },
     });
+  }
+
+  function stripIframeWrapper(sanitizedHtml) {
+    const m = sanitizedHtml.match(/<iframe[\s\S]*?<\/iframe>/i);
+    return m ? m[0] : sanitizedHtml;
   }
 
   function editPortfolio(item) {
@@ -239,9 +271,13 @@ export async function homeView() {
       return;
     }
     destroyMap();
-    map = window.L.map(mapEl, { scrollWheelZoom: false }).setView([data.map_lat, data.map_lon], data.map_zoom || 16);
+    map = window.L.map(mapEl, { scrollWheelZoom: false, attributionControl: true }).setView(
+      [data.map_lat, data.map_lon],
+      data.map_zoom || 16,
+    );
+    if (map.attributionControl) map.attributionControl.setPrefix('');
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
     window.L.marker([data.map_lat, data.map_lon]).addTo(map);
@@ -375,16 +411,19 @@ export async function homeView() {
       sections.push(h('section', { class: 'profile-section' }, h('h2', null, 'Портфолио'), grid));
     }
 
+    const hasEmbed = Boolean(data.dgis_embed_html && String(data.dgis_embed_html).trim());
     const hasMap = data.map_lat != null && data.map_lon != null;
-    const showMap = edit || hasMap || data.dgis_url;
+    const showMap = edit || hasEmbed || hasMap || data.dgis_url;
     if (showMap) {
       const mapBlock = h('section', { class: 'profile-section' }, h('h2', null, 'Как нас найти'));
-      if (hasMap) {
+      if (hasEmbed) {
+        mapBlock.append(embedMapNode(data.dgis_embed_html));
+      } else if (hasMap) {
         mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
         mapBlock.append(h('div', { class: 'profile-map-wrap' }, mapEl));
       } else if (edit) {
         mapBlock.append(
-          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите ссылку 2ГИС'),
+          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите адрес или виджет 2ГИС'),
         );
       }
       const actions = h('div', { class: 'profile-map-actions' });
@@ -425,7 +464,7 @@ export async function homeView() {
     }
 
     body.replaceChildren(heroSection, ...sections);
-    if (hasMap) mountMap();
+    if (!hasEmbed && hasMap) mountMap();
   }
 
   try {

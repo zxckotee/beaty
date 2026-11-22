@@ -52,6 +52,7 @@ CSP_BROWSER = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
     "script-src 'self' https://telegram.org https://unpkg.com; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
+    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
 
@@ -59,6 +60,7 @@ CSP_TELEGRAM = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
     "script-src 'self' https://telegram.org https://unpkg.com; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
+    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
     "base-uri 'none'; form-action 'self'"
 )
