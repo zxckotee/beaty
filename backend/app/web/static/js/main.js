@@ -73,10 +73,10 @@ export function navigate(route) {
 }
 
 function applyBrand() {
-  const color = store.info && store.info.brand && store.info.brand.primary;
-  if (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) {
-    document.documentElement.style.setProperty('--brand', color);
-    document.querySelector('meta[name=theme-color]').setAttribute('content', color);
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) {
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim();
+    if (gold) meta.setAttribute('content', gold);
   }
   document.title = store.info ? `${store.info.name} · запись онлайн` : 'Запись онлайн';
 }

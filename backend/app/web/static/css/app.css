@@ -2,22 +2,22 @@
 :root {
   --brand: #A89058;
   --accent: var(--brand);
-  --accent-ink: #1e1b16;
-  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  --accent-line: color-mix(in srgb, var(--accent) 22%, var(--surface));
-  --bg: #f4f1eb;
-  --surface: #faf9f6;
-  --surface-2: #f0ede6;
+  --accent-ink: #1a1a1a;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --accent-line: color-mix(in srgb, var(--accent) 35%, var(--line));
+  --bg: #ebebeb;
+  --surface: #f5f5f5;
+  --surface-2: #e3e3e3;
   --card: var(--surface);
-  --text: #1e1b16;
-  --muted: #716b60;
-  --line: #e0dbd2;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #cfcfcf;
   --gold-deep: #8a7548;
   --glass-blur: 10px;
-  --glass-saturate: 1.05;
-  --glass-bg: color-mix(in srgb, var(--surface) 88%, transparent);
-  --glass-border: color-mix(in srgb, var(--accent) 8%, var(--line));
-  --glass-highlight: color-mix(in srgb, #fff 18%, transparent);
+  --glass-saturate: 1;
+  --glass-bg: color-mix(in srgb, var(--surface) 92%, transparent);
+  --glass-border: var(--line);
+  --glass-highlight: color-mix(in srgb, #fff 12%, transparent);
   --ok: #17935f;
   --ok-soft: #e4f6ee;
   --warn: #c97a10;
@@ -26,9 +26,9 @@
   --bad-soft: #fde8ec;
   --radius: 20px;
   --radius-sm: 12px;
-  --shadow-sm: 0 1px 2px rgba(36, 28, 14, .06);
-  --shadow: 0 1px 2px rgba(36, 28, 14, .05), 0 10px 30px rgba(36, 28, 14, .08);
-  --shadow-lg: 0 20px 60px rgba(36, 28, 14, .22);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .06);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 10px 30px rgba(0, 0, 0, .08);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, .18);
   --nav-h: 64px;
   --header-h: 60px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -38,16 +38,17 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --brand: #B8A06A;
-    --accent-ink: #fff;
-    --bg: #14110d;
-    --surface: #1e1914;
-    --surface-2: #262017;
+    --accent-ink: #1a1a1a;
+    --bg: #323232;
+    --surface: #3c3c3c;
+    --surface-2: #444444;
     --card: var(--surface);
-    --text: #f5efe4;
-    --muted: #a69882;
-    --line: #3a3328;
-    --glass-bg: color-mix(in srgb, var(--surface) 86%, transparent);
-    --glass-highlight: color-mix(in srgb, #fff 8%, transparent);
+    --text: #ececec;
+    --muted: #a3a3a3;
+    --line: #505050;
+    --glass-bg: color-mix(in srgb, var(--surface) 90%, transparent);
+    --glass-border: var(--line);
+    --glass-highlight: color-mix(in srgb, #fff 6%, transparent);
     --gold-deep: #948256;
     --ok: #3ccf93;
     --ok-soft: #12312a;
@@ -66,8 +67,6 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; font-family: var(--font); font-size: 16px; line-height: 1.45;
   color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
-  background-image: radial-gradient(1000px 480px at 90% -15%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 62%);
-  background-repeat: no-repeat;
 }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: 1.6rem; line-height: 1.15; letter-spacing: -.02em; font-weight: 750; }
@@ -701,7 +700,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 }
 .msg-tg-chat {
   padding: 16px 14px 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)) 0%, var(--surface) 40%);
+  background: var(--surface-2);
   min-height: 200px;
 }
 .msg-preview-body {
