@@ -1,36 +1,62 @@
 import { api, friendly } from '../api.js';
-import { h } from '../util.js';
+import { debounce, h, icon } from '../util.js';
 import { field, photoPicker, spinner, toast, withBusy } from '../ui.js';
 
 const KIND_LABELS = {
-  booking_confirmed: 'Подтверждение записи',
-  reminder_24h: 'Напоминание за 24 ч',
-  reminder_2h: 'Напоминание за 2 ч',
-  booking_cancelled: 'Отмена записи',
+  booking_confirmed: 'Подтверждение',
+  reminder_24h: 'За 24 часа',
+  reminder_2h: 'За 2 часа',
+  booking_cancelled: 'Отмена',
+};
+
+const KIND_HINTS = {
+  booking_confirmed: 'Клиенту сразу после успешной записи.',
+  reminder_24h: 'Автоматически за сутки до визита.',
+  reminder_2h: 'Автоматически за 2 часа до визита.',
+  booking_cancelled: 'Когда запись отменена салоном или клиентом.',
 };
 
 export async function messagesView() {
-  const root = h('div');
-  const panel = h('div');
+  const root = h('div', { class: 'messages-page' });
+  const panel = h('div', { class: 'messages-panel' });
   let meta = null;
   let templates = {};
   let activeKind = 'booking_confirmed';
+  let previewEl = null;
+  let bodyEl = null;
 
   root.append(
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Сообщения бота'), h('p', { class: 'muted' }, 'Шаблоны с токенами и фото для Telegram.'))),
-    h('div', { class: 'chips', id: 'msg-tabs' }),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('div', null, h('h1', null, 'Сообщения в Telegram'), h('p', { class: 'muted' }, 'Шаблоны с переменными, HTML и вложениями для бота.')),
+    ),
+    h('nav', { class: 'chips scroll messages-kinds', id: 'msg-tabs', 'aria-label': 'Тип сообщения' }),
     panel,
   );
   panel.append(spinner());
 
+  const runPreview = debounce(async () => {
+    if (!bodyEl || !previewEl) return;
+    try {
+      const res = await api.post('/manager/messages/preview', { kind: activeKind, body: bodyEl.value });
+      previewEl.textContent = res.text || '—';
+      previewEl.classList.remove('msg-preview-empty');
+    } catch {
+      previewEl.textContent = 'Не удалось построить превью';
+      previewEl.classList.add('msg-preview-empty');
+    }
+  }, 400);
+
   function insertToken(token) {
-    const ta = panel.querySelector('#msg-body');
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const text = ta.value;
-    ta.value = text.slice(0, start) + `{${token}}` + text.slice(end);
-    ta.focus();
+    if (!bodyEl) return;
+    const start = bodyEl.selectionStart;
+    const end = bodyEl.selectionEnd;
+    const text = bodyEl.value;
+    bodyEl.value = `${text.slice(0, start)}{${token}}${text.slice(end)}`;
+    bodyEl.focus();
+    bodyEl.selectionStart = bodyEl.selectionEnd = start + token.length + 2;
+    runPreview();
   }
 
   async function reload() {
@@ -43,7 +69,7 @@ export async function messagesView() {
 
   function drawTabs() {
     const tabs = root.querySelector('#msg-tabs');
-  tabs.replaceChildren(
+    tabs.replaceChildren(
       ...Object.keys(KIND_LABELS).map((kind) =>
         h(
           'button',
@@ -64,37 +90,49 @@ export async function messagesView() {
 
   function drawEditor() {
     const tpl = templates[activeKind] || { body: '', photo_slots: [], parse_mode: 'HTML' };
-    const body = h('textarea', { class: 'textarea', id: 'msg-body', rows: '12', placeholder: 'Текст с HTML и эмодзи' }, tpl.body || '');
-    const preview = h('pre', { class: 'card small', style: { whiteSpace: 'pre-wrap' }, id: 'msg-preview' }, '—');
-    const chips = h(
+    bodyEl = h('textarea', {
+      class: 'textarea messages-text',
+      id: 'msg-body',
+      rows: '10',
+      placeholder: 'Привет! Вы записаны на {service}…',
+    }, tpl.body || '');
+    bodyEl.addEventListener('input', () => runPreview());
+
+    previewEl = h('div', { class: 'msg-preview-body msg-preview-empty' }, 'Нажмите «Обновить превью» или начните вводить текст');
+
+    const tokenChips = h(
       'div',
-      { class: 'chips' },
+      { class: 'chips messages-tokens' },
       ...(meta.tokens || []).map(([key, label]) =>
-        h('button', { class: 'chip', type: 'button', onclick: () => insertToken(key), title: label }, `{${key}}`),
+        h(
+          'button',
+          { class: 'chip', type: 'button', onclick: () => insertToken(key), title: label },
+          `{${key}}`,
+        ),
       ),
     );
-    const staffPhoto = h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'staff') }), 'Фото мастера');
-    const coverPhoto = h('label', { class: 'row' }, h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'venue_cover') }), 'Обложка лендинга');
-    const custom = photoPicker({ url: customUrl(tpl), name: 'Фото', square: true });
+
+    const staffPhoto = h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'staff') });
+    const coverPhoto = h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'venue_cover') });
+    const custom = photoPicker({ url: customUrl(tpl), name: 'Вложение', square: true });
     let customUrlStored = customUrl(tpl);
 
-    const previewBtn = h('button', { class: 'btn sm', type: 'button' }, 'Превью');
-    previewBtn.addEventListener('click', async () => {
-      try {
-        const res = await api.post('/manager/messages/preview', { kind: activeKind, body: body.value });
-        preview.textContent = res.text;
-      } catch (e) {
-        toast(friendly(e), true);
-      }
-    });
+    const photoGrid = h('div', { class: 'messages-photo-grid' },
+      h('label', { class: 'messages-photo-opt' }, staffPhoto, h('span', { class: 'messages-photo-icon' }, icon('users')), h('span', null, 'Фото мастера')),
+      h('label', { class: 'messages-photo-opt' }, coverPhoto, h('span', { class: 'messages-photo-icon' }, icon('globe')), h('span', null, 'Обложка профиля')),
+      h('div', { class: 'messages-photo-opt messages-photo-custom' }, custom.el),
+    );
 
-    const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить шаблон');
+    const previewBtn = h('button', { class: 'btn sm soft', type: 'button' }, icon('chat'), 'Обновить превью');
+    previewBtn.addEventListener('click', () => runPreview());
+
+    const save = h('button', { class: 'btn primary', type: 'button' }, icon('check'), 'Сохранить');
     save.addEventListener('click', () =>
       withBusy(save, async () => {
         try {
           const slots = [];
-          if (staffPhoto.querySelector('input').checked) slots.push('staff');
-          if (coverPhoto.querySelector('input').checked) slots.push('venue_cover');
+          if (staffPhoto.checked) slots.push('staff');
+          if (coverPhoto.checked) slots.push('venue_cover');
           const file = custom.getFile();
           if (file) {
             const up = await api.upload('/manager/messages/photo', file);
@@ -104,7 +142,7 @@ export async function messagesView() {
             slots.push({ type: 'custom', url: customUrlStored });
           }
           await api.put(`/manager/messages/${activeKind}`, {
-            body: body.value,
+            body: bodyEl.value,
             parse_mode: 'HTML',
             photo_slots: slots,
           });
@@ -116,16 +154,32 @@ export async function messagesView() {
       }),
     );
 
-    panel.replaceChildren(
-      field('Текст', body, 'HTML: <b>, <i>, <a href="...">. Токены — кнопками ниже.'),
-      chips,
-      staffPhoto,
-      coverPhoto,
-      custom.el,
-      h('div', { class: 'row', style: { gap: '8px' } }, previewBtn, save),
-      h('h3', null, 'Пример подстановки'),
-      preview,
+    const layout = h('div', { class: 'messages-layout' },
+      h('div', { class: 'card pad messages-editor' },
+        h('p', { class: 'messages-kind-hint' }, KIND_HINTS[activeKind] || ''),
+        field('Текст сообщения', bodyEl, 'Поддерживается HTML: <b>, <i>, ссылки. Вставляйте переменные кнопками ниже.'),
+        h('div', { class: 'messages-block' },
+          h('span', { class: 'label' }, 'Переменные'),
+          tokenChips,
+        ),
+        h('div', { class: 'messages-block' },
+          h('span', { class: 'label' }, 'Вложения к сообщению'),
+          photoGrid,
+        ),
+        h('div', { class: 'messages-actions row' }, previewBtn, save),
+      ),
+      h('div', { class: 'messages-aside' },
+        h('div', { class: 'label', style: { marginBottom: '8px' } }, 'Как увидит клиент'),
+        h('div', { class: 'msg-tg-shell card' },
+          h('div', { class: 'msg-tg-bar' }, h('span', null, 'Telegram'), h('span', { class: 'chip ok' }, 'бот')),
+          h('div', { class: 'msg-tg-chat' }, previewEl),
+        ),
+        h('p', { class: 'tiny muted messages-preview-note' }, 'Пример с тестовыми данными. Реальный текст зависит от записи.'),
+      ),
     );
+
+    panel.replaceChildren(layout);
+    runPreview();
   }
 
   function slotHas(tpl, name) {
@@ -140,7 +194,7 @@ export async function messagesView() {
   try {
     await reload();
   } catch (e) {
-    panel.replaceChildren(h('p', null, friendly(e)));
+    panel.replaceChildren(h('div', { class: 'empty card' }, h('h3', null, 'Не удалось загрузить'), h('p', null, friendly(e))));
   }
   return root;
 }
