@@ -1,4 +1,5 @@
 import { api, friendly } from '../api.js';
+import { isTelegramWebApp } from '../telegram.js';
 import { debounce, h, icon } from '../util.js';
 import { field, photoPicker, spinner, toast, withBusy } from '../ui.js';
 import { createTokenEditor } from '../token-editor.js';
@@ -26,6 +27,7 @@ export async function messagesView() {
   let previewEl = null;
   /** @type {ReturnType<typeof createTokenEditor> | null} */
   let editor = null;
+  const tgWebApp = isTelegramWebApp();
 
   root.append(
     h(
@@ -100,7 +102,7 @@ export async function messagesView() {
     editor = createTokenEditor({
       body: tpl.body || '',
       tokens: meta?.tokens || [],
-      onInput: () => runPreview(),
+      onInput: tgWebApp ? undefined : () => schedulePreview(),
     });
 
     previewEl = h('div', { class: 'msg-preview-body msg-preview-empty' }, 'Нажмите «Обновить превью» или начните вводить текст');
@@ -183,7 +185,13 @@ export async function messagesView() {
           h('div', { class: 'msg-tg-bar' }, h('span', null, 'Telegram'), h('span', { class: 'chip ok' }, 'бот')),
           h('div', { class: 'msg-tg-chat' }, previewEl),
         ),
-        h('p', { class: 'tiny muted messages-preview-note' }, 'Пример с тестовыми данными. Реальный текст зависит от записи.'),
+        h(
+          'p',
+          { class: 'tiny muted messages-preview-note' },
+          tgWebApp
+            ? 'В Telegram превью обновляется по кнопке «Обновить превью». Пример с тестовыми данными.'
+            : 'Пример с тестовыми данными. Реальный текст зависит от записи.',
+        ),
       ),
     );
 
