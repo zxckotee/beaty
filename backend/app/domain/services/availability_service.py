@@ -337,6 +337,8 @@ async def staff_day_bookings(
         end=rng.upper,
         total_price_cents=booking.total_price_cents,
         comment=booking.comment,
+        client_profile_id=client.id,
+        client_has_telegram=client.user_account_id is not None,
       )
     else:
       existing.service_names.append(service.name)

@@ -63,6 +63,8 @@ class CellBooking:
     total_price_cents: int
     comment: str | None
     cancel_reason: str | None = None
+    client_profile_id: UUID | None = None
+    client_has_telegram: bool = False
 
 
 @dataclass
@@ -428,6 +430,8 @@ async def _bookings_by_cell(session: AsyncSession, cell_ids: Sequence[UUID]) -> 
                 end=rng.upper,
                 total_price_cents=booking.total_price_cents,
                 comment=booking.comment,
+                client_profile_id=client.id,
+                client_has_telegram=client.user_account_id is not None,
             )
         else:
             existing.service_names.append(service.name)

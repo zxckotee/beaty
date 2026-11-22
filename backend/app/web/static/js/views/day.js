@@ -428,6 +428,20 @@ export function dayView({ manager, embedded = false }) {
           ),
         );
         const foot = h('div', { class: 'row wrap', style: { gap: '8px', width: '100%', justifyContent: 'flex-end' } });
+        if (manager && booking.client_has_telegram && booking.client_profile_id) {
+          foot.append(
+            h(
+              'a',
+              {
+                class: 'btn primary',
+                href: `#/chats/${booking.client_profile_id}`,
+                onclick: () => sheet.close(),
+              },
+              icon('chat'),
+              'Чат в Telegram',
+            ),
+          );
+        }
         if (canAct) {
           foot.append(
             h(

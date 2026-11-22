@@ -79,7 +79,15 @@ def booking_dict(b: CellBooking, tz: ZoneInfo, *, reveal: bool) -> dict[str, obj
     if b.cancel_reason:
         data["cancel_reason"] = b.cancel_reason
     if reveal:
-        data.update({"client_name": b.client_name, "client_phone": b.client_phone, "comment": b.comment})
+        data.update(
+            {
+                "client_name": b.client_name,
+                "client_phone": b.client_phone,
+                "comment": b.comment,
+                "client_profile_id": str(b.client_profile_id) if b.client_profile_id else None,
+                "client_has_telegram": bool(b.client_has_telegram),
+            }
+        )
     return data
 
 
