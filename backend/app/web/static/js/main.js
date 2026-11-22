@@ -77,7 +77,7 @@ function applyBrand() {
   root.style.removeProperty('--brand');
   root.style.removeProperty('--accent');
   const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.setAttribute('content', '#323232');
+  if (meta) meta.setAttribute('content', '#000000');
   document.title = store.info ? `${store.info.name} · запись онлайн` : 'Запись онлайн';
 }
 
