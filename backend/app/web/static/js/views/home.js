@@ -72,9 +72,76 @@ export async function homeView() {
     return wrap;
   }
 
+  function dgisEmbedField(initialHtml) {
+    return h(
+      'textarea',
+      {
+        class: 'textarea profile-embed-input',
+        placeholder: '<iframe src="https://..." width="100%" height="400"></iframe>',
+      },
+      initialHtml ? stripIframeWrapper(initialHtml) : '',
+    );
+  }
+
+  async function saveDgisFields({ dgis_url, dgis_embed_html }) {
+    await patchLanding({
+      dgis_url: dgis_url !== undefined ? dgis_url : data.dgis_url || null,
+      dgis_embed_html: dgis_embed_html !== undefined ? dgis_embed_html : data.dgis_embed_html || null,
+    });
+    toast('Сохранено');
+    await load();
+    draw();
+  }
+
+  function buildInlineMapEditor() {
+    const embed = dgisEmbedField(data.dgis_embed_html);
+    const saveEmbed = h('button', { class: 'btn sm primary', type: 'button' }, 'Сохранить виджет');
+    saveEmbed.addEventListener('click', () =>
+      withBusy(saveEmbed, async () => {
+        try {
+          await saveDgisFields({ dgis_embed_html: embed.value.trim() || null });
+        } catch (e) {
+          toast(friendly(e), true);
+        }
+      }),
+    );
+    const clearEmbed =
+      hasDgisEmbed(data) &&
+      h('button', { class: 'btn sm ghost', type: 'button' }, 'Убрать виджет → OpenStreetMap');
+    if (clearEmbed) {
+      clearEmbed.addEventListener('click', () =>
+        withBusy(clearEmbed, async () => {
+          try {
+            embed.value = '';
+            await saveDgisFields({ dgis_embed_html: null });
+          } catch (e) {
+            toast(friendly(e), true);
+          }
+        }),
+      );
+    }
+    const actions = h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, saveEmbed, clearEmbed);
+    return h(
+      'div',
+      { class: 'profile-map-editor card' },
+      h('h3', { class: 'profile-map-editor-title' }, 'Виджет карты 2ГИС'),
+      h(
+        'p',
+        { class: 'tiny muted' },
+        'Вставьте iframe из конструктора карт 2ГИС — он заменит карту OpenStreetMap на профиле. Ссылку на салон можно указить в «Ссылка 2ГИС».',
+      ),
+      embed,
+      actions,
+    );
+  }
+
+  function hasDgisEmbed(d) {
+    return Boolean(d.dgis_embed_html && String(d.dgis_embed_html).trim());
+  }
+
   function editDgisSheet() {
     openSheet({
-      title: 'Как нас найти',
+      title: 'Ссылка 2ГИС',
       build: (sheet) => {
         const url = h('input', { class: 'input', value: data.dgis_url || '', placeholder: 'Ссылка на салон в 2ГИС' });
         const parseBtn = h('button', { class: 'btn sm', type: 'button' }, 'Разобрать ссылку');
@@ -87,35 +154,27 @@ export async function homeView() {
             toast(friendly(e), true);
           }
         });
-        const embed = h('textarea', {
-          class: 'textarea',
-          placeholder: 'Вставьте код iframe из конструктора карт 2ГИС (необязательно)',
-          style: { minHeight: '120px' },
-        }, data.dgis_embed_html ? stripIframeWrapper(data.dgis_embed_html) : '');
+        const embed = dgisEmbedField(data.dgis_embed_html);
         sheet.body.append(
-          field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)),
           h(
             'div',
             { class: 'field' },
-            h('label', null, 'Виджет карты 2ГИС'),
+            h('label', null, 'Виджет карты 2ГИС (приоритет над OpenStreetMap)'),
             embed,
-            h(
-              'p',
-              { class: 'tiny muted' },
-              'В личном кабинете 2ГИС: конструктор карт → скопируйте iframe. Если виджета нет, на профиле покажется карта OpenStreetMap по ссылке.',
-            ),
+            h('p', { class: 'tiny muted' }, 'Конструктор карт в личном кабинете 2ГИС → скопируйте код iframe.'),
           ),
+          field('Ссылка на салон', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, url, parseBtn)),
+          h('p', { class: 'tiny muted' }, 'Ссылка нужна для кнопки «Открыть в 2ГИС» и запасной OSM-карты, если виджет пустой.'),
         );
         const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
         save.addEventListener('click', () =>
           withBusy(save, async () => {
             try {
-              await patchLanding({
+              await saveDgisFields({
                 dgis_url: url.value.trim() || null,
                 dgis_embed_html: embed.value.trim() || null,
               });
               sheet.close();
-              toast('Адрес сохранён');
             } catch (e) {
               toast(friendly(e), true);
             }
@@ -411,7 +470,7 @@ export async function homeView() {
       sections.push(h('section', { class: 'profile-section' }, h('h2', null, 'Портфолио'), grid));
     }
 
-    const hasEmbed = Boolean(data.dgis_embed_html && String(data.dgis_embed_html).trim());
+    const hasEmbed = hasDgisEmbed(data);
     const hasMap = data.map_lat != null && data.map_lon != null;
     const showMap = edit || hasEmbed || hasMap || data.dgis_url;
     if (showMap) {
@@ -421,17 +480,21 @@ export async function homeView() {
       } else if (hasMap) {
         mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
         mapBlock.append(h('div', { class: 'profile-map-wrap' }, mapEl));
+        if (edit) {
+          mapBlock.append(h('p', { class: 'tiny muted profile-map-hint' }, 'Сейчас показана OpenStreetMap. Виджет 2ГИС ниже заменит её на профиле.'));
+        }
       } else if (edit) {
         mapBlock.append(
-          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите адрес или виджет 2ГИС'),
+          h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Укажите ссылку 2ГИС для запасной карты'),
         );
       }
+      if (edit) mapBlock.append(buildInlineMapEditor());
       const actions = h('div', { class: 'profile-map-actions' });
       if (data.dgis_url) {
         actions.append(h('a', { class: 'btn sm', href: data.dgis_url, target: '_blank', rel: 'noopener' }, 'Открыть в 2ГИС'));
       }
       if (edit) {
-        actions.append(h('button', { class: 'btn sm ghost', type: 'button', onclick: () => editDgisSheet() }, 'Изменить адрес'));
+        actions.append(h('button', { class: 'btn sm ghost', type: 'button', onclick: () => editDgisSheet() }, 'Ссылка 2ГИС'));
       }
       if (actions.childNodes.length) mapBlock.append(actions);
       sections.push(mapBlock);
