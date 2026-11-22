@@ -34,10 +34,7 @@ async def plan_booking_notifications(
                 notification_type=ntype,
                 send_at=send_at,
                 idempotency_key=key,
-                payload={
-                    "booking_id": str(booking.id),
-                    "text": "Напоминание о записи. Подтвердите визит кнопкой ниже.",
-                },
+                payload={"booking_id": str(booking.id)},
             )
         )
     confirm_key = f"{booking.id}:booking_confirmed:{int(datetime.now(UTC).timestamp())}"
@@ -50,10 +47,26 @@ async def plan_booking_notifications(
             notification_type=NotificationType.BOOKING_CONFIRMED.value,
             send_at=datetime.now(UTC),
             idempotency_key=confirm_key,
-            payload={
-                "booking_id": str(booking.id),
-                "text": "Запись подтверждена. Ждём вас!",
-            },
+            payload={"booking_id": str(booking.id)},
+        )
+    )
+
+
+async def queue_booking_cancelled(
+    session: AsyncSession,
+    booking: Booking,
+) -> None:
+    key = f"{booking.id}:booking_cancelled:{int(datetime.now(UTC).timestamp())}"
+    session.add(
+        Notification(
+            tenant_id=booking.tenant_id,
+            booking_id=booking.id,
+            recipient_type="client",
+            recipient_id=booking.client_profile_id,
+            notification_type=NotificationType.BOOKING_CANCELLED.value,
+            send_at=datetime.now(UTC),
+            idempotency_key=key,
+            payload={"booking_id": str(booking.id)},
         )
     )
 

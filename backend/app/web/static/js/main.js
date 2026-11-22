@@ -11,6 +11,8 @@ import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
 import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
+import { homeView } from './views/home.js';
+import { messagesView } from './views/messages.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -18,36 +20,51 @@ let renderToken = 0;
 
 const NAV = {
   manager: [
-    { route: 'day', label: 'Расписание', icon: 'calendar' },
+    { route: 'schedule', label: 'Расписание', icon: 'calendar' },
     { route: 'team', label: 'Специалисты', icon: 'users' },
     { route: 'services', label: 'Услуги', icon: 'scissors' },
+    { route: 'home', label: 'Профиль', icon: 'globe' },
+    { route: 'messages', label: 'Сообщения', icon: 'chat' },
     { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
-  specialist: [{ route: 'day', label: 'Мой день', icon: 'calendar' }],
+  specialist: [
+    { route: 'home', label: 'Профиль', icon: 'globe' },
+    { route: 'schedule', label: 'Мой день', icon: 'calendar' },
+  ],
   client: [
+    { route: 'home', label: 'Профиль', icon: 'globe' },
     { route: 'book', label: 'Запись', icon: 'scissors' },
     { route: 'mine', label: 'Мои записи', icon: 'list' },
   ],
 };
 
 const ROUTES = {
-  day: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
+  schedule: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
   team: { roles: ['manager'], view: () => teamView() },
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
   'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
   services: { roles: ['manager'], view: () => servicesView() },
+  home: { roles: ['client', 'manager', 'specialist'], view: () => homeView() },
+  messages: { roles: ['manager'], view: () => messagesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },
   login: { roles: ['client', 'manager', 'specialist'], view: () => loginView(() => navigate(defaultRoute())) },
 };
 
 const activeRole = () => (store.me.authenticated ? store.me.active_role : 'client');
-const defaultRoute = () => (activeRole() === 'client' ? 'book' : 'day');
+const defaultRoute = () => 'home';
+
+const isHomeGuest = (route) => route === 'home' && !store.me.authenticated;
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '');
-  const [route, sub] = raw.split('/');
-  return { route: route || defaultRoute(), sub: sub || '' };
+  const [routePart, sub] = raw.split('/');
+  let route = routePart || defaultRoute();
+  if (route === 'day') {
+    route = 'home';
+    history.replaceState(null, '', '#/home');
+  }
+  return { route, sub: sub || '' };
 }
 
 export function navigate(route) {
@@ -65,6 +82,15 @@ function applyBrand() {
 }
 
 function header(route) {
+  if (isHomeGuest(route)) {
+    return h(
+      'header',
+      { class: 'header header--profile-guest' },
+      h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (store.info?.name || 'B')[0].toUpperCase())),
+      h('div', { class: 'header-spacer' }),
+      h('a', { class: 'btn sm primary', href: '#/book' }, 'Записаться'),
+    );
+  }
   const items = NAV[activeRole()] || NAV.client;
   const me = store.me;
   const nav = h(
@@ -97,7 +123,7 @@ function header(route) {
   return h(
     'header',
     { class: 'header' },
-    h('a', { class: 'brand', href: `#/${defaultRoute()}` }, h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()), h('span', { class: 'brand-name' }, name)),
+    h('a', { class: 'brand', href: '#/home' }, h('div', { class: 'brand-mark' }, (name || 'B')[0].toUpperCase()), h('span', { class: 'brand-name' }, name)),
     nav,
     h('div', { class: 'header-spacer' }),
     right,
@@ -105,6 +131,7 @@ function header(route) {
 }
 
 function bottomNav(route) {
+  if (isHomeGuest(route)) return null;
   const items = NAV[activeRole()] || NAV.client;
   return h(
     'nav',
@@ -116,7 +143,7 @@ function bottomNav(route) {
 async function logout() {
   await api.post('/auth/logout');
   store.me = { authenticated: false };
-  navigate('book');
+  navigate('home');
 }
 
 async function render() {
@@ -136,8 +163,12 @@ async function render() {
     route = 'login';
     def = ROUTES.login;
   }
-  const main = h('main', { class: 'main', id: 'main' });
-  clear(app).append(h('div', { class: 'shell' }, header(route), main, bottomNav(route)));
+  const shellCls = ['shell'];
+  if (route === 'home') shellCls.push('shell--home');
+  if (isHomeGuest(route)) shellCls.push('shell--home-guest');
+  const main = h('main', { class: route === 'home' ? 'main main--profile' : 'main', id: 'main' });
+  const nav = bottomNav(route);
+  clear(app).append(h('div', { class: shellCls.join(' ') }, header(route), main, nav));
   if (store.info && store.info.read_only) main.append(h('div', { class: 'banner' }, 'Подписка неактивна: сервис работает в режиме просмотра.'));
   try {
     const node = await def.view(sub);

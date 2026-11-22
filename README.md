@@ -125,7 +125,7 @@ Python 3.12, **aiogram 3**, **FastAPI**, **PostgreSQL 16**, **Redis**, **Taskiq*
 | --- | --- |
 | `WEB_UI_PORT` | Порт (по умолчанию 3030) |
 | `WEB_DEFAULT_TENANT` | Публичный id тенанта для `/` без префикса |
-| `WEB_DEV_LOGIN` / `ENVIRONMENT` | Тестовый вход по user id (не в production по умолчанию) |
+| `WEB_DEV_LOGIN` / `ENVIRONMENT` | Тестовый вход по user id только вне `production` (`/` в prod — 404 без списка салонов) |
 | `MEDIA_DIR` | Загрузки фото |
 | `WEB_COOKIE_SECURE` | Обязательно `true` за HTTPS на домене |
 
@@ -159,5 +159,16 @@ docker compose ps
 Эквивалент: `scripts/logs.sh`, `scripts/compose-prod.sh`.
 
 Опциональный TLS: `docker-compose.tls.yml` + Caddy; задайте `PUBLIC_DOMAIN` и `ACME_EMAIL` в `.env.prod`.
+
+## Лендинг и 2ГИС (опционально)
+
+Публичный профиль салона: `/t/{public_id}/` (редактирование менеджером прямо на странице). Запись — кнопка «Записаться» или `#/book`. Карта строится по координатам из ссылки 2ГИС (Leaflet + OpenStreetMap) без API-ключей.
+
+Опциональные переменные окружения для будущей интеграции Catalog / MapGL:
+
+| Переменная | Назначение |
+| --- | --- |
+| `DGIS_CATALOG_API_KEY` | Авто-адрес и `building_id` по `firm_id` |
+| `DGIS_MAPGL_KEY` | Встроенная карта 2ГИС вместо или вместе с OSM |
 
 Перед выкладкой Mini App на домен — [docs/pilot-checklist.md](docs/pilot-checklist.md).
