@@ -1,25 +1,19 @@
 import { api, friendly } from '../api.js';
-import { h, icon } from '../util.js';
+import { TIME_INPUT_CLASS, h, icon, readTimeInput, timeInput } from '../util.js';
 import { avatar, confirmDialog, emptyState, field, openSheet, spinner, toast, withBusy } from '../ui.js';
 import { navigate } from '../main.js';
-
-function fromTimeInput(value) {
-  if (!value) return '09:00';
-  const [hh, mm] = value.split(':');
-  return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
-}
 
 function collectDaysFromGrid(grid) {
   return [...grid.querySelectorAll('.schedule-day')].map((row) => {
     const wd = Number(row.dataset.wd);
     const on = row.querySelector('.check').checked;
-    const inputs = row.querySelectorAll('input[type=time]');
+    const inputs = row.querySelectorAll(`input.${TIME_INPUT_CLASS}`);
     if (!on) return { weekday: wd, enabled: false };
     return {
       weekday: wd,
       enabled: true,
-      start_time: fromTimeInput(inputs[0].value),
-      end_time: fromTimeInput(inputs[1].value),
+      start_time: readTimeInput(inputs[0]),
+      end_time: readTimeInput(inputs[1]),
     };
   });
 }
@@ -30,8 +24,8 @@ function buildWeeklyGrid(initialDays, weekdayLabels) {
   for (let wd = 0; wd < 7; wd += 1) {
     const day = byWd[wd] || { weekday: wd, enabled: wd < 5, start_time: '09:00', end_time: '18:00' };
     const enabled = h('input', { class: 'check', type: 'checkbox', checked: day.enabled, 'aria-label': weekdayLabels[wd] });
-    const start = h('input', { class: 'input', type: 'time', value: day.start_time || '09:00' });
-    const end = h('input', { class: 'input', type: 'time', value: day.end_time === '24:00' ? '23:59' : day.end_time || '18:00' });
+    const start = timeInput({ value: day.start_time || '09:00' });
+    const end = timeInput({ value: day.end_time === '24:00' ? '23:59' : day.end_time || '18:00' });
     const toggle = () => { start.disabled = end.disabled = !enabled.checked; };
     enabled.addEventListener('change', toggle);
     toggle();
