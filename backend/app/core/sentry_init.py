@@ -17,7 +17,7 @@ def init_sentry() -> None:
         logger.warning("sentry-sdk not installed; skipping Sentry")
         return
 
-    sentry_sdk.init(
+    sentry_sdk.init(  # type: ignore[call-arg]
         dsn=settings.sentry_dsn,
         environment=settings.environment,
         integrations=[
