@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -39,6 +39,7 @@ from app.domain.services.slot_repository import (
     WORK_OVERRIDE_KIND,
     _busy_intervals,
     _exception_busy,
+    block_intervals_for_day,
     _slot_rules_from_tenant,
     _work_intervals_for_day,
 )
@@ -124,6 +125,15 @@ class ScheduleOffer:
 
 
 @dataclass
+class ScheduleBlockMark:
+  """Time blocked for booking (schedule exception kind=block)."""
+
+  start: datetime
+  end: datetime
+  note: str | None = None
+
+
+@dataclass
 class ScheduleDayWindow:
   """One specialist's working slice on a calendar day (for the manager timeline)."""
 
@@ -133,6 +143,7 @@ class ScheduleDayWindow:
   work_end: datetime
   free: list[TimeInterval]
   bookings: list[CellBooking]
+  blocks: list[ScheduleBlockMark] = field(default_factory=list)
 
   @property
   def total_minutes(self) -> int:
@@ -388,8 +399,18 @@ async def list_schedule_day_windows(
       range_end=day_end,
       for_display=True,
     )
+    raw_blocks = await block_intervals_for_day(
+      session,
+      tenant_id=tenant.id,
+      staff_member_id=staff.id,
+      range_start=day_start,
+      range_end=day_end,
+    )
+    blocks = [ScheduleBlockMark(start=s, end=e, note=n) for s, e, n in raw_blocks]
     windows.append(
-      ScheduleDayWindow(staff=staff, day=day, work_start=w_start, work_end=w_end, free=free, bookings=bookings)
+      ScheduleDayWindow(
+        staff=staff, day=day, work_start=w_start, work_end=w_end, free=free, bookings=bookings, blocks=blocks
+      )
     )
     covered_staff.add(staff.id)
 

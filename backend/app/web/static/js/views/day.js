@@ -219,6 +219,25 @@ export function dayView({ manager, embedded = false }) {
     return 'status-active';
   }
 
+  function buildBlockSeg(bl, startMin, pxm, trackHeight) {
+    const bs = toMin(bl.start);
+    const be = bl.end === '24:00' ? 1440 : toMin(bl.end);
+    const bw = Math.max((be - bs) * pxm - 2, 24);
+    const left = (bs - startMin) * pxm;
+    const note = (bl.note || '').trim();
+    const title = note ? `${bl.start}–${bl.end} · ${note}` : `${bl.start}–${bl.end} · блокировка`;
+    return h(
+      'div',
+      {
+        class: 'block-seg',
+        style: { left: `${left}px`, width: `${bw}px`, top: '10px', height: `${trackHeight - 20}px` },
+        title,
+        'aria-label': title,
+      },
+      h('span', { class: 'block-lock' }, icon('lock')),
+    );
+  }
+
   function buildApptBlock(b, cell, startMin, pxm, lane, laneCount, trackHeight) {
     const bs = toMin(b.start);
     const be = toMin(b.end);
@@ -311,6 +330,10 @@ export function dayView({ manager, embedded = false }) {
         track.append(h('i', { class: 'gridline', style: { left: `${(m - startMin) * pxm}px` } }));
       }
 
+      for (const bl of cell.blocks || []) {
+        track.append(buildBlockSeg(bl, startMin, pxm, trackHeight));
+      }
+
       for (const { b, lane } of placed) {
         track.append(buildApptBlock(b, cell, startMin, pxm, lane, lanes, trackHeight));
       }
@@ -337,7 +360,12 @@ export function dayView({ manager, embedded = false }) {
       rows,
     );
     const scroller = h('div', { class: 'timeline-scroll' }, timeline);
-    const legend = h('div', { class: 'legend' }, h('span', null, h('i', { class: 'leg-appt' }), 'Запись'));
+    const legend = h(
+      'div',
+      { class: 'legend' },
+      h('span', null, h('i', { class: 'leg-appt' }), 'Запись'),
+      h('span', null, h('i', { class: 'leg-block' }), 'Блокировка'),
+    );
     barCard.replaceChildren(scroller, legend);
     requestAnimationFrame(() => {
       const target = date === today ? (nowMinutesIn(tz) - startMin) * pxm - 80 : 0;
