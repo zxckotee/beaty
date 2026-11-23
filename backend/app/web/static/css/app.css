@@ -195,11 +195,23 @@ img { max-width: 100%; display: block; }
   width: 100%; min-height: 46px; padding: 10px 14px; border-radius: 14px;
   border: 1.5px solid var(--glass-border); background: var(--glass-bg);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.textarea { min-height: 92px; resize: vertical; }
-.input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
-.select option { background: var(--surface); color: var(--text); }
+.textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+.input::placeholder, .textarea::placeholder { color: color-mix(in srgb, var(--muted) 88%, transparent); opacity: 1; }
+.input:focus, .select:focus, .textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft));
+}
+.input:disabled, .select:disabled, .textarea:disabled { opacity: .5; cursor: not-allowed; }
+.select {
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.select option, .select optgroup { background: var(--surface); color: var(--text); padding: 8px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .chip {
@@ -843,6 +855,25 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 
 /* ---------- profile widgets ---------- */
 .sheet--builder { max-width: min(96vw, 920px); }
+.sheet--builder .sheet-body { gap: 12px; }
+.sheet--builder .field { gap: 5px; }
+.sheet--builder .field > label { font-size: .8rem; letter-spacing: .01em; }
+.sheet--builder .input,
+.sheet--builder .select,
+.sheet--builder .textarea {
+  min-height: 42px; border-radius: 12px; padding: 9px 12px;
+  border-color: color-mix(in srgb, var(--line) 85%, var(--accent-line));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+.sheet--builder .textarea.wb-textarea { min-height: 4.5em; font-size: .94rem; }
+.sheet--builder .select { min-height: 42px; }
+.sheet--builder .wb-block-edit.card,
+.sheet--builder .wb-action-card.card {
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.sheet--builder .wb-style-grid .field + .field { margin-top: 2px; }
+.sheet--builder .wb-presets { gap: 6px; flex-wrap: wrap; }
 .widget-builder-layout {
   display: grid; gap: 16px;
 }
