@@ -1,6 +1,6 @@
 from aiogram import Router
 from aiogram.exceptions import TelegramAPIError
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
@@ -20,6 +20,12 @@ from app.domain.services.provisioning import (
     find_tenant_by_bot_id,
     find_tenant_by_max_bot_id,
 )
+from app.bot.common.max_owner_guide import (
+    max_owner_guide_tail,
+    platform_bot_help_text,
+    send_max_onboarding_full,
+    send_max_onboarding_short,
+)
 from app.max.client import MaxClient
 
 platform_router = Router(name="platform")
@@ -28,6 +34,21 @@ platform_router = Router(name="platform")
 class OnboardStates(StatesGroup):
     waiting_business_name = State()
     waiting_token = State()
+
+
+@platform_router.message(Command("help"), StateFilter("*"))
+async def platform_help(message: Message) -> None:
+    await message.answer(platform_bot_help_text())
+
+
+@platform_router.message(Command("maxhelp"), StateFilter("*"))
+async def platform_maxhelp(message: Message) -> None:
+    await send_max_onboarding_full(message)
+
+
+@platform_router.message(Command("maxquick"), StateFilter("*"))
+async def platform_maxquick(message: Message) -> None:
+    await send_max_onboarding_short(message)
 
 
 @platform_router.message(CommandStart())
@@ -111,7 +132,9 @@ async def platform_token(message: Message, state: FSMContext) -> None:
                 await message.answer("Этот MAX-бот уже подключён к другому бизнесу.")
                 return
         await state.clear()
-        await message.answer(f"MAX-бот подключён к салону «{tenant.name}».")
+        await message.answer(
+            f"MAX-бот подключён к салону «{tenant.name}».{max_owner_guide_tail()}"
+        )
         return
     if ":" not in token:
         await message.answer("Похоже, это не токен. Попробуйте ещё раз.")
@@ -201,7 +224,7 @@ async def platform_token(message: Message, state: FSMContext) -> None:
         )
     await message.answer(
         f"Бизнес подключён.\nPublic ID: <code>{public_id}</code>\n\n{after_connect}\n\n"
-        "Чтобы добавить MAX: пришлите токен MAX-бота сюда (без @BotFather).",
+        "Чтобы добавить MAX: инструкция /maxhelp (кратко /maxquick), затем пришлите токен MAX-бота сюда.",
         parse_mode="HTML",
     )
 

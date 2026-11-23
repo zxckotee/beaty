@@ -1,9 +1,19 @@
 from aiogram import Router
+<<<<<<< HEAD
 from aiogram.filters import CommandStart
+=======
+from aiogram.filters import Command, CommandStart, StateFilter
+>>>>>>> 74429f5 (Add MAX bot owner onboarding guide to platform and salon help)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 
+from app.bot.common.max_owner_guide import (
+    max_owner_guide_tail,
+    platform_bot_help_text,
+    send_max_onboarding_full,
+    send_max_onboarding_short,
+)
 from app.bot.miniapp import miniapp_enabled, miniapp_url_for_tenant
 from app.core.db import SessionLocal
 from app.domain.exceptions import BotAlreadyLinkedError
@@ -25,6 +35,21 @@ class OnboardStates(StatesGroup):
     waiting_business_name = State()
     waiting_token = State()
     waiting_second_token = State()
+
+
+@platform_max_router.message(Command("help"), StateFilter("*"))
+async def platform_max_help(message: Message) -> None:
+    await message.answer(platform_bot_help_text())
+
+
+@platform_max_router.message(Command("maxhelp"), StateFilter("*"))
+async def platform_max_maxhelp(message: Message) -> None:
+    await send_max_onboarding_full(message)
+
+
+@platform_max_router.message(Command("maxquick"), StateFilter("*"))
+async def platform_max_maxquick(message: Message) -> None:
+    await send_max_onboarding_short(message)
 
 
 async def _validate_max_token(token: str) -> tuple[int, str] | None:
@@ -51,7 +76,8 @@ async def platform_max_start(message: Message, state: FSMContext) -> None:
         return
     await message.answer(
         "Beaty в MAX — платформа для записи.\n"
-        "У вас уже есть подключённый бот в Telegram? Ответьте: да / нет"
+        "У вас уже есть подключённый бот в Telegram? Ответьте: да / нет\n\n"
+        "Перед токеном MAX: /maxhelp (кратко /maxquick)."
     )
 
 
@@ -87,7 +113,10 @@ async def platform_max_other_platform(message: Message, state: FSMContext) -> No
 async def platform_max_business_name(message: Message, state: FSMContext) -> None:
     await state.update_data(business_name=message.text or "Мой салон")
     await state.set_state(OnboardStates.waiting_token)
-    await message.answer("Шаг 2: пришлите токен MAX-бота одним сообщением.")
+    await message.answer(
+        "Шаг 2: пришлите токен MAX-бота одним сообщением.\n"
+        "Как получить токен: /maxhelp (кратко /maxquick)."
+    )
 
 
 @platform_max_router.message(OnboardStates.waiting_second_token)
@@ -212,8 +241,8 @@ async def platform_max_token(message: Message, state: FSMContext) -> None:
     hint = ""
     url = miniapp_url_for_tenant(tenant_snapshot)
     if miniapp_enabled() and url:
-        hint = f"\n\nMini App: {url} — укажите этот URL в настройках MAX-бота."
+        hint = f"\n\nСсылка для мини-приложения (вставьте в MAX → Чат-боты → Настройки):\n{url}"
     await message.answer(
-        f"Бизнес подключён (MAX).\nPublic ID: <code>{public_id}</code>{hint}",
+        f"Бизнес подключён (MAX).\nPublic ID: <code>{public_id}</code>{hint}{max_owner_guide_tail()}",
         parse_mode="HTML",
     )
