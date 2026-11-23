@@ -46,23 +46,6 @@ def hhmm(dt: datetime, tz: ZoneInfo) -> str:
     return dt.astimezone(tz).strftime("%H:%M")
 
 
-def hhmm_block_start(start: datetime, view_day: date, tz: ZoneInfo) -> str:
-    """Block segment start on ``view_day`` (continues from earlier days at 00:00)."""
-    if local_date(start, tz) < view_day:
-        return "00:00"
-    return hhmm(start, tz)
-
-
-def hhmm_block_end(end: datetime, view_day: date, tz: ZoneInfo) -> str:
-    """Block segment end on ``view_day``; midnight at the next day is shown as 24:00."""
-    end_local = end.astimezone(tz)
-    if end_local.date() > view_day:
-        return "24:00"
-    if end_local.date() == view_day + timedelta(days=1) and end_local.time() == time.min:
-        return "24:00"
-    return hhmm(end, tz)
-
-
 def local_date(dt: datetime, tz: ZoneInfo) -> date:
     return dt.astimezone(tz).date()
 
@@ -173,14 +156,6 @@ def schedule_window_dict(
         "allowed_service_ids": [],
         "staff": staff_card(view.staff, tenant_public_id),
         "bookings": [booking_dict(b, tz, reveal=reveal_clients) for b in view.bookings],
-        "blocks": [
-            {
-                "start": hhmm_block_start(b.start, view.day, tz),
-                "end": hhmm_block_end(b.end, view.day, tz),
-                "note": b.note or "",
-            }
-            for b in view.blocks
-        ],
     }
 
 

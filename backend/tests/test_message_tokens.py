@@ -12,3 +12,12 @@ def test_render_template_substitutes_tokens():
 def test_render_unknown_token_left_intact():
     text = render_template("{unknown}", TOKEN_PREVIEW_CONTEXT)
     assert text == "{unknown}"
+
+
+def test_cancel_message_block():
+    from dataclasses import replace
+
+    ctx = replace(TOKEN_PREVIEW_CONTEXT, cancel_message="")
+    assert render_template("{cancel_message_block}", ctx) == ""
+    ctx2 = replace(TOKEN_PREVIEW_CONTEXT, cancel_message="Перенесём на завтра")
+    assert "Перенесём" in render_template("{cancel_message_block}", ctx2)

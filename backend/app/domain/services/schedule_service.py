@@ -587,7 +587,7 @@ async def add_day_off(
         session,
         tenant_id=tenant_id,
         staff_member_id=staff_member_id,
-        kind="block",
+        kind="vacation",
         start=start,
         end=end,
         note=note or "day_off",
