@@ -198,7 +198,7 @@ function buildEditor(state, sheet, { onSaved }) {
       );
     });
   if (urls.length < 5) {
-    const pick = photoPicker({ url: null, name: 'фото' });
+    const pick = photoPicker({ url: null, name: 'фото', layout: 'grid' });
     pick.el.querySelector('input')?.addEventListener('change', async () => {
       const f = pick.getFile();
       if (!f) return;
