@@ -108,8 +108,8 @@ def _exception_dict(exc, tz: ZoneInfo) -> dict[str, object]:
         "date": local_date(during.lower, tz).isoformat(),
         "start_at": during.lower.isoformat(),
         "end_at": during.upper.isoformat(),
-        "start": hhmm(start_local),
-        "end": hhmm(end_local) if exc.kind in ("work_override", "block") else None,
+        "start": hhmm(start_local, tz),
+        "end": hhmm(end_local, tz) if exc.kind in ("work_override", "block") else None,
         "note": exc.note,
     }
 
