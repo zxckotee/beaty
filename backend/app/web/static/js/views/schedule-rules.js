@@ -18,6 +18,27 @@ function collectDaysFromGrid(grid) {
   });
 }
 
+function ruleWeekPreview(days, weekdayLabels) {
+  const byWd = Object.fromEntries((days || []).map((d) => [d.weekday, d]));
+  const wrap = h('div', { class: 'schedule-rule-week', 'aria-label': 'Неделя' });
+  for (let wd = 0; wd < 7; wd += 1) {
+    const d = byWd[wd];
+    const on = Boolean(d?.enabled);
+    const end = d?.end_time === '24:00' ? '24:00' : d?.end_time;
+    wrap.append(
+      h(
+        'div',
+        { class: `schedule-rule-day${on ? '' : ' off'}` },
+        h('span', { class: 'schedule-rule-wd' }, weekdayLabels[wd] || d?.label || '?'),
+        on
+          ? h('span', { class: 'schedule-rule-tm num' }, `${(d.start_time || '').slice(0, 5)}`, h('span', { class: 'schedule-rule-sep' }, '–'), `${(end || '').slice(0, 5)}`)
+          : h('span', { class: 'schedule-rule-tm muted' }, 'выкл'),
+      ),
+    );
+  }
+  return wrap;
+}
+
 function buildWeeklyGrid(initialDays, weekdayLabels) {
   const grid = h('div', { class: 'schedule-week' });
   const byWd = Object.fromEntries((initialDays || []).map((d) => [d.weekday, d]));
@@ -150,18 +171,27 @@ function openApplyForm(rule, staffList, onDone) {
 }
 
 export async function scheduleRulesView() {
-  const root = h('div', { class: 'col' });
+  const root = h('div', { class: 'col schedule-rules-page' });
+  let weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const list = h('div', { class: 'list schedule-rules-list' });
+
+  const openNew = () => openRuleForm(null, weekdayLabels, load);
+
   root.append(
-    h('div', { class: 'row between', style: { flexWrap: 'wrap', gap: '12px' } },
+    h(
+      'div',
+      { class: 'page-head' },
       h('div', null,
         h('h1', null, 'Шаблоны расписания'),
-        h('p', { class: 'muted small' }, 'Недельное правило: каждый день — свой пункт с часами. Назначайте мастерам или всему салону.'),
+        h('p', null, 'Недельный график по дням. Назначайте салону или отдельным мастерам.'),
       ),
-      h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('schedule') }, icon('chevL'), 'К расписанию'),
+      h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('schedule') }, icon('chevL'), 'К расписанию'),
+        h('button', { class: 'btn primary', type: 'button', onclick: openNew }, icon('plus'), 'Добавить'),
+      ),
     ),
+    list,
   );
-  const list = h('div', { class: 'list' });
-  root.append(list);
   list.append(spinner());
 
   async function load() {
@@ -170,14 +200,15 @@ export async function scheduleRulesView() {
       const [rulesRes, staffRes] = await Promise.all([api.get('/manager/schedule-rules'), api.get('/manager/staff')]);
       const items = rulesRes.items || [];
       const staff = (staffRes || []).filter((s) => s.is_active);
-      const labels = rulesRes.weekday_labels || ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      weekdayLabels = rulesRes.weekday_labels || weekdayLabels;
       const defaultId = rulesRes.default_schedule_rule_id;
       list.replaceChildren();
       if (defaultId) {
         const def = items.find((r) => r.id === defaultId);
         list.append(
-          h('div', { class: 'card soft' },
-            h('p', { class: 'small' }, 'Правило салона по умолчанию: ', h('b', null, def ? def.name : '—')),
+          h('div', { class: 'schedule-default-banner card' },
+            h('span', { class: 'chip active tiny' }, 'Салон'),
+            h('span', { class: 'small' }, 'По умолчанию: ', h('b', null, def ? def.name : '—')),
           ),
         );
       }
@@ -187,39 +218,42 @@ export async function scheduleRulesView() {
             '📋',
             'Создайте первый шаблон',
             'Опишите всю неделю, затем назначьте салону или мастерам.',
-            h('button', { class: 'btn primary', type: 'button', onclick: () => openRuleForm(null, labels, load) }, icon('plus'), 'Создать шаблон'),
+            h('button', { class: 'btn primary', type: 'button', onclick: openNew }, icon('plus'), 'Создать шаблон'),
           ),
         );
         return;
       }
       for (const rule of items) {
+        const del = async () => {
+          if (!(await confirmDialog({ title: 'Удалить шаблон?', text: rule.name, confirmLabel: 'Удалить', danger: true }))) return;
+          try {
+            await api.delete(`/manager/schedule-rules/${rule.id}`);
+            toast('Удалено');
+            load();
+          } catch (e) {
+            toast(friendly(e), true);
+          }
+        };
         list.append(
-          h('div', { class: 'card col', style: { gap: '10px' } },
-            h('div', { class: 'row between' },
-              h('div', null,
+          h('article', { class: 'card schedule-rule-card' },
+            h('header', { class: 'schedule-rule-head' },
+              h('div', { class: 'schedule-rule-title' },
                 rule.is_default ? h('span', { class: 'chip active tiny' }, 'Салон') : null,
-                h('b', null, rule.name),
-                h('div', { class: 'small muted' }, rule.summary),
+                h('h2', null, rule.name),
               ),
-              h('div', { class: 'row', style: { gap: '6px' } },
-                h('button', { class: 'btn sm', type: 'button', onclick: () => openApplyForm(rule, staff, load) }, 'Назначить'),
-                h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openRuleForm(rule, labels, load) }, icon('edit')),
-                h('button', { class: 'btn sm ghost', type: 'button', onclick: async () => {
-                  if (!(await confirmDialog({ title: 'Удалить шаблон?', text: rule.name, confirmLabel: 'Удалить', danger: true }))) return;
-                  try {
-                    await api.delete(`/manager/schedule-rules/${rule.id}`);
-                    toast('Удалено');
-                    load();
-                  } catch (e) {
-                    toast(friendly(e), true);
-                  }
-                } }, icon('trash')),
+              h('div', { class: 'schedule-rule-tools row' },
+                h('button', { class: 'btn sm ghost icon-btn', type: 'button', 'aria-label': 'Изменить', onclick: () => openRuleForm(rule, weekdayLabels, load) }, icon('edit')),
+                h('button', { class: 'btn sm ghost icon-btn', type: 'button', 'aria-label': 'Удалить', onclick: del }, icon('trash')),
               ),
+            ),
+            ruleWeekPreview(rule.days, weekdayLabels),
+            h('footer', { class: 'schedule-rule-foot' },
+              h('button', { class: 'btn primary block', type: 'button', onclick: () => openApplyForm(rule, staff, load) }, 'Назначить'),
             ),
           ),
         );
       }
-      list.append(h('button', { class: 'btn block soft', type: 'button', onclick: () => openRuleForm(null, labels, load) }, icon('plus'), 'Добавить шаблон'));
+      list.append(h('button', { class: 'add-card schedule-rules-add', type: 'button', onclick: openNew }, icon('plus'), 'Новый шаблон'));
     } catch (e) {
       list.replaceChildren(h('p', { class: 'small muted' }, friendly(e)));
     }
