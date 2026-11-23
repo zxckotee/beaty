@@ -1,7 +1,7 @@
 import { api, friendly } from '../api.js';
 import {
   addDays, dayLabel, dayNumber, duration, fromMin, h, icon, longDayLabel, money, nowMinutesIn, plural,
-  signedMoney, todayIn, toMin, weekdayShort,
+  readTimeInput, signedMoney, timeInput, todayIn, toMin, weekdayShort,
 } from '../util.js';
 import { store } from '../store.js';
 import { avatar, confirmDialog, emptyState, field, openSheet, spinner, toast, withBusy } from '../ui.js';
@@ -956,8 +956,8 @@ export function dayView({ manager, embedded = false }) {
     openSheet({
       title: editing ? 'Изменить ячейку' : 'Новая ячейка',
       build: (sheet) => {
-        const startInput = h('input', { class: 'input', type: 'time', step: '300', value: state.start, required: true });
-        const endInput = h('input', { class: 'input', type: 'time', step: '300', value: state.end === '24:00' ? '23:59' : state.end, required: true });
+        const startInput = timeInput({ value: state.start, required: true });
+        const endInput = timeInput({ value: state.end === '24:00' ? '23:59' : state.end, required: true });
         const priceInput = h('input', { class: 'input', type: 'number', step: '50', inputmode: 'decimal', placeholder: '0', value: editing && cell.price_cents ? cell.price_cents / 100 : '' });
         const titleInput = h('input', { class: 'input', type: 'text', maxlength: '255', placeholder: 'Например, «Вечернее окно»', value: editing ? cell.title || '' : '' });
         const descInput = h('textarea', { class: 'textarea', maxlength: '2000', placeholder: 'Что важно знать клиенту' }, editing ? cell.description || '' : '');
@@ -1031,8 +1031,8 @@ export function dayView({ manager, embedded = false }) {
             const body = {
               staff_member_id: state.staffId,
               date: editing ? cell.date : date,
-              start: startInput.value,
-              end: endInput.value,
+              start: readTimeInput(startInput),
+              end: readTimeInput(endInput),
               price_cents: priceInput.value === '' ? null : Math.round(Number(priceInput.value) * 100),
               title: titleInput.value.trim() || null,
               description: descInput.value.trim() || null,

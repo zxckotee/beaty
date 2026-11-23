@@ -1,19 +1,8 @@
 import { api, friendly } from './api.js';
-import { h, icon, todayIn } from './util.js';
+import { h, icon, readTimeInput, timeInput, todayIn } from './util.js';
 import { store } from './store.js';
 import { navigate } from './main.js';
 import { confirmDialog, field, openSheet, spinner, toast, withBusy } from './ui.js';
-
-function toTimeInput(hhmm) {
-  if (hhmm === '24:00') return '23:59';
-  return hhmm.length === 5 ? `${hhmm}:00`.slice(0, 5) : hhmm;
-}
-
-function fromTimeInput(value) {
-  if (!value) return '09:00';
-  const [hh, mm] = value.split(':');
-  return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`;
-}
 
 /**
  * @param {HTMLElement} mount
@@ -207,8 +196,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
 
   function openOverride(prefillDate) {
     const date = h('input', { class: 'input', type: 'date', value: prefillDate || from });
-    const start = h('input', { class: 'input', type: 'time', value: '10:00' });
-    const end = h('input', { class: 'input', type: 'time', value: '16:00' });
+    const start = timeInput({ value: '10:00' });
+    const end = timeInput({ value: '16:00' });
     openSheet({
       title: 'Особые часы',
       build: (sheet) => {
@@ -219,8 +208,8 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
             try {
               await api.post(`/manager/staff/${staffId}/exceptions/work-override`, {
                 date: date.value,
-                start_time: fromTimeInput(start.value),
-                end_time: fromTimeInput(end.value),
+                start_time: readTimeInput(start),
+                end_time: readTimeInput(end),
               });
               sheet.close();
               toast('Исключение сохранено');

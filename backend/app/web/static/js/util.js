@@ -97,6 +97,68 @@ export const toMin = (hhmm) => {
 };
 export const fromMin = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
+/** Class on 24h time fields (text inputs, not native type=time). */
+export const TIME_INPUT_CLASS = 'input-time24';
+
+/** Parse HH:MM (24h) or 12h with AM/PM from broken WebViews. */
+export function parseTimeInput(value) {
+  if (!value) return '';
+  let v = String(value).trim();
+  const m12 = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(v);
+  if (m12) {
+    let hh = parseInt(m12[1], 10);
+    const mm = parseInt(m12[2], 10);
+    const pm = m12[3].toUpperCase() === 'PM';
+    if (hh === 12) hh = pm ? 12 : 0;
+    else if (pm) hh += 12;
+    v = `${hh}:${String(mm).padStart(2, '0')}`;
+  }
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v);
+  if (!m) return '';
+  const hh = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+  const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+export function toTimeInputValue(hhmm) {
+  if (!hhmm) return '09:00';
+  if (hhmm === '24:00') return '23:59';
+  return parseTimeInput(hhmm) || '09:00';
+}
+
+/** Text input that always shows 24-hour HH:MM (avoids AM/PM in Telegram WebView). */
+export function timeInput(props = {}) {
+  const { value = '09:00', required, disabled, class: extraCls = '', ...rest } = props;
+  const el = h('input', {
+    class: `input ${TIME_INPUT_CLASS} num ${extraCls}`.trim(),
+    type: 'text',
+    inputMode: 'numeric',
+    autocomplete: 'off',
+    spellcheck: false,
+    placeholder: '09:00',
+    maxlength: 5,
+    title: 'Часы:минуты, 24-часовой формат',
+    value: toTimeInputValue(value),
+    ...(required ? { required: true } : {}),
+    ...(disabled ? { disabled: true } : {}),
+    ...rest,
+  });
+  el.addEventListener('blur', () => {
+    const norm = parseTimeInput(el.value);
+    if (norm) el.value = norm;
+  });
+  el.addEventListener('input', () => {
+    const raw = el.value.replace(/[^\d:]/gi, '');
+    if (raw !== el.value) el.value = raw;
+  });
+  return el;
+}
+
+export function readTimeInput(el) {
+  const norm = parseTimeInput(el.value);
+  return norm || '09:00';
+}
+
 const wdFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' });
 const dayFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 const longFmt = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
