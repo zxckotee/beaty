@@ -303,6 +303,60 @@ function buildEditor(state, sheet, { onSaved }) {
   );
 }
 
+function thumbLine(wide, short) {
+  const cls = ['wb-thumb-line', wide ? 'wb-thumb-line--lg' : '', short ? 'wb-thumb-line--short' : ''].filter(Boolean).join(' ');
+  return h('span', { class: cls, 'aria-hidden': 'true' });
+}
+
+function templatePreviewThumb(templateId) {
+  const root = h('div', { class: `wb-thumb wb-thumb--${templateId}`, 'aria-hidden': 'true' });
+  switch (templateId) {
+    case 'story':
+      root.append(thumbLine(true), thumbLine(false), thumbLine(false, true));
+      break;
+    case 'visual':
+      root.append(
+        h('span', { class: 'wb-thumb-photo wb-thumb-photo--hero' }),
+        thumbLine(true),
+        thumbLine(false, true),
+      );
+      break;
+    case 'gallery':
+      root.append(
+        h('span', { class: 'wb-thumb-gallery' },
+          h('span'), h('span'), h('span'), h('span'),
+        ),
+        thumbLine(false, true),
+      );
+      break;
+    case 'split':
+      root.append(
+        h('span', { class: 'wb-thumb-split' },
+          h('span', { class: 'wb-thumb-photo' }),
+          h('span', { class: 'wb-thumb-split-text' }, thumbLine(true), thumbLine(false, true)),
+        ),
+      );
+      break;
+    case 'highlight':
+      root.append(
+        h('span', { class: 'wb-thumb-highlight' }, thumbLine(true), thumbLine(false), thumbLine(false, true)),
+      );
+      break;
+    case 'social_row':
+      root.append(
+        thumbLine(true, true),
+        h('span', { class: 'wb-thumb-pills' }, h('span'), h('span'), h('span')),
+      );
+      break;
+    case 'cta_card':
+      root.append(thumbLine(true), thumbLine(false, true), h('span', { class: 'wb-thumb-cta' }));
+      break;
+    default:
+      root.append(thumbLine(true), thumbLine(false));
+  }
+  return root;
+}
+
 function pickTemplate(onPick) {
   const grid = h('div', { class: 'wb-template-grid' });
   for (const [id, meta] of Object.entries(WIDGET_TEMPLATES)) {
@@ -312,8 +366,11 @@ function pickTemplate(onPick) {
         type: 'button',
         onclick: () => onPick(id),
       },
-        h('strong', null, meta.label),
-        h('span', { class: 'tiny muted' }, meta.hint),
+        templatePreviewThumb(id),
+        h('span', { class: 'wb-template-meta' },
+          h('strong', null, meta.label),
+          h('span', { class: 'tiny muted' }, meta.hint),
+        ),
       ),
     );
   }
