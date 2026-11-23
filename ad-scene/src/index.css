@@ -1,3 +1,15 @@
+:root {
+  --ui-gold: #b8a06a;
+  --ui-gold-deep: #948256;
+  --bg: #000000;
+  --surface: #141414;
+  --text: #ececec;
+  --muted: #a3a3a3;
+  --line: #2a2a2a;
+  --accent-ink: #1a1a1a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -8,10 +20,9 @@ body,
   margin: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  background: radial-gradient(ellipse at 30% 20%, #1a0f3a 0%, #05020c 55%, #000 100%);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  color: #f3ecff;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 .ad-root {
@@ -26,44 +37,43 @@ body,
   display: block;
 }
 
-.ad-overlay {
+.ad-chrome {
   position: absolute;
   z-index: 2;
   left: 0;
   right: 0;
   top: 0;
-  padding: 28px 32px;
+  padding: 24px 28px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(8, 4, 18, 0.82) 0%, rgba(8, 4, 18, 0.15) 70%, transparent 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
 }
 
-.ad-overlay button {
+.ad-chrome .btn {
   pointer-events: auto;
 }
 
 .ad-brand {
+  margin: 0 0 8px;
   font-size: 11px;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #9b7bff;
-  margin-bottom: 10px;
+  color: var(--ui-gold);
+  font-weight: 650;
 }
 
 .ad-title {
-  font-size: clamp(22px, 3.2vw, 38px);
+  margin: 0 0 6px;
+  font-size: clamp(20px, 2.6vw, 32px);
   font-weight: 700;
-  margin: 0 0 8px;
-  max-width: 720px;
-  line-height: 1.15;
-  text-shadow: 0 0 40px rgba(123, 92, 255, 0.45);
+  max-width: 640px;
+  line-height: 1.2;
 }
 
 .ad-sub {
-  margin: 0 0 18px;
-  max-width: 640px;
-  color: #c9b8e8;
-  font-size: 15px;
-  line-height: 1.45;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 560px;
 }
 
 .ad-controls {
@@ -73,29 +83,40 @@ body,
   flex-wrap: wrap;
 }
 
-.ad-controls button {
-  border: 1px solid rgba(155, 123, 255, 0.5);
-  background: linear-gradient(135deg, rgba(107, 61, 255, 0.35), rgba(34, 211, 255, 0.2));
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  backdrop-filter: blur(6px);
-}
-
-.ad-controls button:hover {
-  border-color: #22d3ff;
-}
-
 .ad-beat {
   font-size: 12px;
-  color: #22d3ff;
-  margin-left: 8px;
+  color: var(--ui-gold);
 }
 
 .ad-hint {
-  margin-top: 14px;
+  margin: 12px 0 0;
   font-size: 12px;
-  color: #8a7aaa;
+  color: var(--muted);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #000 72%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--ui-gold);
+  border-color: color-mix(in srgb, var(--ui-gold) 55%, var(--ui-gold-deep));
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--line);
 }

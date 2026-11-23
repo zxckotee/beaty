@@ -1,26 +1,10 @@
-# Beaty — holographic ad scene
+# Beaty — 3D UI-реклама
 
-3D-реклама по сценарию `docs/sales-call-script.md`: автопроигрывание, интерактивные сегменты, iridescent-плоскость.
-
-## Запуск
+Сцена повторяет **визуальный язык админки** (`backend/app/web/static/css/app.css`): чёрный фон, золотая кнопка `#B8A06A`, стеклянные карточки.  
+3D только там, где нужен акцент: экран слегка наклонён, а **кнопки и виджеты вылетают по Z** (spring), когда сюжет из `docs/sales-call-script.md` на них указывает.
 
 ```bash
-cd ad-scene
-npm install
-npm run dev
+cd ad-scene && npm install && npm run dev
 ```
 
-Откройте URL Vite (обычно `http://127.0.0.1:5173`).
-
-## Стек
-
-- **React Three Fiber** + **Three.js** — сцена, камера, тени
-- **@react-three/drei** — текст, звёзды, float
-- **@react-spring/three** — пружинный выход сегментов по клику
-
-## Устройство
-
-1. **Плоскость-экран** (`HolographicPlane`) — subdivided mesh, vertex shader (wave/ripple), fragment shader (iridescent).
-2. **Сетка 5×2** (`PopSegment`) — клик «продавливает» сегмент по Z с spring-анимацией.
-3. **Камера** — параллакс и приближение по ходу сюжета.
-4. **Сюжет** (`story.ts`) — 6 битов: крючок → Карты → развилка → боль → три удара → CTA.
+Сюжет: 6 автоматических битов, клик по виджету фиксирует его «вылет» вперёд.

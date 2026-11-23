@@ -1,42 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Float, PerspectiveCamera, Stars } from "@react-three/drei";
-import * as THREE from "three";
-import { STORY, SEGMENT_COPY, beatAt } from "../story";
-import { HolographicPlane } from "./HolographicPlane";
-import { PopSegment } from "./PopSegment";
+import { Canvas, useThree } from "@react-three/fiber";
+import { PerspectiveCamera } from "@react-three/drei";
+import { STORY, beatAt, widgetLayoutForBeat } from "../story";
+import { ScreenPanel } from "./ScreenPanel";
+import { UiWidget3d } from "./UiWidget3d";
+import { UI } from "../uiTokens";
 
-const PLANE_W = 7.2;
-const PLANE_H = 4.8;
-const COLS = 5;
-const ROWS = 2;
+const PLANE_W = 3.6;
+const PLANE_H = 5.2;
 
-function moodAccent(mood: string): [number, number, number] {
-  const map: Record<string, [number, number, number]> = {
-    hook: [0.55, 0.35, 1],
-    maps: [0.2, 0.75, 1],
-    fork: [0.3, 0.9, 0.7],
-    pain: [1, 0.25, 0.35],
-    solution: [0.2, 1, 0.55],
-    cta: [1, 0.85, 0.2],
-  };
-  return map[mood] ?? [0.6, 0.4, 1];
-}
-
-function CameraRig({ beatIndex }: { beatIndex: number }) {
+function CameraRig() {
   const { camera } = useThree();
-  const target = useRef(new THREE.Vector3(0, 0.2, 6.8));
 
-  useFrame((state, delta) => {
-    const beat = beatIndex / STORY.length;
-    const parallaxX = Math.sin(state.clock.elapsedTime * 0.35) * 0.35;
-    const parallaxY = 0.25 + beat * 0.15 + Math.cos(state.clock.elapsedTime * 0.28) * 0.1;
-    target.current.set(parallaxX, parallaxY, 6.8 - beat * 0.4);
-    camera.position.lerp(target.current, 1 - Math.exp(-4 * delta));
-    camera.lookAt(0, 0, 0);
-  });
+  useEffect(() => {
+    camera.near = 0.1;
+    camera.far = 50;
+    camera.updateProjectionMatrix();
+  }, [camera]);
 
-  return <PerspectiveCamera makeDefault position={[0, 0.3, 7]} fov={42} />;
+  return (
+    <PerspectiveCamera makeDefault position={[0, 0.15, 5.4]} fov={38} />
+  );
 }
 
 function SceneContent({
@@ -51,66 +35,33 @@ function SceneContent({
   onPop: (i: number) => void;
 }) {
   const beat = STORY[beatIndex];
-  const screenRef = useRef<THREE.Group>(null);
+  const layout = widgetLayoutForBeat(beatIndex);
 
-  useFrame((state) => {
-    if (!screenRef.current) return;
-    const autoSpin = state.clock.elapsedTime * 0.15;
-    screenRef.current.rotation.y = Math.sin(autoSpin) * 0.55 + local * 0.2;
-    screenRef.current.rotation.x = Math.cos(autoSpin * 0.7) * 0.12;
-  });
-
-  const segments = useMemo(() => {
-    return SEGMENT_COPY.map((copy, i) => {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
+  const widgets = useMemo(() => {
+    return layout.map((def, i) => {
       const active = beat.activeSegments.includes(i);
-      const pop = popped.has(i) || (active && local > 0.55);
-      const accent = moodAccent(beat.mood);
+      const pop = popped.has(i) || (active && local > 0.45);
       return (
-        <PopSegment
-          key={copy.title}
-          index={i}
-          col={col}
-          row={row}
-          cols={COLS}
-          rows={ROWS}
-          width={PLANE_W}
-          height={PLANE_H}
-          title={copy.title}
-          line={copy.line}
-          active={active}
-          pop={pop}
-          accent={accent}
-          onClick={onPop}
-        />
+        <UiWidget3d key={`${def.title}-${i}`} index={i} def={def} active={active} pop={pop} onClick={onPop} />
       );
     });
-  }, [beat, local, onPop, popped]);
+  }, [beat, layout, local, onPop, popped]);
 
   return (
     <>
-      <CameraRig beatIndex={beatIndex} />
-      <ambientLight intensity={0.35} />
-      <directionalLight
-        position={[4, 6, 5]}
-        intensity={1.4}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <pointLight position={[-5, 2, 3]} intensity={2.2} color="#7b5cff" />
-      <pointLight position={[5, -1, 2]} intensity={1.6} color="#22d3ff" />
-      <Float speed={1.2} rotationIntensity={0.15} floatIntensity={0.25}>
-        <group ref={screenRef}>
-          <HolographicPlane width={PLANE_W} height={PLANE_H} mood={beat.mood} tilt={local} />
-          <group position={[0, 0, 0.06]}>{segments}</group>
-        </group>
-      </Float>
-      <Stars radius={80} depth={40} count={1200} factor={3} saturation={0.6} fade speed={0.6} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.2, 0]} receiveShadow>
-        <planeGeometry args={[30, 30]} />
-        <meshStandardMaterial color="#0a0614" metalness={0.6} roughness={0.4} />
+      <color attach="background" args={[UI.bg]} />
+      <fog attach="fog" args={[UI.bg, 7, 16]} />
+      <CameraRig />
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[3, 5, 4]} intensity={0.85} castShadow color="#fffef8" />
+      <directionalLight position={[-4, 1, 2]} intensity={0.25} color={UI.gold} />
+      <group position={[0, 0, 0]}>
+        <ScreenPanel width={PLANE_W} height={PLANE_H} tilt={local} />
+        <group position={[0, 0, 0.05]}>{widgets}</group>
+      </group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.2, 0]} receiveShadow>
+        <planeGeometry args={[12, 12]} />
+        <meshStandardMaterial color={UI.bg} metalness={0.2} roughness={0.95} />
       </mesh>
     </>
   );
@@ -156,27 +107,27 @@ export function AdExperience() {
 
   return (
     <div className="ad-root">
-      <div className="ad-overlay">
-        <div className="ad-brand">Beaty</div>
+      <div className="ad-chrome">
+        <p className="ad-brand">Beaty</p>
         <h1 className="ad-title">{beat.title}</h1>
         <p className="ad-sub">{beat.subtitle}</p>
         <div className="ad-controls">
           <button
             type="button"
+            className="btn primary"
             onClick={() => {
               if (playing) {
                 pausedAt.current = elapsed;
                 startRef.current = null;
                 setPlaying(false);
-              } else {
-                setPlaying(true);
-              }
+              } else setPlaying(true);
             }}
           >
             {playing ? "Пауза" : "Играть"}
           </button>
           <button
             type="button"
+            className="btn ghost"
             onClick={() => {
               pausedAt.current = 0;
               startRef.current = null;
@@ -189,11 +140,9 @@ export function AdExperience() {
           </button>
           <span className="ad-beat">{beat.label}</span>
         </div>
-        <p className="ad-hint">Нажмите на сегмент — он выйдет из плоскости с пружиной</p>
+        <p className="ad-hint">Клик по кнопке на экране — она вылетает из плоскости</p>
       </div>
-      <Canvas shadows gl={{ antialias: true, alpha: true }} dpr={[1, 2]}>
-        <color attach="background" args={["#05020c"]} />
-        <fog attach="fog" args={["#05020c", 8, 22]} />
+      <Canvas shadows dpr={[1, 2]} gl={{ antialias: true }}>
         <SceneContent beatIndex={beatIndex} local={local} popped={popped} onPop={onPop} />
       </Canvas>
     </div>
