@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import NotFoundError
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant, TenantLanding
-from app.domain.services.landing_widget_payload import WIDGET_TEMPLATES
 from app.domain.services.dgis_url import parse_dgis_url
+from app.domain.services.landing_widget_payload import WIDGET_TEMPLATES
 
 _IFRAME_2GIS = re.compile(r"<iframe[\s\S]*?src=[\"'](https://[^\"']*2gis[^\"']*)[\"']", re.IGNORECASE)
 
