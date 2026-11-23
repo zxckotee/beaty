@@ -167,6 +167,43 @@ def _work_intervals_for_day(
     return intervals
 
 
+async def _busy_during_intervals(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    staff_member_id: UUID,
+    range_start: datetime,
+    range_end: datetime,
+) -> list[TimeInterval]:
+    """Busy intervals for schedule timeline free time (matches on-screen booking blocks)."""
+    rows = await session.execute(
+        text(
+            """
+            SELECT lower(bi.during) AS s, upper(bi.during) AS e
+            FROM booking_item bi
+            JOIN booking b ON b.id = bi.booking_id
+            WHERE bi.tenant_id = :tenant_id
+              AND bi.staff_member_id = :staff_id
+              AND bi.is_active = true
+              AND b.status = ANY(:statuses)
+              AND bi.during && tstzrange(:start, :end, '[)')
+            """
+        ),
+        {
+            "tenant_id": str(tenant_id),
+            "staff_id": str(staff_member_id),
+            "statuses": list(ACTIVE_STATUSES),
+            "start": range_start,
+            "end": range_end,
+        },
+    )
+    busy: list[TimeInterval] = []
+    for s, e in rows.all():
+        if s and e:
+            busy.append(TimeInterval(s, e))
+    return busy
+
+
 async def _busy_intervals(
     session: AsyncSession,
     *,
