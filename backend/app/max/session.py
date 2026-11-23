@@ -93,6 +93,13 @@ class MaxApiSession(BaseSession):
             yield b""
 
 
+def aiogram_token_stub(max_token: str) -> str:
+    """Aiogram validates Telegram-shaped tokens; MAX tokens are a single secret string."""
+    if ":" in max_token:
+        return max_token
+    return f"9:{max_token}"
+
+
 def create_max_bot(token: str) -> Bot:
     client = MaxClient(token)
-    return Bot(token=token, session=MaxApiSession(client))
+    return Bot(token=aiogram_token_stub(token), session=MaxApiSession(client))
