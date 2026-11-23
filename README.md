@@ -124,7 +124,7 @@ Python 3.12, **aiogram 3**, **FastAPI**, **PostgreSQL 16**, **Redis**, **Taskiq*
 | Переменная | Назначение |
 | --- | --- |
 | `WEB_UI_PORT` | Порт (по умолчанию 3030) |
-| `WEB_DEFAULT_TENANT` | Публичный id тенанта для `/` без префикса |
+| `WEB_DEFAULT_TENANT` | Публичный id демо-кабинета (кнопка на лендинге `beatwelc.ru/`) |
 | `WEB_DEV_LOGIN` / `ENVIRONMENT` | Тестовый вход по user id только вне `production` (`/` в prod — 404 без списка салонов) |
 | `MEDIA_DIR` | Загрузки фото |
 | `WEB_COOKIE_SECURE` | Обязательно `true` за HTTPS на домене |
