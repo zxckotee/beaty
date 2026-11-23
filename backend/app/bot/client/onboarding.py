@@ -19,12 +19,15 @@ from app.domain.services.client_onboarding_service import (
     ensure_user_account,
 )
 from app.domain.services.team_invite_service import accept_invite, parse_invite_token
+from app.domain.services.account_link_service import parse_link_code
+from app.domain.services.client_service import get_or_create_user_by_messenger, link_messenger_id, merge_user_accounts
 from app.domain.services.web_auth_service import (
     LOGIN_PREFIX,
     bot_message_for_confirm,
     confirm_login,
     parse_login_code,
 )
+from app.messenger.types import Channel
 
 client_onboarding_router = Router(name="client_onboarding")
 
@@ -71,23 +74,56 @@ async def cmd_start(
     roles: set[str],
     active_ui_role: str,
     can_switch_ui_role: bool,
+    messenger_channel: Channel | None = None,
 ) -> None:
+    channel = messenger_channel or Channel.TELEGRAM
     start_param = command.args or _parse_start_param(message.text)
     if start_param and start_param.startswith(LOGIN_PREFIX) and message.from_user:
         login_code = parse_login_code(start_param)
         if not login_code:
             await message.answer(
-                "Ссылка входа неполная. На сайте нажмите «Войти через Telegram» и откройте чат по кнопке, "
-                "затем Start внизу."
+                "Ссылка входа неполная. На сайте нажмите «Войти» и откройте чат по кнопке, затем Start."
             )
             return
         result = await confirm_login(
             login_code,
             tenant_public_id=tenant.public_id,
-            telegram_user_id=message.from_user.id,
+            channel=channel,
+            messenger_user_id=message.from_user.id,
             display_name=message.from_user.full_name,
         )
-        await message.answer(bot_message_for_confirm(result, bot_username=tenant.bot_username))
+        await message.answer(
+            bot_message_for_confirm(result, bot_username=tenant.bot_username or tenant.max_bot_username, channel=channel)
+        )
+        return
+    link_code = parse_link_code(start_param)
+    if link_code and message.from_user:
+        from uuid import UUID
+
+        from app.core.redis_client import get_redis
+        import json
+
+        raw = await (await get_redis()).get(f"accountlink:{link_code}")
+        if raw is None:
+            await message.answer("Код привязки не найден или истёк.")
+            return
+        data = json.loads(raw)
+        if data.get("tenant") != tenant.public_id or data.get("status") != "pending":
+            await message.answer("Код привязки уже использован или недоступен.")
+            return
+        if data.get("channel") == channel.value:
+            await message.answer("Откройте этот код в другом мессенджере (Telegram или MAX).")
+            return
+        primary_id = UUID(str(data["user_account_id"]))
+        secondary = await get_or_create_user_by_messenger(db_session, channel, message.from_user.id)
+        try:
+            await merge_user_accounts(db_session, primary_id, secondary.id)
+            await db_session.commit()
+            await (await get_redis()).delete(f"accountlink:{link_code}")
+            await message.answer("Профили связаны. Запись и кабинет общие для Telegram и MAX.")
+        except DomainError as exc:
+            await db_session.rollback()
+            await message.answer(f"Не удалось связать: {exc}")
         return
     invite_token = parse_invite_token(start_param)
     if invite_token and message.from_user:
@@ -95,7 +131,8 @@ async def cmd_start(
             staff = await accept_invite(
                 db_session,
                 tenant_id=tenant.id,
-                telegram_user_id=message.from_user.id,
+                channel=channel,
+                messenger_user_id=message.from_user.id,
                 raw_token=invite_token,
             )
             await db_session.commit()
@@ -197,7 +234,9 @@ async def got_contact(
     db_session: AsyncSession,
     roles: set[str],
     staff_member: StaffMember | None,
+    messenger_channel: Channel | None = None,
 ) -> None:
+    channel = messenger_channel or Channel.TELEGRAM
     contact = message.contact
     if contact is None or contact.user_id != message.from_user.id:  # type: ignore[union-attr]
         await message.answer("Нужен ваш контакт, не чужой.")
@@ -205,11 +244,12 @@ async def got_contact(
     phone = contact.phone_number or ""
     name = (message.from_user.full_name or "Клиент") if message.from_user else "Клиент"
     data = await state.get_data()
-    await ensure_user_account(db_session, message.from_user.id)  # type: ignore[union-attr]
+    await ensure_user_account(db_session, message.from_user.id, channel=channel)  # type: ignore[union-attr]
     profile = await complete_client_onboarding(
         db_session,
         tenant_id=tenant.id,
-        telegram_user_id=message.from_user.id,  # type: ignore[union-attr]
+        messenger_user_id=message.from_user.id,  # type: ignore[union-attr]
+        channel=channel,
         name=name,
         phone=phone,
         source=data.get("start_param"),

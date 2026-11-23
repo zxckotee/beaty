@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.audit import log_audit
 from app.domain.exceptions import DomainError
 from app.domain.models import StaffInvite, StaffMember, UserAccount
+from app.domain.services.client_service import get_or_create_user_by_messenger
+from app.messenger.types import Channel
 
 INVITE_TTL_DAYS = 7
 INVITE_PREFIX = "inv_"
@@ -113,9 +115,13 @@ async def accept_invite(
     session: AsyncSession,
     *,
     tenant_id: UUID,
-    telegram_user_id: int,
+    messenger_user_id: int,
     raw_token: str,
+    channel: Channel | None = None,
+    telegram_user_id: int | None = None,
 ) -> StaffMember:
+    uid = messenger_user_id if telegram_user_id is None else telegram_user_id
+    ch = channel or Channel.TELEGRAM
     token_hash = _hash_token(raw_token)
     invite = await session.scalar(
         select(StaffInvite).where(
@@ -138,11 +144,7 @@ async def accept_invite(
     if staff.user_account_id is not None:
         raise DomainError("staff already linked")
 
-    user = await session.scalar(select(UserAccount).where(UserAccount.telegram_user_id == telegram_user_id))
-    if user is None:
-        user = UserAccount(telegram_user_id=telegram_user_id)
-        session.add(user)
-        await session.flush()
+    user = await get_or_create_user_by_messenger(session, ch, uid)
 
     existing = await session.scalar(
         select(StaffMember).where(
@@ -151,7 +153,7 @@ async def accept_invite(
         )
     )
     if existing is not None and existing.id != staff.id:
-        raise DomainError("telegram account already linked to another staff profile")
+        raise DomainError("messenger account already linked to another staff profile")
 
     staff.user_account_id = user.id
     roles = set(staff.roles or [])

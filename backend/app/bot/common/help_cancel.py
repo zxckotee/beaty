@@ -8,7 +8,9 @@ from app.bot.chat_readonly import reply_use_miniapp
 from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
 from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
-from app.domain.models import StaffMember, Tenant  # noqa: TC001 — aiogram DI
+from app.domain.models import StaffMember, Tenant, UserAccount  # noqa: TC001 — aiogram DI
+from app.domain.services.account_link_service import create_account_link_code, start_param_for_link
+from app.messenger.types import Channel
 
 common_router = Router(name="common")
 
@@ -170,3 +172,32 @@ async def text_my(
     from app.bot.client.my_bookings import send_my_bookings
 
     await send_my_bookings(message, state, tenant, db_session, client_profile)
+
+
+@common_router.message(Command("link"))
+async def cmd_link(
+    message: Message,
+    tenant: Tenant,
+    db_session,
+    user_account: UserAccount | None,
+    messenger_channel: Channel | None = None,
+) -> None:
+    if message.from_user is None:
+        return
+    channel = messenger_channel or Channel.TELEGRAM
+    if user_account is None:
+        from app.domain.services.client_service import get_or_create_user_by_messenger
+
+        user_account = await get_or_create_user_by_messenger(db_session, channel, message.from_user.id)
+        await db_session.commit()
+    code = await create_account_link_code(
+        tenant_public_id=tenant.public_id,
+        user_account_id=str(user_account.id),
+        channel=channel,
+    )
+    other = "MAX" if channel is Channel.TELEGRAM else "Telegram"
+    await message.answer(
+        f"Код привязки с {other}:\n<code>{start_param_for_link(code)}</code>\n\n"
+        f"Откройте бот в {other} и отправьте /start {start_param_for_link(code)}",
+        parse_mode="HTML",
+    )
