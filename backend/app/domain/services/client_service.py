@@ -133,6 +133,10 @@ async def merge_user_accounts(
     ):
         raise ConflictError("both accounts have different max ids")
 
+    secondary.telegram_user_id = None
+    secondary.max_user_id = None
+    await session.flush()
+
     prefs = {**(secondary.messenger_prefs or {}), **(primary.messenger_prefs or {})}
     primary.messenger_prefs = prefs
 
