@@ -34,13 +34,14 @@ function onKey(e) {
 document.addEventListener('keydown', onKey);
 
 /** Opens a bottom sheet (mobile) / modal (desktop). Returns { close, body, setFooter }. */
-export function openSheet({ title, build, onClose }) {
+export function openSheet({ title, build, onClose, size }) {
   const body = h('div', { class: 'sheet-body' });
   const foot = h('div', { class: 'sheet-foot' });
   const closeBtn = h('button', { class: 'btn ghost icon-btn', type: 'button', 'aria-label': 'Закрыть' }, icon('close'));
+  const sheetClass = size === 'builder' ? 'sheet sheet--builder' : 'sheet';
   const sheet = h(
     'div',
-    { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    { class: sheetClass, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('div', { class: 'grab' }),
     h('div', { class: 'sheet-head' }, h('h2', null, title), closeBtn),
     body,

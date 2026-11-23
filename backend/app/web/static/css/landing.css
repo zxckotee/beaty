@@ -70,6 +70,12 @@ body {
   color: var(--muted);
   font-size: 1rem;
 }
+.studio-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 16px 32px;
+}
 .studio-cta {
   display: inline-flex;
   align-items: center;
@@ -213,3 +219,34 @@ body {
 .leaflet-container {
   background: #1a1d24;
 }
+
+.studio-widgets .pw {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: clamp(14px, 3vw, 22px);
+}
+.studio-widgets .pw-text { color: var(--muted); }
+.studio-widgets .pw-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-weight: 650;
+  text-decoration: none;
+  background: var(--pw-btn-bg, var(--accent));
+  color: var(--pw-btn-fg, #fff);
+}
+.studio-widgets .pw-action--outline {
+  background: transparent;
+  color: var(--pw-btn-bg, var(--accent));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.studio-widgets .pw-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.studio-widgets .pw-gallery { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); }
+.studio-widgets .pw-gallery img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 12px; }
+.studio-widgets .pw-action--vk { --pw-btn-bg: #0077ff; --pw-btn-fg: #fff; }
+.studio-widgets .pw-action--telegram { --pw-btn-bg: #2aabee; --pw-btn-fg: #fff; }
+.studio-widgets .pw-action--max { --pw-btn-bg: #5c3be8; --pw-btn-fg: #fff; }
+.studio-widgets .ico svg { width: 18px; height: 18px; }

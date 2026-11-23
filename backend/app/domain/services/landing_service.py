@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import NotFoundError
-from app.domain.models import LandingPortfolioItem, LandingPost, Tenant, TenantLanding
+from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant, TenantLanding
+from app.domain.services.landing_widget_payload import WIDGET_TEMPLATES
 from app.domain.services.dgis_url import parse_dgis_url
 
 _IFRAME_2GIS = re.compile(r"<iframe[\s\S]*?src=[\"'](https://[^\"']*2gis[^\"']*)[\"']", re.IGNORECASE)
@@ -99,3 +100,49 @@ async def get_post(session: AsyncSession, tenant_id: uuid.UUID, post_id: uuid.UU
     if post is None or post.tenant_id != tenant_id:
         raise NotFoundError("post not found")
     return post
+
+
+async def list_widgets(
+    session: AsyncSession, tenant_id: uuid.UUID, *, visible_only: bool
+) -> list[LandingProfileWidget]:
+    q = select(LandingProfileWidget).where(LandingProfileWidget.tenant_id == tenant_id)
+    if visible_only:
+        q = q.where(LandingProfileWidget.is_visible.is_(True))
+    rows = await session.scalars(q.order_by(LandingProfileWidget.sort_order, LandingProfileWidget.id))
+    return list(rows.all())
+
+
+async def get_widget(
+    session: AsyncSession, tenant_id: uuid.UUID, widget_id: uuid.UUID
+) -> LandingProfileWidget:
+    widget = await session.get(LandingProfileWidget, widget_id)
+    if widget is None or widget.tenant_id != tenant_id:
+        raise NotFoundError("widget not found")
+    return widget
+
+
+def validate_template(template: str) -> str:
+    t = (template or "").strip().lower()
+    if t not in WIDGET_TEMPLATES:
+        raise ValueError("unknown widget template")
+    return t
+
+
+async def reorder_widgets(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    order: list[tuple[uuid.UUID, int]],
+) -> None:
+    if not order:
+        return
+    ids = [wid for wid, _ in order]
+    rows = await session.scalars(
+        select(LandingProfileWidget).where(
+            LandingProfileWidget.tenant_id == tenant_id,
+            LandingProfileWidget.id.in_(ids),
+        )
+    )
+    by_id = {w.id: w for w in rows.all()}
+    for wid, sort_order in order:
+        if wid in by_id:
+            by_id[wid].sort_order = sort_order

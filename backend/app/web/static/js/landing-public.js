@@ -27,6 +27,8 @@ function initials(name) {
     .toUpperCase();
 }
 
+import { renderProfileWidget } from './profile-widgets.js';
+
 function bookUrl(tenantId, botUsername) {
   if (botUsername) return `https://t.me/${botUsername}?start=book`;
   return `/t/${tenantId}/#/book`;
@@ -86,9 +88,18 @@ function render(data, tenantId) {
   }
   body.append(el('h1', { class: 'studio-title' }, data.title || 'Салон'));
   if (data.tagline) body.append(el('p', { class: 'studio-tagline' }, data.tagline));
-  body.append(el('a', { class: 'studio-cta', href: bookUrl(tenantId, data.bot_username) }, 'Записаться'));
   hero.append(body);
   wrap.append(hero);
+
+  const widgets = (data.widgets || []).filter((w) => w.is_visible).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  if (widgets.length) {
+    const wzone = el('div', { class: 'studio-widgets' });
+    const bookHref = bookUrl(tenantId, data.bot_username);
+    for (const w of widgets) {
+      wzone.append(renderProfileWidget(w, { mode: 'studio', bookHref }));
+    }
+    wrap.append(wzone);
+  }
 
   const portfolio = data.portfolio || [];
   if (portfolio.length) {

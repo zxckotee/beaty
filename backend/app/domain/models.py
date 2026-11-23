@@ -542,6 +542,17 @@ class LandingPost(Base):
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class LandingProfileWidget(Base):
+    __tablename__ = "landing_profile_widget"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), index=True)
+    template: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class NotificationTemplate(Base):
     __tablename__ = "notification_template"
     __table_args__ = (UniqueConstraint("tenant_id", "kind", name="uq_notification_template_tenant_kind"),)
