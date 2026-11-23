@@ -1,7 +1,10 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
+import type { Group } from "three";
 import * as THREE from "three";
+import { screenTilt } from "../timeline";
+import type { PlaybackState } from "../playback";
 import { UI } from "../uiTokens";
 
 const screenMat = new THREE.MeshStandardMaterial({
@@ -19,17 +22,16 @@ const bezelMat = new THREE.MeshStandardMaterial({
 type Props = {
   width: number;
   height: number;
-  tilt: number;
+  playbackRef: React.MutableRefObject<PlaybackState>;
 };
 
-/** Плоскость «экрана» продукта — без шейдеров, как карточка в админке */
-export function ScreenPanel({ width, height, tilt }: Props) {
-  const groupRef = useRef<THREE.Group>(null);
+export function ScreenPanel({ width, height, playbackRef }: Props) {
+  const groupRef = useRef<Group>(null);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.x = 0.06 + tilt * 0.04;
-    groupRef.current.rotation.y = -0.22 + Math.sin(state.clock.elapsedTime * 0.15) * 0.03;
+    const tilt = screenTilt(playbackRef.current.timeMs);
+    groupRef.current.rotation.x = 0.06 + tilt;
   });
 
   return (

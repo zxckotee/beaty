@@ -22,7 +22,7 @@ export type WidgetDef = {
 
 /** Раскладка как блоки на экране приложения (центр — 0,0) */
 export const WIDGETS: WidgetDef[] = [
-  { title: "Beaty", line: "Запись под вашим брендом", kind: "soft", x: 0, y: 2.05, w: 3.4, h: 0.52 },
+  { title: "Beaty-Welcome", line: "Запись под вашим брендом", kind: "soft", x: 0, y: 2.05, w: 3.4, h: 0.52 },
   { title: "Яндекс.Карты", line: "Клиент уже нашёл вас", kind: "card", x: 0, y: 1.35, w: 3.4, h: 0.58 },
   { title: "Позвонить", line: "Линия занята · вечер", kind: "ghost", x: -0.82, y: 0.55, w: 1.55, h: 0.48 },
   { title: "Записаться", line: "Telegram · ваш бот", kind: "primary", x: 0.82, y: 0.55, w: 1.55, h: 0.48 },
@@ -70,7 +70,7 @@ export const STORY: StoryBeat[] = [
   {
     id: "solution",
     label: "Решение",
-    title: "Три результата Beaty",
+    title: "Три результата Beaty-Welcome",
     subtitle: "24/7, подтверждения, возвраты по ритму",
     durationMs: 5800,
     activeSegments: [6, 7, 8],

@@ -1,11 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox, Text } from "@react-three/drei";
-import { a, useSpring } from "@react-spring/three";
 import type { Group } from "three";
 import * as THREE from "three";
 import type { WidgetDef } from "../story";
+import { layoutAtTime, widgetEmphasis } from "../timeline";
 import { UI } from "../uiTokens";
+import type { PlaybackState } from "../playback";
+import type { MutableRefObject } from "react";
 
 function colorsFor(kind: WidgetDef["kind"]) {
   switch (kind) {
@@ -27,29 +29,19 @@ function colorsFor(kind: WidgetDef["kind"]) {
 type Props = {
   index: number;
   def: WidgetDef;
-  active: boolean;
-  pop: boolean;
+  playbackRef: MutableRefObject<PlaybackState>;
   onClick: (index: number) => void;
 };
 
-export function UiWidget3d({ index, def, active, pop, onClick }: Props) {
+export function UiWidget3d({ index, def, playbackRef, onClick }: Props) {
   const ref = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
   const { bg, text, emissive, emissiveInt } = colorsFor(def.kind);
 
-  const lift = pop ? 0.42 : active ? 0.22 : hovered ? 0.12 : 0.02;
-  const scale = pop ? 1.06 : active ? 1.03 : 1;
-
-  const spring = useSpring({
-    z: lift,
-    scale,
-    config: pop ? { tension: 280, friction: 16 } : { tension: 200, friction: 22 },
-  });
-
-  useFrame(() => {
-    if (!ref.current) return;
-    ref.current.renderOrder = pop ? 10 : active ? 5 : 0;
-  });
+  const zAnim = useRef(0.02);
+  const scaleAnim = useRef(1);
+  const xAnim = useRef(def.x);
+  const yAnim = useRef(def.y);
 
   const material = useMemo(
     () =>
@@ -63,15 +55,32 @@ export function UiWidget3d({ index, def, active, pop, onClick }: Props) {
     [bg, def.kind, emissive, emissiveInt],
   );
 
-  material.emissiveIntensity = pop ? emissiveInt + 0.35 : active ? emissiveInt + 0.2 : emissiveInt;
+  useFrame((_, delta) => {
+    const pb = playbackRef.current;
+    const layout = layoutAtTime(pb.timeMs)[index];
+    const emphasis = widgetEmphasis(index, pb.timeMs, pb.popped);
+    const hoverBoost = hovered ? 0.08 : 0;
+    const targetZ = 0.02 + emphasis * 0.4 + hoverBoost;
+    const targetScale = 1 + emphasis * 0.05;
+
+    const k = 1 - Math.exp(-14 * delta);
+    zAnim.current += (targetZ - zAnim.current) * k;
+    scaleAnim.current += (targetScale - scaleAnim.current) * k;
+    xAnim.current += (layout.x - xAnim.current) * k;
+    yAnim.current += (layout.y - yAnim.current) * k;
+
+    material.emissiveIntensity = emissiveInt + emphasis * 0.35 + (hovered ? 0.1 : 0);
+
+    if (ref.current) {
+      ref.current.position.set(xAnim.current, yAnim.current, zAnim.current);
+      ref.current.scale.setScalar(scaleAnim.current);
+      ref.current.renderOrder = emphasis > 0.55 ? 8 : 0;
+    }
+  });
 
   return (
-    <a.group
+    <group
       ref={ref}
-      position-x={def.x}
-      position-y={def.y}
-      position-z={spring.z}
-      scale={spring.scale}
       onClick={(e) => {
         e.stopPropagation();
         onClick(index);
@@ -108,6 +117,6 @@ export function UiWidget3d({ index, def, active, pop, onClick }: Props) {
       >
         {def.line}
       </Text>
-    </a.group>
+    </group>
   );
 }
