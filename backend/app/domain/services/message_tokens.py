@@ -11,7 +11,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
-from app.domain.models import Booking, Branch, NotificationTemplate, Tenant, TenantLanding
+from app.domain.models import Booking, BookingEvent, Branch, NotificationTemplate, Tenant, TenantLanding
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -28,6 +28,7 @@ class BookingMessageContext:
     timezone: str
     staff_photo_url: str | None
     venue_cover_url: str | None
+    cancel_message: str = ""
 
 
 TOKEN_PREVIEW_CONTEXT = BookingMessageContext(
@@ -41,6 +42,7 @@ TOKEN_PREVIEW_CONTEXT = BookingMessageContext(
     timezone="Europe/Moscow",
     staff_photo_url=None,
     venue_cover_url=None,
+    cancel_message="Переносим запись на другое время — напишите в чат салона.",
 )
 
 DEFAULT_BODIES: dict[str, str] = {
@@ -68,6 +70,7 @@ DEFAULT_BODIES: dict[str, str] = {
         "❌ Запись отменена.\n\n"
         "Было: {datetime}\n"
         "{service} · {staff}"
+        "{cancel_message_block}"
     ),
 }
 
@@ -75,6 +78,7 @@ DEFAULT_BODIES: dict[str, str] = {
 def render_template(body: str, ctx: BookingMessageContext) -> str:
     tz = ZoneInfo(ctx.timezone or "Europe/Moscow")
     local = ctx.start_at.astimezone(tz) if ctx.start_at else None
+    cancel_msg = (ctx.cancel_message or "").strip()
     values = {
         "service": ctx.service or "—",
         "staff": ctx.staff or "—",
@@ -85,6 +89,8 @@ def render_template(body: str, ctx: BookingMessageContext) -> str:
         "date": local.strftime("%d.%m.%Y") if local else "—",
         "time": local.strftime("%H:%M") if local else "—",
         "datetime": local.strftime("%d.%m.%Y в %H:%M") if local else "—",
+        "cancel_message": cancel_msg,
+        "cancel_message_block": f"\n\n💬 {cancel_msg}" if cancel_msg else "",
     }
 
     def repl(m: re.Match[str]) -> str:
@@ -104,6 +110,24 @@ def abs_media_url(path: str | None) -> str | None:
     if not base:
         return None
     return f"{base}{path}"
+
+
+async def _cancel_client_message(session: AsyncSession, booking_id: UUID, tenant_id: UUID) -> str:
+    row = await session.execute(
+        select(BookingEvent.payload)
+        .where(
+            BookingEvent.tenant_id == tenant_id,
+            BookingEvent.booking_id == booking_id,
+            BookingEvent.event_type == "cancelled",
+        )
+        .order_by(BookingEvent.created_at.desc())
+        .limit(1)
+    )
+    payload = row.scalar_one_or_none()
+    if not payload or not isinstance(payload, dict):
+        return ""
+    msg = payload.get("message") or payload.get("client_message")
+    return str(msg).strip() if msg else ""
 
 
 async def build_booking_context(session: AsyncSession, booking_id: UUID) -> BookingMessageContext | None:
@@ -146,6 +170,7 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
         service = str(item["service_name"] or "Услуга")
         staff = str(item["staff_name"] or "Мастер")
         staff_photo = item["staff_photo"]
+    cancel_message = await _cancel_client_message(session, booking_id, booking.tenant_id)
     return BookingMessageContext(
         service=service,
         staff=staff,
@@ -157,6 +182,7 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
         timezone=branch.timezone if branch else "Europe/Moscow",
         staff_photo_url=staff_photo,
         venue_cover_url=landing.cover_url if landing else None,
+        cancel_message=cancel_message,
     )
 
 

@@ -1,7 +1,7 @@
 import { api, friendly } from '../api.js';
-import { addDays, chartPalette, duration, h, icon, money, rgbaFromRgb, todayIn } from '../util.js';
+import { addDays, chartPalette, h, money, rgbaFromRgb, todayIn } from '../util.js';
 import { store } from '../store.js';
-import { emptyState, field, spinner, toast, withBusy } from '../ui.js';
+import { emptyState, field, spinner } from '../ui.js';
 import { dayView } from './day.js';
 
 function loadLightweightCharts() {
@@ -20,14 +20,17 @@ function loadLightweightCharts() {
 }
 
 function pieSvg(segments, size = 168) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const active = segments.filter((s) => s.value > 0);
+  const total = active.reduce((s, x) => s + x.value, 0);
+  if (!total) {
+    return h('div', { class: 'dash-pie-empty muted small' }, 'Нет записей за период');
+  }
   const r = size / 2 - 6;
   const cx = size / 2;
   const cy = size / 2;
   let acc = -Math.PI / 2;
   const paths = [];
-  for (const seg of segments) {
-    if (seg.value <= 0) continue;
+  for (const seg of active) {
     const slice = (seg.value / total) * Math.PI * 2;
     const x1 = cx + r * Math.cos(acc);
     const y1 = cy + r * Math.sin(acc);
@@ -46,16 +49,6 @@ function pieSvg(segments, size = 168) {
   return h('svg', { class: 'dash-pie', width: size, height: size, viewBox: `0 0 ${size} ${size}`, role: 'img' }, ...paths);
 }
 
-function formatBlockRange(b) {
-  const fromD = b.start_date || b.date || '';
-  const toD = b.end_date || fromD;
-  const st = b.start || '';
-  const en = b.end || '';
-  if (!fromD) return `${st}–${en}`;
-  if (fromD === toD) return `${fromD} ${st}–${en}`;
-  return `${fromD} ${st} – ${toD} ${en}`;
-}
-
 function legendRow(seg, total) {
   const pct = total ? Math.round((100 * seg.value) / total) : 0;
   return h(
@@ -70,21 +63,16 @@ export async function dashboardView(sub = '') {
   const tz = store.info?.timezone;
   const today = todayIn(tz);
   const root = h('div', { class: 'dashboard' });
+  const scheduleMount = h('div', { class: 'dash-schedule' });
+  const analyticsHead = h('h2', { class: 'dash-analytics-title', style: { margin: '16px 0 8px' } }, 'Аналитика');
   const rangeBar = h('div', { class: 'row wrap', style: { gap: '8px', marginBottom: '12px' } });
   const kpiRow = h('div', { class: 'stats' });
   const pieWrap = h('div', { class: 'card pad col', style: { gap: '10px' } });
   const chartsRow = h('div', { class: 'dash-charts' });
-  const blocksCard = h('div', { class: 'card pad col' });
-  const scheduleMount = h('div', { class: 'dash-schedule' });
-  /** @type {HTMLElement & { reload?: () => void }} | null */
-  let scheduleView = null;
-
-  function refreshEmbeddedSchedule() {
-    scheduleView?.reload?.();
-  }
 
   let range = { from: addDays(today, -29), to: today };
   let granularity = 'day';
+  let chartResizeObserver = null;
 
   const presets = [
     { id: 'all', label: 'За всё время', from: '2020-01-01', to: today },
@@ -92,9 +80,6 @@ export async function dashboardView(sub = '') {
     { id: '7d', label: '7 дней', from: addDays(today, -6), to: today },
     { id: '30d', label: 'Месяц', from: addDays(today, -29), to: today },
   ];
-
-  let chartBook = null;
-  let chartRev = null;
 
   async function renderSummary() {
     kpiRow.replaceChildren(spinner());
@@ -114,7 +99,6 @@ export async function dashboardView(sub = '') {
         { label: 'Успешно', value: c.completed, color: 'var(--ok)' },
         { label: 'Отменено', value: c.cancelled, color: 'var(--bad)' },
         { label: 'Предстоит', value: c.upcoming, color: 'var(--ui-gold)' },
-        { label: 'Свободно (мин)', value: c.free_minutes, color: 'var(--muted)' },
       ];
       const total = segments.reduce((s, x) => s + x.value, 0);
       pieWrap.replaceChildren(
@@ -135,8 +119,20 @@ export async function dashboardView(sub = '') {
 
   const stat = (value, label) => h('div', { class: 'card stat' }, h('b', null, value), h('span', null, label));
 
+  function resizeMountedCharts() {
+    chartsRow.querySelectorAll('.dash-chart').forEach((el) => {
+      const chart = el.__chart;
+      const w = el.clientWidth;
+      if (chart && w > 0) {
+        chart.applyOptions({ width: w });
+        chart.timeScale().fitContent();
+      }
+    });
+  }
+
   async function renderCharts() {
     chartsRow.replaceChildren(h('div', { class: 'card pad' }, spinner()));
+  chartResizeObserver?.disconnect();
     try {
       const L = await loadLightweightCharts();
       const [bookings, revenue] = await Promise.all([
@@ -144,8 +140,11 @@ export async function dashboardView(sub = '') {
         api.get(`/manager/analytics/series?from=${range.from}&to=${range.to}&granularity=${granularity}&metric=revenue`),
       ]);
       chartsRow.replaceChildren();
-      chartBook = mountChart(chartsRow, L, 'Записи', bookings.points, false, granularity);
-      chartRev = mountChart(chartsRow, L, 'Выручка', revenue.points, true, granularity);
+      mountChart(chartsRow, L, 'Записи', bookings.points, false, granularity);
+      mountChart(chartsRow, L, 'Выручка', revenue.points, true, granularity);
+      chartResizeObserver = new ResizeObserver(() => resizeMountedCharts());
+      chartsRow.querySelectorAll('.dash-chart').forEach((el) => chartResizeObserver.observe(el));
+      requestAnimationFrame(() => requestAnimationFrame(resizeMountedCharts));
     } catch (e) {
       chartsRow.replaceChildren(emptyState('📈', 'Графики недоступны', friendly(e)));
     }
@@ -160,17 +159,19 @@ export async function dashboardView(sub = '') {
   function mountChart(parent, L, title, points, isMoney, gran) {
     const wrap = h('div', { class: 'card pad dash-chart-card' });
     wrap.append(h('h3', null, title));
-    const el = h('div', { class: 'dash-chart', style: { height: '220px' } });
+    const el = h('div', { class: 'dash-chart', style: { height: '220px', width: '100%', minWidth: '0' } });
     wrap.append(el);
     parent.append(wrap);
     const { text: textColor, gold } = chartPalette();
     let chart;
     try {
+      const initialW = Math.max(el.clientWidth, 320);
       chart = L.createChart(el, {
-      layout: { background: { color: 'transparent' }, textColor },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
+        width: initialW,
+        layout: { background: { color: 'transparent' }, textColor },
+        rightPriceScale: { borderVisible: false },
+        timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
+        handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true },
         handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
       });
       const series = chart.addAreaSeries({
@@ -184,124 +185,13 @@ export async function dashboardView(sub = '') {
       }));
       series.setData(data.length ? data : [{ time: range.to, value: 0 }]);
       chart.timeScale().fitContent();
+      el.__chart = chart;
     } catch (e) {
       wrap.replaceChildren(h('p', { class: 'small muted' }, 'График не удалось отрисовать'));
       console.warn('chart render failed', e);
       return null;
     }
     return chart;
-  }
-
-  async function renderBlocks() {
-    blocksCard.replaceChildren(spinner());
-    try {
-      const [blocks, staff] = await Promise.all([
-        api.get(`/manager/blocks?from=${addDays(today, -7)}&days=120`),
-        api.get('/manager/staff'),
-      ]);
-      const staffOpts = staff.filter((s) => s.is_active !== false);
-      const startDate = field({ label: 'Начало (дата)', tag: 'input', props: { type: 'date', value: today } });
-      const startTime = field({ label: 'Время', tag: 'input', props: { type: 'time', value: '10:00' } });
-      const endDate = field({ label: 'Конец (дата)', tag: 'input', props: { type: 'date', value: today } });
-      const endTime = field({ label: 'Время', tag: 'input', props: { type: 'time', value: '18:00' } });
-      const note = field({ label: 'Комментарий', tag: 'input', props: { maxlength: 200, placeholder: 'Технический перерыв' } });
-      const staffPick = h('div', { class: 'chips wrap blocks-staff' });
-      for (const s of staffOpts) {
-        const cb = h('input', { type: 'checkbox', class: 'check', checked: true, value: String(s.id) });
-        staffPick.append(h('label', { class: 'chip blocks-staff-chip' }, cb, s.name));
-      }
-      const list = h('div', { class: 'list', style: { marginTop: '10px' } });
-      const paintList = () => {
-        const items = blocks.items || [];
-        if (!items.length) {
-          list.replaceChildren(h('p', { class: 'muted small' }, 'Блокировок нет.'));
-          return;
-        }
-        list.replaceChildren(
-          ...items.map((b) => h(
-            'article',
-            { class: 'card pad row between' },
-            h('div', null, h('b', null, b.staff_name || 'Мастер'), h('div', { class: 'small muted num' }, `${formatBlockRange(b)} · ${b.note || ''}`)),
-            h('button', {
-              class: 'btn sm danger',
-              type: 'button',
-              onclick: async () => {
-                try {
-                  await api.delete(`/manager/staff/${b.staff_member_id}/exceptions/${b.id}`);
-                  toast('Блокировка снята');
-                  blocks.items = (blocks.items || []).filter((x) => x.id !== b.id);
-                  paintList();
-                  await renderSummary();
-                  refreshEmbeddedSchedule();
-                } catch (e) {
-                  toast(friendly(e), true);
-                }
-              },
-            }, 'Убрать'),
-          )),
-        );
-      };
-      paintList();
-      const saveBtn = h('button', { class: 'btn primary sm', type: 'button' }, 'Заблокировать');
-      saveBtn.addEventListener('click', () => withBusy(saveBtn, async () => {
-        const ids = [...staffPick.querySelectorAll('input.check:checked')].map((el) => el.value);
-        if (!ids.length) {
-          toast('Выберите мастеров', true);
-          return;
-        }
-        const st = startTime.input.value.slice(0, 5);
-        const et = endTime.input.value.slice(0, 5);
-        try {
-          await api.post('/manager/blocks', {
-            staff_member_ids: ids,
-            start_date: startDate.input.value,
-            start_time: st,
-            end_date: endDate.input.value,
-            end_time: et,
-            note: note.input.value.trim() || null,
-          });
-          toast('Интервал заблокирован');
-          const fresh = await api.get(`/manager/blocks?from=${addDays(today, -7)}&days=120`);
-          blocks.items = fresh.items;
-          paintList();
-          await renderSummary();
-          refreshEmbeddedSchedule();
-        } catch (e) {
-          toast(friendly(e), true);
-        }
-      }));
-      blocksCard.replaceChildren(
-        h('h2', null, 'Блокировка записи'),
-        h('p', { class: 'muted small' }, 'Время недоступно для онлайн-записи и ручного бронирования.'),
-        h('div', { class: 'blocks-form' },
-          h('div', { class: 'blocks-staff-block' },
-            h('span', { class: 'label' }, 'Мастера'),
-            staffPick,
-          ),
-          h('div', { class: 'blocks-range' },
-            h('h3', { class: 'blocks-range-title' }, 'Интервал блокировки'),
-            h('div', { class: 'blocks-range-row' },
-              h('div', { class: 'blocks-range-leg' },
-                h('span', { class: 'tiny muted' }, 'С'),
-                startDate.el,
-                startTime.el,
-              ),
-              h('div', { class: 'blocks-range-leg' },
-                h('span', { class: 'tiny muted' }, 'По'),
-                endDate.el,
-                endTime.el,
-              ),
-            ),
-          ),
-          note.el,
-          saveBtn,
-        ),
-        h('h3', { class: 'blocks-list-title' }, 'Активные блокировки'),
-        list,
-      );
-    } catch (e) {
-      blocksCard.replaceChildren(emptyState('⛔', 'Блокировки', friendly(e)));
-    }
   }
 
   function setRange(from, to) {
@@ -341,23 +231,23 @@ export async function dashboardView(sub = '') {
   }
 
   root.append(
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Дашборд'), h('p', { class: 'muted' }, 'Статистика и расписание салона'))),
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Дашборд'), h('p', { class: 'muted' }, 'Расписание и статистика салона'))),
+    scheduleMount,
+    analyticsHead,
     rangeBar,
     kpiRow,
     h('div', { class: 'dash-grid' }, pieWrap, h('div', { class: 'col' }, gran, chartsRow)),
-    blocksCard,
-    h('hr', { style: { margin: '20px 0', border: '0', borderTop: '1px solid var(--line)' } }),
-    scheduleMount,
   );
 
   if (sub === 'schedule') {
     /* hash only; schedule always shown */
   }
 
-  scheduleView = dayView({ manager: true, embedded: true });
-  scheduleMount.replaceChildren(scheduleView);
+  scheduleMount.replaceChildren(dayView({ manager: true, embedded: true }));
 
-  await Promise.all([renderSummary(), renderCharts(), renderBlocks()]);
+  await Promise.all([renderSummary(), renderCharts()]);
+
+  root.cleanup = () => chartResizeObserver?.disconnect();
 
   return root;
 }

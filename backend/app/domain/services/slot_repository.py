@@ -29,7 +29,7 @@ ACTIVE_STATUSES = {
 
 DEFAULT_WEEKDAY_HOURS = (time(9, 0), time(18, 0))
 WORK_OVERRIDE_KIND = "work_override"
-BLOCK_EXCEPTION_KINDS = frozenset({"block", "vacation", "sick", "force_majeure"})
+BLOCK_EXCEPTION_KINDS = frozenset({"vacation", "sick", "force_majeure"})
 
 
 def _slot_rules_from_tenant(rules: dict[str, Any]) -> SlotRules:
@@ -201,36 +201,6 @@ async def _busy_intervals(
         if s and e:
             busy.append(TimeInterval(s, e))
     return busy
-
-
-async def block_intervals_for_day(
-    session: AsyncSession,
-    *,
-    tenant_id: UUID,
-    staff_member_id: UUID,
-    range_start: datetime,
-    range_end: datetime,
-) -> list[tuple[datetime, datetime, str | None]]:
-    """Booking block exceptions (kind=block) clipped to range, for schedule UI."""
-    rows = (
-        await session.scalars(
-            select(ScheduleException).where(
-                ScheduleException.tenant_id == tenant_id,
-                ScheduleException.staff_member_id == staff_member_id,
-                ScheduleException.kind == "block",
-            )
-        )
-    ).all()
-    blocks: list[tuple[datetime, datetime, str | None]] = []
-    for exc in rows:
-        during = exc.during
-        if not during or not during.lower or not during.upper:
-            continue
-        s, e = during.lower, during.upper
-        if s < range_end and e > range_start:
-            blocks.append((max(s, range_start), min(e, range_end), exc.note))
-    blocks.sort(key=lambda b: b[0])
-    return blocks
 
 
 async def _exception_busy(

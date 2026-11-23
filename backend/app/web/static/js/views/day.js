@@ -15,8 +15,8 @@ const ADD_W = 84;
 const PX_PER_MIN_MOBILE = 2.55;
 const PX_PER_MIN_DESKTOP = 2.85;
 const APPT_COMPACT_W = 92;
-const ROW_TRACK_H = 72;
-const APPT_LANE_H = 52;
+const ROW_TRACK_H = 140;
+const APPT_LANE_H = 120;
 const APPT_LANE_GAP = 6;
 const ACTIVE_BOOKING = new Set(['held', 'booked', 'confirmed', 'arrived']);
 /** Левая колонка имён — шкала времени начинается справа от неё */
@@ -207,11 +207,6 @@ export function dayView({ manager, embedded = false }) {
     for (const c of cells) {
       startMin = Math.min(startMin, Math.floor(toMin(c.start) / 60) * 60);
       endMin = Math.max(endMin, Math.ceil(cellEndMin(c) / 60) * 60);
-      for (const bl of c.blocks || []) {
-        startMin = Math.min(startMin, Math.floor(toMin(bl.start) / 60) * 60);
-        const blEnd = bl.end === '24:00' ? 1440 : toMin(bl.end);
-        endMin = Math.max(endMin, Math.ceil(blEnd / 60) * 60);
-      }
     }
     const pxm = window.innerWidth < 720 ? PX_PER_MIN_MOBILE : PX_PER_MIN_DESKTOP;
     return { startMin, endMin, pxm };
@@ -224,27 +219,41 @@ export function dayView({ manager, embedded = false }) {
     return 'status-active';
   }
 
-  function buildBlockSeg(bl, startMin, endMin, pxm, trackHeight) {
-    let bs = toMin(bl.start);
-    let be = bl.end === '24:00' ? 1440 : toMin(bl.end);
-    if (be <= bs && bl.end === '00:00') be = 1440;
-    bs = Math.max(bs, startMin);
-    be = Math.min(be, endMin);
-    if (be <= bs) return null;
-    const bw = Math.max((be - bs) * pxm - 2, 24);
-    const left = (bs - startMin) * pxm;
-    const note = (bl.note || '').trim();
-    const title = note ? `${bl.start}–${bl.end} · ${note}` : `${bl.start}–${bl.end} · блокировка`;
-    return h(
-      'div',
-      {
-        class: 'block-seg',
-        style: { left: `${left}px`, width: `${bw}px`, top: '10px', height: `${trackHeight - 20}px` },
-        title,
-        'aria-label': title,
-      },
-      h('span', { class: 'block-lock' }, icon('lock')),
-    );
+  function attachTimelineScroll(scroller) {
+    if (scroller.dataset.panBound) return;
+    scroller.dataset.panBound = '1';
+    let drag = false;
+    let startX = 0;
+    let startScroll = 0;
+    let moved = 0;
+    scroller.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      drag = true;
+      moved = 0;
+      startX = ev.clientX;
+      startScroll = scroller.scrollLeft;
+      scroller.classList.add('is-dragging');
+      scroller.setPointerCapture(ev.pointerId);
+    });
+    scroller.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      const dx = ev.clientX - startX;
+      moved = Math.max(moved, Math.abs(dx));
+      scroller.scrollLeft = startScroll - dx;
+    });
+    const endDrag = (ev) => {
+      if (!drag) return;
+      drag = false;
+      scroller.classList.remove('is-dragging');
+      try { scroller.releasePointerCapture(ev.pointerId); } catch { /* gone */ }
+    };
+    scroller.addEventListener('pointerup', endDrag);
+    scroller.addEventListener('pointercancel', endDrag);
+    scroller.addEventListener('wheel', (ev) => {
+      if (scroller.scrollWidth <= scroller.clientWidth) return;
+      scroller.scrollLeft += ev.deltaY + ev.deltaX;
+      ev.preventDefault();
+    }, { passive: false });
   }
 
   function buildApptBlock(b, cell, startMin, pxm, lane, laneCount, trackHeight) {
@@ -273,7 +282,7 @@ export function dayView({ manager, embedded = false }) {
         type: 'button',
         style: laneCount > 1
           ? { left: `${bl}px`, width: `${bw}px`, top: `${top}px`, height: `${laneH}px` }
-          : { left: `${bl}px`, width: `${bw}px` },
+          : { left: `${bl}px`, width: `${bw}px`, height: `${Math.max(trackHeight - 20, 100)}px` },
         title,
         'aria-label': title,
         onclick: () => openBookingDetail(b, cell),
@@ -339,11 +348,6 @@ export function dayView({ manager, embedded = false }) {
         track.append(h('i', { class: 'gridline', style: { left: `${(m - startMin) * pxm}px` } }));
       }
 
-      for (const bl of cell.blocks || []) {
-        const seg = buildBlockSeg(bl, startMin, endMin, pxm, trackHeight);
-        if (seg) track.append(seg);
-      }
-
       for (const { b, lane } of placed) {
         track.append(buildApptBlock(b, cell, startMin, pxm, lane, lanes, trackHeight));
       }
@@ -373,13 +377,50 @@ export function dayView({ manager, embedded = false }) {
     const legend = h(
       'div',
       { class: 'legend' },
-      h('span', null, h('i', { class: 'leg-appt' }), 'Запись'),
-      h('span', null, h('i', { class: 'leg-block' }), 'Блокировка'),
+      h('span', null, h('i', { class: 'leg-status-active' }), 'Активная'),
+      h('span', null, h('i', { class: 'leg-status-completed' }), BOOKING_STATUS.completed),
+      h('span', null, h('i', { class: 'leg-status-cancelled' }), BOOKING_STATUS.cancelled),
+      h('span', null, h('i', { class: 'leg-status-noshow' }), BOOKING_STATUS.no_show),
     );
     barCard.replaceChildren(scroller, legend);
+    attachTimelineScroll(scroller);
     requestAnimationFrame(() => {
       const target = date === today ? (nowMinutesIn(tz) - startMin) * pxm - 80 : 0;
       scroller.scrollLeft = Math.max(0, target);
+    });
+  }
+
+  function promptManagerCancel() {
+    return new Promise((resolve) => {
+      const note = field({
+        label: 'Сообщение клиенту (необязательно)',
+        tag: 'textarea',
+        props: { rows: 3, maxlength: 500, placeholder: 'Коротко объясните причину — придёт в Telegram' },
+      });
+      openSheet({
+        title: 'Отменить запись?',
+        build: (sheet) => {
+          sheet.body.append(
+            h('p', { class: 'muted small' }, 'Слот освободится для других клиентов.'),
+            note.el,
+          );
+          sheet.setFooter(
+            h('button', { class: 'btn', type: 'button', onclick: () => { sheet.close(); resolve(null); } }, 'Назад'),
+            h(
+              'button',
+              {
+                class: 'btn danger',
+                type: 'button',
+                onclick: () => {
+                  sheet.close();
+                  resolve(note.input.value.trim());
+                },
+              },
+              'Отменить запись',
+            ),
+          );
+        },
+      });
     });
   }
 
@@ -474,14 +515,9 @@ export function dayView({ manager, embedded = false }) {
                 class: 'btn danger',
                 type: 'button',
                 onclick: () => withBusy(foot, async () => {
-                  const ok = await confirmDialog({
-                    title: 'Отменить запись?',
-                    text: 'Слот освободится для других клиентов.',
-                    confirmLabel: 'Отменить',
-                    danger: true,
-                  });
-                  if (!ok) return;
-                  await setBookingStatus(booking, 'cancel');
+                  const message = await promptManagerCancel();
+                  if (message === null) return;
+                  await setBookingStatus(booking, 'cancel', message ? { reason: message } : {});
                   sheet.close();
                 }),
               },

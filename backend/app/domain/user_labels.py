@@ -29,6 +29,8 @@ MESSAGE_TOKEN_LABELS: dict[str, str] = {
     "price": "Цена",
     "tenant_name": "Салон",
     "dgis_url": "Ссылка 2ГИС",
+    "cancel_message": "Сообщение салона при отмене",
+    "cancel_message_block": "Абзац с сообщением (авто)",
 }
 
 MESSAGE_TOKEN_ORDER: tuple[str, ...] = tuple(MESSAGE_TOKEN_LABELS.keys())
