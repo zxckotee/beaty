@@ -223,12 +223,11 @@ async def block_intervals_for_day(
     ).all()
     blocks: list[tuple[datetime, datetime, str | None]] = []
     for exc in rows:
-        row = await session.execute(
-            text("SELECT lower(during), upper(during) FROM schedule_exception WHERE id = :id"),
-            {"id": str(exc.id)},
-        )
-        s, e = row.one()
-        if s and e and s < range_end and e > range_start:
+        during = exc.during
+        if not during or not during.lower or not during.upper:
+            continue
+        s, e = during.lower, during.upper
+        if s < range_end and e > range_start:
             blocks.append((max(s, range_start), min(e, range_end), exc.note))
     blocks.sort(key=lambda b: b[0])
     return blocks

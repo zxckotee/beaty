@@ -66,6 +66,12 @@ export async function dashboardView(sub = '') {
   const chartsRow = h('div', { class: 'dash-charts' });
   const blocksCard = h('div', { class: 'card pad col' });
   const scheduleMount = h('div', { class: 'dash-schedule' });
+  /** @type {HTMLElement & { reload?: () => void }} | null */
+  let scheduleView = null;
+
+  function refreshEmbeddedSchedule() {
+    scheduleView?.reload?.();
+  }
 
   let range = { from: addDays(today, -29), to: today };
   let granularity = 'day';
@@ -216,6 +222,7 @@ export async function dashboardView(sub = '') {
                   blocks.items = (blocks.items || []).filter((x) => x.id !== b.id);
                   paintList();
                   await renderSummary();
+                  refreshEmbeddedSchedule();
                 } catch (e) {
                   toast(friendly(e), true);
                 }
@@ -248,6 +255,7 @@ export async function dashboardView(sub = '') {
           blocks.items = fresh.items;
           paintList();
           await renderSummary();
+          refreshEmbeddedSchedule();
         } catch (e) {
           toast(friendly(e), true);
         }
@@ -336,7 +344,8 @@ export async function dashboardView(sub = '') {
     /* hash only; schedule always shown */
   }
 
-  scheduleMount.replaceChildren(dayView({ manager: true, embedded: true }));
+  scheduleView = dayView({ manager: true, embedded: true });
+  scheduleMount.replaceChildren(scheduleView);
 
   await Promise.all([renderSummary(), renderCharts(), renderBlocks()]);
 
