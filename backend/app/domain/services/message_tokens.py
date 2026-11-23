@@ -189,7 +189,7 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
         staff_photo = staff_media_path(
             photo_url=item["staff_photo"],
             photo_file_id=item["staff_photo_file_id"],
-            tenant_public_id=tenant.public_id,
+            tenant_public_id=tenant.public_id if tenant else "",
             staff_member_id=UUID(str(item["staff_id"])),
         )
     cancel_message = await _cancel_client_message(session, booking_id, booking.tenant_id)
