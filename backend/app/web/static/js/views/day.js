@@ -207,6 +207,11 @@ export function dayView({ manager, embedded = false }) {
     for (const c of cells) {
       startMin = Math.min(startMin, Math.floor(toMin(c.start) / 60) * 60);
       endMin = Math.max(endMin, Math.ceil(cellEndMin(c) / 60) * 60);
+      for (const bl of c.blocks || []) {
+        startMin = Math.min(startMin, Math.floor(toMin(bl.start) / 60) * 60);
+        const blEnd = bl.end === '24:00' ? 1440 : toMin(bl.end);
+        endMin = Math.max(endMin, Math.ceil(blEnd / 60) * 60);
+      }
     }
     const pxm = window.innerWidth < 720 ? PX_PER_MIN_MOBILE : PX_PER_MIN_DESKTOP;
     return { startMin, endMin, pxm };
@@ -1016,5 +1021,6 @@ export function dayView({ manager, embedded = false }) {
   const onResize = () => data && renderBar();
   window.addEventListener('resize', onResize);
   root.cleanup = () => window.removeEventListener('resize', onResize);
+  root.reload = () => load();
   return root;
 }
