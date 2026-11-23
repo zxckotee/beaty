@@ -2,7 +2,7 @@ import { api, friendly } from './api.js';
 import { navigate } from './main.js';
 import { field, openSheet, photoPicker, toast, withBusy } from './ui.js';
 import { h, icon } from './util.js';
-import { WIDGET_TEMPLATES, defaultPayloadForTemplate, renderProfileWidget } from './profile-widgets.js';
+import { WIDGET_TEMPLATES, defaultPayloadForTemplate, renderProfileWidget } from './profile-widgets.js?v=17';
 
 function clonePayload(p) {
   return JSON.parse(JSON.stringify(p || { blocks: [], photos: [], actions: [] }));
