@@ -543,8 +543,11 @@ async def book_services_at_start(
     )
     session.add(booking)
     await session.flush()
+    last_idx = len(planned) - 1
     for idx, item in enumerate(planned):
-        item_block_end = block_end if idx == len(planned) - 1 else item.blocked_end
+        is_last = idx == last_idx
+        during_end = end_at if is_last and end_at is not None else item.end
+        blocked_end = max(item.blocked_end, during_end) if is_last and end_at is not None else item.blocked_end
         session.add(
             BookingItem(
                 tenant_id=tenant.id,
@@ -554,8 +557,8 @@ async def book_services_at_start(
                 cell_id=None,
                 price_cents=item.price_cents,
                 duration_minutes=item.duration_minutes,
-                during=Range(item.start, item.end, bounds="[)"),
-                blocked_during=Range(item.start, item_block_end, bounds="[)"),
+                during=Range(item.start, during_end, bounds="[)"),
+                blocked_during=Range(item.start, blocked_end, bounds="[)"),
                 is_active=True,
             )
         )

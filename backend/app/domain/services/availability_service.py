@@ -37,6 +37,7 @@ from app.domain.services.cell_service import (
 from app.domain.services.schedule_service import ensure_default_schedule
 from app.domain.services.slot_repository import (
     WORK_OVERRIDE_KIND,
+    _busy_during_intervals,
     _busy_intervals,
     _exception_busy,
     _slot_rules_from_tenant,
@@ -374,10 +375,14 @@ async def list_schedule_day_windows(
   default_w_end = _local_time_on_day(day, day_we, tz)
 
   async def append_window(staff: StaffMember, work: list[TimeInterval]) -> None:
-    busy = await _busy_for_staff(
-      session, tenant_id=tenant.id, staff_id=staff.id, range_start=day_start, range_end=day_end
+    during_busy = await _busy_during_intervals(
+      session,
+      tenant_id=tenant.id,
+      staff_member_id=staff.id,
+      range_start=day_start,
+      range_end=day_end,
     )
-    free = subtract_busy(work, busy)
+    free = subtract_busy(work, during_busy)
     w_start = min(w.start for w in work)
     w_end = max(w.end for w in work)
     bookings = await staff_day_bookings(

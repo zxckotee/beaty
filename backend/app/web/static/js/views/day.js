@@ -228,6 +228,7 @@ export function dayView({ manager, embedded = false }) {
     let moved = 0;
     scroller.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
+      if (ev.target.closest('button, a, input, select, textarea, label, .staff-row-meta--click, .appt-block')) return;
       drag = true;
       moved = 0;
       startX = ev.clientX;
@@ -319,13 +320,22 @@ export function dayView({ manager, embedded = false }) {
         'div',
         { class: 'staff-row-head' },
         avatar(cell.staff, 'sm'),
-        h('div', { class: 'staff-row-meta' }, h('b', null, cell.staff.name), h('span', { class: 'small muted num' }, `${cell.start}–${cell.end} · свободно ${duration(cell.free_minutes)}`)),
+        h(
+          'button',
+          {
+            class: 'staff-row-meta staff-row-meta--click',
+            type: 'button',
+            onclick: () => openCellModal(cell),
+          },
+          h('b', null, cell.staff.name),
+          h('span', { class: 'small muted num' }, `${cell.start}–${cell.end} · свободно ${duration(displayFreeMinutes(cell))}`),
+        ),
         manager
           ? h(
               'div',
               { class: 'row wrap', style: { gap: '6px', marginLeft: 'auto' } },
               h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openScheduleEditor(cell.staff.id, { anchorDate: date, onSaved: () => load() }) }, icon('calendar'), 'График'),
-              !isPastDay() && cell.free_minutes > 0
+              !isPastDay() && displayFreeMinutes(cell) > 0
                 ? h('button', { class: 'btn sm primary', type: 'button', onclick: () => loadCatalog().then((cat) => openManualBooking(cell, cat)) }, icon('plus'), 'Запись')
                 : null,
             )
@@ -351,6 +361,10 @@ export function dayView({ manager, embedded = false }) {
       for (const { b, lane } of placed) {
         track.append(buildApptBlock(b, cell, startMin, pxm, lane, lanes, trackHeight));
       }
+      track.addEventListener('click', (ev) => {
+        if (ev.target.closest('.appt-block, .now-line')) return;
+        openCellModal(cell);
+      });
 
       rows.append(h('section', { class: 'staff-row' }, rowHead, track));
     }
@@ -600,7 +614,7 @@ export function dayView({ manager, embedded = false }) {
             h('dt', null, 'Дата'), h('dd', null, dayLabel(cell.date)),
             h('dt', null, 'Время'), h('dd', { class: 'num' }, `${cell.start}–${cell.end}`),
             h('dt', null, 'Длительность'), h('dd', null, duration(cell.minutes)),
-            h('dt', null, 'Свободно'), h('dd', null, `${duration(cell.free_minutes)} из ${duration(cell.minutes)}`),
+            h('dt', null, 'Свободно'), h('dd', null, `${duration(displayFreeMinutes(cell))} из ${duration(cell.minutes)}`),
             cell.price_cents ? [h('dt', null, 'Корректировка цены'), h('dd', null, signedMoney(cell.price_cents))] : null,
             h('dt', null, 'Статус'), h('dd', null, h('span', { class: `chip ${cell.status === 'partial' ? 'warn' : cell.status === 'full' ? 'bad' : ''}` }, STATUS_LABEL[cell.status])),
           ),
@@ -617,7 +631,7 @@ export function dayView({ manager, embedded = false }) {
             h('button', { class: 'btn danger', type: 'button', onclick: () => removeCell(cell, sheet) }, icon('trash'), 'Удалить'),
             h('button', { class: 'btn primary', type: 'button', onclick: () => { sheet.close(); openCellForm(cell); } }, icon('edit'), 'Изменить'),
           );
-        } else if (manager && cell.schedule_window && cell.free_minutes > 0) {
+        } else if (manager && cell.schedule_window && displayFreeMinutes(cell) > 0) {
           sheet.setFooter(
             h('button', { class: 'btn', type: 'button', onclick: () => sheet.close() }, 'Закрыть'),
             h('button', { class: 'btn primary', type: 'button', onclick: () => { sheet.close(); openManualBooking(cell, cat); } }, icon('plus'), 'Записать клиента'),
@@ -630,11 +644,15 @@ export function dayView({ manager, embedded = false }) {
   }
 
   function shiftCells() {
-    return (data?.cells || []).filter((c) => c.schedule_window && c.free_minutes > 0);
+    return (data?.cells || []).filter((c) => c.schedule_window && displayFreeMinutes(c) > 0);
   }
 
   function shiftForStaff(staffId) {
     return (data?.cells || []).find((c) => c.schedule_window && c.staff.id === staffId);
+  }
+
+  function displayFreeMinutes(cell) {
+    return freeIntervals(cell).reduce((n, seg) => n + (seg.e - seg.s), 0);
   }
 
   function freeIntervals(cell) {
@@ -642,6 +660,7 @@ export function dayView({ manager, embedded = false }) {
     const end = cell.end === '24:00' ? 1440 : toMin(cell.end);
     let segs = [{ s: start, e: end }];
     for (const b of cell.bookings || []) {
+      if (!ACTIVE_BOOKING.has(b.status)) continue;
       const bs = toMin(b.start);
       const be = toMin(b.end);
       const next = [];

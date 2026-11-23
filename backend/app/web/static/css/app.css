@@ -341,7 +341,6 @@ button.chip { cursor: pointer; }
 .legend .leg-status-noshow { background: color-mix(in srgb, var(--warn) 70%, var(--card)); }
 .timeline-scroll { cursor: grab; }
 .timeline-scroll.is-dragging { cursor: grabbing; user-select: none; }
-.timeline-scroll.is-dragging .appt-block { pointer-events: none; }
 
 .timeline-staff {
   --pxm: 2.85;
@@ -373,10 +372,15 @@ button.chip { cursor: pointer; }
   padding: 6px 8px 6px 4px; min-width: 0;
 }
 .staff-row-head .row { width: 100%; margin-left: 0 !important; }
-.staff-row-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.staff-row-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; text-align: left; }
+.staff-row-meta--click {
+  flex: 1; min-width: 0; padding: 4px 6px; margin: -4px -6px; border: none; background: transparent;
+  color: inherit; font: inherit; cursor: pointer; border-radius: 12px;
+}
+.staff-row-meta--click:hover { background: var(--accent-soft); }
 .staff-row-meta b { font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .staff-track {
-  position: relative; border-radius: 16px;
+  position: relative; border-radius: 16px; cursor: pointer;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-sm);
