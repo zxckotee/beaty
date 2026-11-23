@@ -189,8 +189,11 @@ export async function dashboardView(sub = '') {
       const endDate = field({ label: 'Конец (дата)', tag: 'input', props: { type: 'date', value: today } });
       const endTime = field({ label: 'Время', tag: 'input', props: { type: 'time', value: '18:00' } });
       const note = field({ label: 'Комментарий', tag: 'input', props: { maxlength: 200, placeholder: 'Технический перерыв' } });
-      const pick = h('select', { class: 'select', multiple: true, style: { minHeight: '88px' } });
-      for (const s of staffOpts) pick.append(h('option', { value: s.id, selected: true }, s.name));
+      const staffPick = h('div', { class: 'chips wrap blocks-staff' });
+      for (const s of staffOpts) {
+        const cb = h('input', { type: 'checkbox', class: 'check', checked: true, value: String(s.id) });
+        staffPick.append(h('label', { class: 'chip blocks-staff-chip' }, cb, s.name));
+      }
       const list = h('div', { class: 'list', style: { marginTop: '10px' } });
       const paintList = () => {
         const items = blocks.items || [];
@@ -224,7 +227,7 @@ export async function dashboardView(sub = '') {
       paintList();
       const saveBtn = h('button', { class: 'btn primary sm', type: 'button' }, 'Заблокировать');
       saveBtn.addEventListener('click', () => withBusy(saveBtn, async () => {
-        const ids = [...pick.selectedOptions].map((o) => o.value);
+        const ids = [...staffPick.querySelectorAll('input.check:checked')].map((el) => el.value);
         if (!ids.length) {
           toast('Выберите мастеров', true);
           return;
@@ -252,11 +255,30 @@ export async function dashboardView(sub = '') {
       blocksCard.replaceChildren(
         h('h2', null, 'Блокировка записи'),
         h('p', { class: 'muted small' }, 'Время недоступно для онлайн-записи и ручного бронирования.'),
-        pick,
-        h('div', { class: 'row wrap', style: { gap: '8px' } }, startDate.el, startTime.el, endDate.el, endTime.el),
-        note.el,
-        saveBtn,
-        h('h3', { style: { marginTop: '12px' } }, 'Активные блокировки'),
+        h('div', { class: 'blocks-form' },
+          h('div', { class: 'blocks-staff-block' },
+            h('span', { class: 'label' }, 'Мастера'),
+            staffPick,
+          ),
+          h('div', { class: 'blocks-range' },
+            h('h3', { class: 'blocks-range-title' }, 'Интервал блокировки'),
+            h('div', { class: 'blocks-range-row' },
+              h('div', { class: 'blocks-range-leg' },
+                h('span', { class: 'tiny muted' }, 'С'),
+                startDate.el,
+                startTime.el,
+              ),
+              h('div', { class: 'blocks-range-leg' },
+                h('span', { class: 'tiny muted' }, 'По'),
+                endDate.el,
+                endTime.el,
+              ),
+            ),
+          ),
+          note.el,
+          saveBtn,
+        ),
+        h('h3', { class: 'blocks-list-title' }, 'Активные блокировки'),
         list,
       );
     } catch (e) {
