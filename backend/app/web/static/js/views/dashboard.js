@@ -46,6 +46,16 @@ function pieSvg(segments, size = 168) {
   return h('svg', { class: 'dash-pie', width: size, height: size, viewBox: `0 0 ${size} ${size}`, role: 'img' }, ...paths);
 }
 
+function formatBlockRange(b) {
+  const fromD = b.start_date || b.date || '';
+  const toD = b.end_date || fromD;
+  const st = b.start || '';
+  const en = b.end || '';
+  if (!fromD) return `${st}–${en}`;
+  if (fromD === toD) return `${fromD} ${st}–${en}`;
+  return `${fromD} ${st} – ${toD} ${en}`;
+}
+
 function legendRow(seg, total) {
   const pct = total ? Math.round((100 * seg.value) / total) : 0;
   return h(
@@ -211,7 +221,7 @@ export async function dashboardView(sub = '') {
           ...items.map((b) => h(
             'article',
             { class: 'card pad row between' },
-            h('div', null, h('b', null, b.staff_name || 'Мастер'), h('div', { class: 'small muted num' }, `${b.date} ${b.start || ''}–${b.end || ''} · ${b.note || ''}`)),
+            h('div', null, h('b', null, b.staff_name || 'Мастер'), h('div', { class: 'small muted num' }, `${formatBlockRange(b)} · ${b.note || ''}`)),
             h('button', {
               class: 'btn sm danger',
               type: 'button',
