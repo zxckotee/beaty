@@ -1,0 +1,101 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 30% 20%, #1a0f3a 0%, #05020c 55%, #000 100%);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #f3ecff;
+}
+
+.ad-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ad-root canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.ad-overlay {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 28px 32px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(8, 4, 18, 0.82) 0%, rgba(8, 4, 18, 0.15) 70%, transparent 100%);
+}
+
+.ad-overlay button {
+  pointer-events: auto;
+}
+
+.ad-brand {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9b7bff;
+  margin-bottom: 10px;
+}
+
+.ad-title {
+  font-size: clamp(22px, 3.2vw, 38px);
+  font-weight: 700;
+  margin: 0 0 8px;
+  max-width: 720px;
+  line-height: 1.15;
+  text-shadow: 0 0 40px rgba(123, 92, 255, 0.45);
+}
+
+.ad-sub {
+  margin: 0 0 18px;
+  max-width: 640px;
+  color: #c9b8e8;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.ad-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ad-controls button {
+  border: 1px solid rgba(155, 123, 255, 0.5);
+  background: linear-gradient(135deg, rgba(107, 61, 255, 0.35), rgba(34, 211, 255, 0.2));
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+}
+
+.ad-controls button:hover {
+  border-color: #22d3ff;
+}
+
+.ad-beat {
+  font-size: 12px;
+  color: #22d3ff;
+  margin-left: 8px;
+}
+
+.ad-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #8a7aaa;
+}
