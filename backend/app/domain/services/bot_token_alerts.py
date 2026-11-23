@@ -26,7 +26,7 @@ async def find_owner_telegram_id(session: AsyncSession, tenant_id: UUID) -> int 
         if staff.user_account_id is None:
             continue
         user = await session.get(UserAccount, staff.user_account_id)
-        if user is not None:
+        if user is not None and user.telegram_user_id is not None:
             return int(user.telegram_user_id)
     return None
 

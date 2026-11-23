@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import secrets
+from typing import Any
 
 from app.core.redis_client import get_redis
 from app.messenger.types import Channel
@@ -24,7 +24,7 @@ async def start_dual_attach(owner_id: int, channel: Channel, *, has_other: bool)
     )
 
 
-async def get_dual_attach(owner_id: int, channel: Channel) -> dict | None:
+async def get_dual_attach(owner_id: int, channel: Channel) -> dict[str, Any] | None:
     redis = await get_redis()
     raw = await redis.get(_key(owner_id, channel))
     if raw is None:

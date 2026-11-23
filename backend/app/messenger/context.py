@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
+from app.domain.models import ClientProfile, StaffMember, Tenant
 from app.domain.services.client_service import get_user_by_messenger
 from app.messenger.types import Channel
 

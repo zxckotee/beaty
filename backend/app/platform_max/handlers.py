@@ -1,9 +1,8 @@
 from aiogram import Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
-from sqlalchemy import select
 
 from app.bot.miniapp import miniapp_enabled, miniapp_url_for_tenant
 from app.core.db import SessionLocal
@@ -95,9 +94,10 @@ async def platform_max_business_name(message: Message, state: FSMContext) -> Non
 async def platform_max_second_token(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     token = (message.text or "").strip()
-    from app.bot.factory import create_bot
     from aiogram.exceptions import TelegramAPIError
     from aiogram.utils.token import TokenValidationError
+
+    from app.bot.factory import create_bot
 
     if not data.get("first_token_stored"):
         if ":" not in token:
