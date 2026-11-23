@@ -1,0 +1,177 @@
+:root {
+  --ui-gold: #b8a06a;
+  --ui-gold-deep: #948256;
+  --bg: #000000;
+  --surface: #141414;
+  --text: #ececec;
+  --muted: #a3a3a3;
+  --line: #2a2a2a;
+  --accent-ink: #1a1a1a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.ad-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ad-root canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.ad-chrome {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 20px 28px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.82) 0%, transparent 85%);
+}
+
+.ad-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.ad-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.ad-copy-stack {
+  position: relative;
+  min-height: 88px;
+}
+
+.ad-title--blend,
+.ad-sub--blend {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+}
+
+.ad-beat-pill {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ui-gold);
+}
+
+.ad-controls-bar {
+  position: absolute;
+  z-index: 3;
+  bottom: 20px;
+  left: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ad-controls-bar .btn {
+  pointer-events: auto;
+}
+
+.ad-hint-inline {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ad-chrome .btn {
+  pointer-events: auto;
+}
+
+.ad-brand {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ui-gold);
+  font-weight: 650;
+}
+
+.ad-title {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 2.6vw, 32px);
+  font-weight: 700;
+  max-width: 640px;
+  line-height: 1.2;
+}
+
+.ad-sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 560px;
+}
+
+.ad-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ad-beat {
+  font-size: 12px;
+  color: var(--ui-gold);
+}
+
+.ad-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #000 72%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--ui-gold);
+  border-color: color-mix(in srgb, var(--ui-gold) 55%, var(--ui-gold-deep));
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+}
