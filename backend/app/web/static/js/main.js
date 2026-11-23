@@ -208,7 +208,13 @@ async function boot() {
   try {
     await loadInfo();
   } catch {
-    app.append(h('div', { class: 'main' }, h('div', { class: 'empty card' }, h('div', { class: 'big' }, '🔍'), h('h3', null, 'Салон не найден'), h('p', null, 'Проверьте адрес ссылки.'))));
+    clear(app).append(
+      h(
+        'div',
+        { class: 'main' },
+        h('div', { class: 'empty card' }, h('div', { class: 'big' }, '🔍'), h('h3', null, 'Салон не найден'), h('p', null, 'Проверьте адрес ссылки.')),
+      ),
+    );
     return;
   }
   applyBrand();
