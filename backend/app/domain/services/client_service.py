@@ -116,7 +116,7 @@ async def merge_user_accounts(
         raise ValidationError("account not found")
 
     tg_from_secondary = secondary.telegram_user_id
-    mx_from_secondary = secondary.max_user_id
+    max_from_secondary = secondary.max_user_id
 
     if (
         tg_from_secondary
@@ -125,7 +125,11 @@ async def merge_user_accounts(
     ):
         raise ConflictError("both accounts have different telegram ids")
 
-    if mx_from_secondary and primary.max_user_id and mx_from_secondary != primary.max_user_id:
+    if (
+        max_from_secondary
+        and primary.max_user_id
+        and max_from_secondary != primary.max_user_id
+    ):
         raise ConflictError("both accounts have different max ids")
 
     secondary.telegram_user_id = None
@@ -134,8 +138,8 @@ async def merge_user_accounts(
 
     if tg_from_secondary and not primary.telegram_user_id:
         primary.telegram_user_id = tg_from_secondary
-    if mx_from_secondary and not primary.max_user_id:
-        primary.max_user_id = mx_from_secondary
+    if max_from_secondary and not primary.max_user_id:
+        primary.max_user_id = max_from_secondary
     await session.flush()
 
     prefs = {**(secondary.messenger_prefs or {}), **(primary.messenger_prefs or {})}
