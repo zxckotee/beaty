@@ -1,0 +1,308 @@
+/* Beaty-Welcome · рекламный UI · токены как backend/app/web/static/css/app.css */
+:root {
+  --ui-gold: #b8a06a;
+  --ui-gold-deep: #948256;
+  --accent-ink: #1a1a1a;
+  --bg: #000000;
+  --surface: #141414;
+  --surface-2: #1a1a1a;
+  --text: #ececec;
+  --muted: #a3a3a3;
+  --line: #2a2a2a;
+  --ok: #3ccf93;
+  --warn: #f0a844;
+  --warn-soft: #3a2b12;
+  --bad: #ff6f87;
+  --bad-soft: #3b1822;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --artboard-w: 1080px;
+  --artboard-h: 1920px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.45;
+}
+
+.mock-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.92);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mock-nav a {
+  color: var(--ui-gold);
+  margin-right: 16px;
+}
+
+.page-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+h1.page-title {
+  font-size: 1.5rem;
+  margin: 0 0 8px;
+}
+
+.page-desc {
+  color: var(--muted);
+  margin: 0 0 32px;
+  max-width: 640px;
+}
+
+/* —— Artboard (кадр для экспорта) —— */
+.artboard {
+  width: min(var(--artboard-w), 100%);
+  margin: 0 auto 48px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.artboard-label {
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ui-gold);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.artboard-inner {
+  padding: 24px;
+  min-height: 600px;
+}
+
+.artboard--vertical .artboard-inner {
+  aspect-ratio: 9 / 16;
+  max-height: none;
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* —— Компоненты рекламы —— */
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.brand-lockup img {
+  width: 88px;
+  height: 88px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.brand-lockup__name {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.brand-lockup__tag {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.narrative {
+  margin-bottom: 24px;
+}
+
+.narrative h2 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.narrative p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.screen-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.screen-caption {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+
+/* Плашки */
+.plate {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: default;
+}
+
+.plate--card {
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.plate--btn {
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #000 72%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+
+.plate--primary {
+  background: var(--ui-gold);
+  border-color: color-mix(in srgb, var(--ui-gold) 55%, var(--ui-gold-deep));
+  color: var(--accent-ink);
+}
+
+.plate--ghost {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.plate--chip {
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+}
+
+.plate--warn {
+  background: var(--warn-soft);
+  border-color: transparent;
+  color: var(--warn);
+}
+
+.plate--bad {
+  background: var(--bad-soft);
+  border-color: transparent;
+  color: var(--bad);
+}
+
+.plate--soft {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ui-gold);
+}
+
+.plate__title {
+  display: block;
+  font-weight: 650;
+}
+
+.plate__line {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.plate--primary .plate__line,
+.plate--ghost .plate__line {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* Каталог всех плашек */
+.catalog {
+  display: grid;
+  gap: 24px;
+}
+
+.catalog-section h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--ui-gold);
+}
+
+.component-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.component-card .plate-id {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-family: ui-monospace, monospace;
+}
+
+.legend {
+  margin-top: 48px;
+  padding: 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.legend code {
+  color: var(--ui-gold);
+}
+
+@media (max-width: 640px) {
+  .row-2,
+  .row-3 {
+    grid-template-columns: 1fr;
+  }
+}
