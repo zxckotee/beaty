@@ -116,8 +116,21 @@ export function emptyState(emoji, title, text, action) {
   return h('div', { class: 'empty card' }, h('div', { class: 'big' }, emoji), h('h3', null, title), h('p', null, text), action);
 }
 
-export function field(label, control, hint) {
+function fieldWrap(label, control, hint) {
   return h('div', { class: 'field' }, h('label', null, label), control, hint ? h('span', { class: 'tiny muted' }, hint) : null);
+}
+
+/** Plain labeled control, or `{ label, tag, props, hint }` → `{ el, input }`. */
+export function field(label, control, hint) {
+  if (label && typeof label === 'object' && 'label' in label) {
+    const opts = label;
+    const tag = opts.tag || 'input';
+    const cls = tag === 'textarea' ? 'textarea' : tag === 'select' ? 'select' : 'input';
+    const input = h(tag, { class: cls, ...(opts.props || {}) });
+    const el = fieldWrap(opts.label, input, opts.hint);
+    return { el, input };
+  }
+  return fieldWrap(label, control, hint);
 }
 
 export async function withBusy(button, fn) {
