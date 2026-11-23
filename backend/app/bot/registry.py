@@ -14,6 +14,5 @@ def get_bot_for_tenant(tenant: Tenant) -> Bot:
         token = decrypt_bot_token(tenant.bot_token_encrypted)
         bot = create_bot(token)
         setattr(bot, "tenant_public_id", tenant.public_id)
-        setattr(bot, "messenger_channel", "telegram")
         _bot_cache[tenant.public_id] = bot
     return _bot_cache[tenant.public_id]

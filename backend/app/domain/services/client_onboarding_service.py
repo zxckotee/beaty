@@ -3,28 +3,24 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import ClientProfile, UserAccount
-from app.domain.services.client_service import get_or_create_user_by_messenger, register_client
-from app.messenger.types import Channel
+from app.domain.services.client_service import get_or_create_user_account, register_client
 
 
-async def ensure_user_account(
-    session: AsyncSession, messenger_user_id: int, *, channel: Channel = Channel.TELEGRAM
-) -> UserAccount:
-    return await get_or_create_user_by_messenger(session, channel, messenger_user_id)
+async def ensure_user_account(session: AsyncSession, telegram_user_id: int) -> UserAccount:
+    return await get_or_create_user_account(session, telegram_user_id)
 
 
 async def complete_client_onboarding(
     session: AsyncSession,
     *,
     tenant_id: UUID,
-    messenger_user_id: int,
-    channel: Channel = Channel.TELEGRAM,
+    telegram_user_id: int,
     name: str,
     phone: str,
     source: str | None = None,
     marketing_opt_in: bool = False,
 ) -> ClientProfile:
-    user = await get_or_create_user_by_messenger(session, channel, messenger_user_id)
+    user = await get_or_create_user_account(session, telegram_user_id)
     profile = await register_client(
         session,
         tenant_id=tenant_id,

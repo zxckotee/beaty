@@ -23,7 +23,7 @@ _RENDERABLE = {
 }
 
 
-async def send_notification_legacy(session: AsyncSession, notification: Notification) -> None:
+async def send_notification(session: AsyncSession, notification: Notification) -> None:
     tenant = await session.get(Tenant, notification.tenant_id)
     if tenant is None or not tenant.bot_token_encrypted:
         notification.status = NotificationStatus.FAILED.value

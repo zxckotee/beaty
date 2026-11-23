@@ -21,7 +21,7 @@ async def platform_meta() -> dict[str, str | None]:
     demo = (settings.web_default_tenant or "").strip() or None
     return {
         "product": "Beaty",
-        "tagline": "Онлайн-запись и кабинет салона в Telegram и MAX",
+        "tagline": "Онлайн-запись и кабинет салона в Telegram",
         "demo_tenant_id": demo,
     }
 

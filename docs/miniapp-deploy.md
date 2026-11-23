@@ -1,12 +1,5 @@
 # Telegram Mini App на betwelc.ru
 
-## MAX
-
-- В кабинете MAX for Partners укажите тот же URL mini app: `https://<домен>/t/<public_id>/`
-- Вебхук tenant-бота: `https://<домен>/max/<public_id>` (секрет `max_webhook_secret` в БД)
-- Платформенный MAX-бот: секреты `MAX_PLATFORM_BOT_TOKEN` и `MAX_PLATFORM_WEBHOOK_SECRET` в GitHub Actions → [`scripts/write-env-from-ci.sh`](../scripts/write-env-from-ci.sh)
-- В SPA подключены Telegram Web App и [MAX Bridge](https://dev.max.ru/docs/webapps/bridge/) (`max-web-app.js`)
-
 ## Требования
 
 - HTTPS на публичном домене (Let's Encrypt на хостовом nginx, без балансировщика Timeweb)

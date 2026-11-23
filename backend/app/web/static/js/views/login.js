@@ -1,5 +1,5 @@
 import { api, friendly } from '../api.js';
-import { isMessengerWebApp } from '../messenger.js';
+import { isTelegramWebApp } from '../telegram.js';
 import { brandMark, h, icon } from '../util.js';
 import { loadMe, store } from '../store.js';
 import { toast } from '../ui.js';
@@ -10,98 +10,79 @@ const DEMO = [
   { label: 'Клиент', id: 200001, name: 'Анна' },
 ];
 
-function loginFlow(root, { goPath, code, label, openHint }) {
+/** Telegram-via-bot login: shows steps, polls until the bot confirms the one-time code. */
+export function loginPanel({ onSuccess, compact = false }) {
+  if (isTelegramWebApp()) {
+    return h('div', { class: 'col' }, h('p', { class: 'muted' }, 'Вход через Telegram…'));
+  }
+  const root = h('div', { class: 'col' });
   let timer = null;
   let stopped = false;
+
   const stop = () => {
     stopped = true;
     if (timer) clearInterval(timer);
   };
-  const status = h('p', { class: 'small muted' }, openHint);
-  const link = h('a', { class: 'btn primary block', href: goPath, target: '_blank', rel: 'noopener' }, icon('send'), `Открыть ${label}`);
-  root.replaceChildren(link, status);
-  window.open(goPath, '_blank', 'noopener');
-  let ticks = 0;
-  timer = setInterval(async () => {
-    if (stopped) return;
-    ticks += 1;
-    try {
-      const res = await api.get(`/auth/poll?code=${encodeURIComponent(code)}`);
-      if (res.state === 'confirmed') {
-        stop();
-        await loadMe();
-        toast('Вы вошли');
-        return 'done';
-      }
-      if (res.state === 'expired' || ticks > 150) {
-        stop();
-        status.textContent = 'Время ожидания истекло. Получите новую ссылку.';
-      }
-    } catch (e) {
-      stop();
-      status.textContent = friendly(e);
-    }
-  }, 2000);
-  return stop;
-}
 
-/** Browser login via Telegram or MAX bot deep link. */
-export function loginPanel({ onSuccess, compact = false }) {
-  if (isMessengerWebApp()) {
-    return h('div', { class: 'col' }, h('p', { class: 'muted' }, 'Вход через мессенджер…'));
+  async function finish() {
+    stop();
+    await loadMe();
+    toast('Вы вошли');
+    onSuccess();
   }
-  const root = h('div', { class: 'col' });
-  let cleanup = null;
 
-  async function start(button, channel) {
+  async function start(button) {
     button.disabled = true;
     try {
-      const data = await api.post('/auth/start');
-      const code = data.code;
-      const goPath = channel === 'max' ? data.max_go || data.max_bot_url : data.telegram_go || data.bot_url;
-      if (!goPath) {
-        toast(channel === 'max' ? 'MAX-бот не подключён' : 'Telegram-бот не подключён', true);
+      const { code, telegram_go: goPath, bot_url: botUrl } = await api.post('/auth/start');
+      if (!goPath && !botUrl) {
+        toast('Бот ещё не подключён к этому бизнесу', true);
         button.disabled = false;
         return;
       }
-      if (cleanup) cleanup();
-      cleanup = loginFlow(root, {
-        goPath,
-        code,
-        label: channel === 'max' ? 'MAX' : 'Telegram',
-        openHint:
-          channel === 'max'
-            ? 'В MAX откройте диалог с ботом и подтвердите старт.'
-            : 'В Telegram нажмите Start у бота салона.',
-      });
-      const check = setInterval(async () => {
-        const me = store.me;
-        if (me && me.authenticated) {
-          clearInterval(check);
-          if (cleanup) cleanup();
-          onSuccess();
+      stopped = false;
+      const tgOpen = goPath || botUrl;
+      const link = h('a', { class: 'btn primary block', href: tgOpen, target: '_blank', rel: 'noopener' }, icon('send'), 'Открыть Telegram');
+      const status = h('p', { class: 'small muted' }, '');
+      status.textContent =
+        'Это нормально: на экране Barber нажмите синюю кнопку START BOT. '
+        + 'Если заходили в бота из поиска без сайта — сначала снова «Войти» здесь.';
+      root.replaceChildren(link, status);
+      window.open(tgOpen, '_blank', 'noopener');
+      let ticks = 0;
+      timer = setInterval(async () => {
+        if (stopped) return;
+        ticks += 1;
+        try {
+          const res = await api.get(`/auth/poll?code=${encodeURIComponent(code)}`);
+          if (res.state === 'confirmed') await finish();
+          else if (res.state === 'expired' || ticks > 150) {
+            stop();
+            status.textContent = 'Время ожидания истекло. Обновите страницу и попробуйте снова.';
+          }
+        } catch (e) {
+          stop();
+          status.textContent = friendly(e);
         }
-      }, 2500);
+      }, 2000);
     } catch (e) {
       toast(friendly(e), true);
       button.disabled = false;
     }
   }
 
-  const tg = h('button', { class: 'btn primary block', type: 'button' }, icon('send'), 'Войти через Telegram');
-  tg.addEventListener('click', () => start(tg, 'telegram'));
-  const mx = h('button', { class: 'btn block', type: 'button' }, icon('max'), 'Войти через MAX');
-  mx.addEventListener('click', () => start(mx, 'max'));
-  root.append(tg, mx);
+  const go = h('button', { class: 'btn primary block', type: 'button' }, icon('send'), 'Войти через Telegram');
+  go.addEventListener('click', () => start(go));
+  root.append(go);
 
   if (!compact) {
     root.append(
       h(
         'div',
         { class: 'steps-list' },
-        h('div', null, '1. Выберите мессенджер, где у вас есть бот салона.'),
-        h('div', null, '2. Подтвердите старт в чате с ботом.'),
-        h('div', null, '3. Вернитесь в браузер — вход подтвердится автоматически.'),
+        h('div', null, '1. Откроется бот нашего салона в Telegram.'),
+        h('div', null, '2. В чате нажмите кнопку Start внизу (не команду /start из меню).'),
+        h('div', null, '3. Вернитесь в браузер: вход подтвердится сам.'),
       ),
     );
   }
@@ -111,9 +92,7 @@ export function loginPanel({ onSuccess, compact = false }) {
     const devLogin = async (id, name) => {
       try {
         await api.post('/auth/dev', { telegram_user_id: Number(id), name });
-        await loadMe();
-        toast('Вы вошли');
-        onSuccess();
+        await finish();
       } catch (e) {
         toast(friendly(e), true);
       }
@@ -133,9 +112,7 @@ export function loginPanel({ onSuccess, compact = false }) {
     );
   }
 
-  root.cleanup = () => {
-    if (cleanup) cleanup();
-  };
+  root.cleanup = stop;
   return root;
 }
 
