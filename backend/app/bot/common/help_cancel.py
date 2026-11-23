@@ -5,6 +5,7 @@ from aiogram.types import Message
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
 from app.bot.chat_readonly import reply_use_miniapp
+from app.bot.common.max_owner_guide import send_max_onboarding_full, send_max_onboarding_short
 from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
 from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
@@ -28,6 +29,16 @@ def _menu(
         granted_roles=roles,
         has_staff_profile=staff_member is not None,
     )
+
+
+@common_router.message(Command("maxhelp"))
+async def cmd_maxhelp(message: Message) -> None:
+    await send_max_onboarding_full(message)
+
+
+@common_router.message(Command("maxquick"))
+async def cmd_maxquick(message: Message) -> None:
+    await send_max_onboarding_short(message)
 
 
 @common_router.message(Command("cancel"))
@@ -91,6 +102,10 @@ async def cmd_help(
             [
                 "/today — записи на сегодня",
                 "Команда, Услуги — управление салоном",
+                "",
+                "Подключение MAX (владельцу):",
+                "/maxhelp — пошагово",
+                "/maxquick — кратко",
             ]
         )
     if active_ui_role == UI_ROLE_SPECIALIST and is_staff(roles):
