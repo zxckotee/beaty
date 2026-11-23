@@ -458,7 +458,37 @@ button.chip { cursor: pointer; }
 .dash-section .page-head { margin-bottom: 12px; }
 .dash-section .page-head h2 { margin: 0; font-size: 1.35rem; }
 .messages-page--embedded .messages-panel { margin-top: 0; }
-.schedule-rules-embed-head h3 { margin: 0; font-size: 1.05rem; }
+.schedule-rules-page--embedded { gap: 12px; }
+.schedule-rules-embed-toolbar { gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
+.schedule-rules-page .schedule-rules-list { gap: 14px; }
+.schedule-default-banner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 12px 16px; border-color: var(--accent-line); background: var(--accent-soft);
+}
+.schedule-rule-card { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.schedule-rule-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.schedule-rule-title { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.schedule-rule-title h2 { margin: 0; font-size: 1.12rem; font-weight: 750; line-height: 1.25; }
+.schedule-rule-tools { gap: 4px; flex-shrink: 0; }
+.schedule-rule-week {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;
+}
+@media (max-width: 420px) {
+  .schedule-rule-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.schedule-rule-day {
+  padding: 8px 4px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line);
+  text-align: center; display: flex; flex-direction: column; gap: 4px; min-height: 52px; justify-content: center;
+}
+.schedule-rule-day.off { opacity: .42; }
+.schedule-rule-wd { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.schedule-rule-tm { font-size: .68rem; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.schedule-rule-tm .schedule-rule-sep { opacity: .65; margin: 0 1px; }
+.schedule-rule-foot .btn { min-height: 44px; }
+.schedule-rules-add { min-height: 72px; border-style: dashed; }
+.dash-schedule-panel .schedule-rules-page--embedded .schedule-rule-week {
+  font-size: 1.02em;
+}
 .dash-pie-empty { width: 168px; height: 168px; display: grid; place-items: center; text-align: center; padding: 12px; }
 .dash-pie-wrap { position: relative; flex-shrink: 0; }
 .dash-pie-donut {
