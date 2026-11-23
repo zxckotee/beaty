@@ -2,16 +2,17 @@ import { api, friendly } from '../api.js';
 import { duration, h, hueFor, icon, initials, money } from '../util.js';
 import { confirmDialog, emptyState, field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 
-export async function servicesView() {
-  const root = h('div');
+export async function servicesView({ embedded = false } = {}) {
+  const root = h('section', { class: embedded ? 'dash-section' : 'dash-section-standalone', ...(embedded ? { id: 'dash-services' } : {}) });
   const list = h('div');
+  const titleTag = embedded ? 'h2' : 'h1';
   let services = [];
 
   root.append(
     h(
       'div',
       { class: 'page-head' },
-      h('div', null, h('h1', null, 'Услуги'), h('p', null, 'Карточки услуг: цена, стандартная длительность и описание.')),
+      h('div', null, h(titleTag, null, 'Услуги'), h('p', null, 'Карточки услуг: цена, стандартная длительность и описание.')),
       h('button', { class: 'btn primary', type: 'button', onclick: () => openForm(null) }, icon('plus'), 'Добавить'),
     ),
     list,

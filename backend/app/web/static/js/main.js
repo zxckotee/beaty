@@ -23,12 +23,8 @@ let renderToken = 0;
 const NAV = {
   manager: [
     { route: 'dashboard', label: 'Дашборд', icon: 'calendar' },
-    { route: 'team', label: 'Специалисты', icon: 'users' },
-    { route: 'services', label: 'Услуги', icon: 'scissors' },
     { route: 'home', label: 'Профиль', icon: 'globe' },
     { route: 'chats', label: 'Чаты', icon: 'chat' },
-    { route: 'messages', label: 'Напоминания', icon: 'send' },
-    { route: 'schedule-rules', label: 'Правила смен', icon: 'clock' },
   ],
   specialist: [
     { route: 'home', label: 'Профиль', icon: 'globe' },
@@ -46,7 +42,7 @@ const ROUTES = {
   schedule: { roles: ['manager', 'specialist'], view: () => dayView({ manager: isManager() }) },
   team: { roles: ['manager'], view: () => teamView() },
   'team-schedule': { roles: ['manager'], view: (sub) => scheduleEditView(sub) },
-  'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() },
+  'schedule-rules': { roles: ['manager'], view: () => scheduleRulesView() }, // legacy hash → redirect in render
   services: { roles: ['manager'], view: () => servicesView() },
   home: { roles: ['client', 'manager', 'specialist'], view: () => homeView() },
   chats: { roles: ['manager'], view: (sub) => chatsView(sub) },
@@ -77,6 +73,19 @@ export function navigate(route) {
   else location.hash = `#/${route}`;
 }
 
+export function scrollToDashSection(sectionId) {
+  requestAnimationFrame(() => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+export function navigateDashboardSection(sectionId) {
+  const onDash = parseHash().route === 'dashboard';
+  if (!onDash) navigate('dashboard');
+  else render();
+  scrollToDashSection(sectionId);
+}
+
 function applyBrand() {
   const root = document.documentElement;
   root.style.removeProperty('--brand');
@@ -86,7 +95,14 @@ function applyBrand() {
   document.title = store.info ? `${store.info.name} · запись онлайн` : 'Запись онлайн';
 }
 
-function header(route) {
+function navRouteActive(route, current, sub) {
+  if (current === route) return true;
+  if (route === 'dashboard' && ['team', 'services', 'messages'].includes(current)) return true;
+  if (route === 'dashboard' && current === 'dashboard' && sub === 'rules') return true;
+  return false;
+}
+
+function header(route, sub = '') {
   if (isHomeGuest(route)) {
     return h(
       'header',
@@ -101,7 +117,7 @@ function header(route) {
   const nav = h(
     'nav',
     { class: 'nav-top', 'aria-label': 'Разделы' },
-    items.map((i) => h('a', { href: `#/${i.route}`, class: route === i.route ? 'active' : '' }, i.label)),
+    items.map((i) => h('a', { href: `#/${i.route}`, class: navRouteActive(i.route, route, sub) ? 'active' : '' }, i.label)),
   );
   const right = h('div', { class: 'row' });
   if (me.authenticated) {
@@ -135,13 +151,13 @@ function header(route) {
   );
 }
 
-function bottomNav(route) {
+function bottomNav(route, sub = '') {
   if (isHomeGuest(route)) return null;
   const items = NAV[activeRole()] || NAV.client;
   return h(
     'nav',
     { class: 'nav-bottom', 'aria-label': 'Разделы' },
-    items.map((i) => h('a', { href: `#/${i.route}`, class: route === i.route ? 'active' : '' }, icon(i.icon), h('span', null, i.label))),
+    items.map((i) => h('a', { href: `#/${i.route}`, class: navRouteActive(i.route, route, sub) ? 'active' : '' }, icon(i.icon), h('span', null, i.label))),
   );
 }
 
@@ -158,6 +174,25 @@ async function render() {
     cleanup = null;
   }
   let { route, sub } = parseHash();
+  if (isManager() && route === 'schedule-rules') {
+    location.replace('#/dashboard/rules');
+    return;
+  }
+  if (isManager() && route === 'team') {
+    sessionStorage.setItem('beaty.dashScroll', 'dash-team');
+    location.replace('#/dashboard');
+    return;
+  }
+  if (isManager() && route === 'services') {
+    sessionStorage.setItem('beaty.dashScroll', 'dash-services');
+    location.replace('#/dashboard');
+    return;
+  }
+  if (isManager() && route === 'messages') {
+    sessionStorage.setItem('beaty.dashScroll', 'dash-messages');
+    location.replace('#/dashboard');
+    return;
+  }
   let def = ROUTES[route];
   if (!def || !def.roles.includes(activeRole())) {
     route = defaultRoute();
@@ -172,8 +207,8 @@ async function render() {
   if (route === 'home') shellCls.push('shell--home');
   if (isHomeGuest(route)) shellCls.push('shell--home-guest');
   const main = h('main', { class: route === 'home' ? 'main main--profile' : 'main', id: 'main' });
-  const nav = bottomNav(route);
-  clear(app).append(h('div', { class: shellCls.join(' ') }, header(route), main, nav));
+  const nav = bottomNav(route, sub);
+  clear(app).append(h('div', { class: shellCls.join(' ') }, header(route, sub), main, nav));
   if (store.info && store.info.read_only) main.append(h('div', { class: 'banner' }, 'Подписка неактивна: сервис работает в режиме просмотра.'));
   try {
     const node = await def.view(sub);

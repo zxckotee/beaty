@@ -149,17 +149,27 @@ function openApplyForm(rule, staffList, onDone) {
   });
 }
 
-export async function scheduleRulesView() {
-  const root = h('div', { class: 'col' });
-  root.append(
-    h('div', { class: 'row between', style: { flexWrap: 'wrap', gap: '12px' } },
-      h('div', null,
-        h('h1', null, 'Шаблоны расписания'),
-        h('p', { class: 'muted small' }, 'Недельное правило: каждый день — свой пункт с часами. Назначайте мастерам или всему салону.'),
-      ),
-      h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('schedule') }, icon('chevL'), 'К расписанию'),
+export async function scheduleRulesView({ embedded = false } = {}) {
+  const root = h('div', { class: 'col schedule-rules-embed' });
+  let weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const openNew = () => openRuleForm(null, weekdayLabels, load);
+  const titleTag = embedded ? 'h3' : 'h1';
+  const head = h(
+    'div',
+    { class: embedded ? 'row between schedule-rules-embed-head' : 'row between', style: { flexWrap: 'wrap', gap: '12px' } },
+    h('div', null,
+      h(titleTag, null, 'Шаблоны расписания'),
+      h('p', { class: 'muted small' }, 'Недельное правило: каждый день — свой пункт с часами. Назначайте мастерам или всему салону.'),
     ),
+    h('button', { class: 'btn sm primary', type: 'button', onclick: openNew }, icon('plus'), 'Добавить'),
   );
+  if (!embedded) {
+    head.insertBefore(
+      h('button', { class: 'btn sm', type: 'button', onclick: () => navigate('dashboard') }, icon('chevL'), 'К дашборду'),
+      head.lastChild,
+    );
+  }
+  root.append(head);
   const list = h('div', { class: 'list' });
   root.append(list);
   list.append(spinner());
@@ -170,7 +180,7 @@ export async function scheduleRulesView() {
       const [rulesRes, staffRes] = await Promise.all([api.get('/manager/schedule-rules'), api.get('/manager/staff')]);
       const items = rulesRes.items || [];
       const staff = (staffRes || []).filter((s) => s.is_active);
-      const labels = rulesRes.weekday_labels || ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      weekdayLabels = rulesRes.weekday_labels || weekdayLabels;
       const defaultId = rulesRes.default_schedule_rule_id;
       list.replaceChildren();
       if (defaultId) {
@@ -187,7 +197,7 @@ export async function scheduleRulesView() {
             '📋',
             'Создайте первый шаблон',
             'Опишите всю неделю, затем назначьте салону или мастерам.',
-            h('button', { class: 'btn primary', type: 'button', onclick: () => openRuleForm(null, labels, load) }, icon('plus'), 'Создать шаблон'),
+            h('button', { class: 'btn primary', type: 'button', onclick: openNew }, icon('plus'), 'Создать шаблон'),
           ),
         );
         return;
@@ -203,7 +213,7 @@ export async function scheduleRulesView() {
               ),
               h('div', { class: 'row', style: { gap: '6px' } },
                 h('button', { class: 'btn sm', type: 'button', onclick: () => openApplyForm(rule, staff, load) }, 'Назначить'),
-                h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openRuleForm(rule, labels, load) }, icon('edit')),
+                h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openRuleForm(rule, weekdayLabels, load) }, icon('edit')),
                 h('button', { class: 'btn sm ghost', type: 'button', onclick: async () => {
                   if (!(await confirmDialog({ title: 'Удалить шаблон?', text: rule.name, confirmLabel: 'Удалить', danger: true }))) return;
                   try {
@@ -219,7 +229,7 @@ export async function scheduleRulesView() {
           ),
         );
       }
-      list.append(h('button', { class: 'btn block soft', type: 'button', onclick: () => openRuleForm(null, labels, load) }, icon('plus'), 'Добавить шаблон'));
+      list.append(h('button', { class: 'btn block soft', type: 'button', onclick: openNew }, icon('plus'), 'Добавить шаблон'));
     } catch (e) {
       list.replaceChildren(h('p', { class: 'small muted' }, friendly(e)));
     }

@@ -3,6 +3,10 @@ import { addDays, chartPalette, h, money, rgbaFromRgb, todayIn } from '../util.j
 import { store } from '../store.js';
 import { emptyState, field, spinner } from '../ui.js';
 import { dayView } from './day.js';
+import { messagesView } from './messages.js';
+import { scheduleRulesView } from './schedule-rules.js';
+import { servicesView } from './services.js';
+import { teamView } from './team.js';
 
 function loadLightweightCharts() {
   return new Promise((resolve, reject) => {
@@ -61,7 +65,10 @@ export async function dashboardView(sub = '') {
   const tz = store.info?.timezone;
   const today = todayIn(tz);
   const root = h('div', { class: 'dashboard' });
-  const scheduleMount = h('div', { class: 'dash-schedule' });
+  const scheduleMount = h('section', { class: 'dash-schedule' });
+  const scheduleTabs = h('nav', { class: 'chips dash-schedule-tabs', 'aria-label': 'Расписание' });
+  const schedulePanel = h('div', { class: 'dash-schedule-panel' });
+  const opsMount = h('div', { class: 'dash-ops' });
   const analyticsHead = h('h2', { class: 'dash-analytics-title', style: { margin: '16px 0 8px' } }, 'Аналитика');
   const rangeBar = h('div', { class: 'row wrap', style: { gap: '8px', marginBottom: '12px' } });
   const kpiRow = h('div', { class: 'stats' });
@@ -228,20 +235,63 @@ export async function dashboardView(sub = '') {
     gran.append(chip);
   }
 
+  const tabDay = h('button', { class: 'chip active', type: 'button' }, 'Календарь');
+  const tabRules = h('button', { class: 'chip', type: 'button' }, 'Шаблоны смен');
+  scheduleTabs.append(tabDay, tabRules);
+  scheduleMount.append(scheduleTabs, schedulePanel);
+
+  const dayNode = dayView({ manager: true, embedded: true });
+  let rulesNodePromise = null;
+
+  function setScheduleTab(which) {
+    tabDay.classList.toggle('active', which === 'day');
+    tabRules.classList.toggle('active', which === 'rules');
+  }
+
+  async function showScheduleDay() {
+    setScheduleTab('day');
+    schedulePanel.replaceChildren(dayNode);
+    if (location.hash.includes('/rules')) history.replaceState(null, '', '#/dashboard');
+  }
+
+  async function showScheduleRules() {
+    setScheduleTab('rules');
+    schedulePanel.replaceChildren(h('div', { class: 'card pad' }, spinner()));
+    rulesNodePromise = rulesNodePromise || scheduleRulesView({ embedded: true });
+    const rulesNode = await rulesNodePromise;
+    schedulePanel.replaceChildren(rulesNode);
+    if (!location.hash.includes('/rules')) history.replaceState(null, '', '#/dashboard/rules');
+  }
+
+  tabDay.addEventListener('click', () => showScheduleDay());
+  tabRules.addEventListener('click', () => showScheduleRules());
+
   root.append(
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Дашборд'), h('p', { class: 'muted' }, 'Расписание и статистика салона'))),
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Дашборд'), h('p', { class: 'muted' }, 'Расписание, команда, услуги и аналитика'))),
     scheduleMount,
+    opsMount,
     analyticsHead,
     rangeBar,
     kpiRow,
     h('div', { class: 'dash-grid' }, pieWrap, h('div', { class: 'col' }, gran, chartsRow)),
   );
 
-  if (sub === 'schedule') {
-    /* hash only; schedule always shown */
-  }
+  if (sub === 'rules') await showScheduleRules();
+  else await showScheduleDay();
 
-  scheduleMount.replaceChildren(dayView({ manager: true, embedded: true }));
+  opsMount.append(h('div', { class: 'card pad' }, spinner()));
+  Promise.all([teamView({ embedded: true }), servicesView({ embedded: true }), messagesView({ embedded: true })])
+    .then(([teamNode, servicesNode, messagesNode]) => {
+      opsMount.replaceChildren(teamNode, servicesNode, messagesNode);
+      const scrollId = sessionStorage.getItem('beaty.dashScroll');
+      if (scrollId) {
+        sessionStorage.removeItem('beaty.dashScroll');
+        requestAnimationFrame(() => document.getElementById(scrollId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
+    })
+    .catch((e) => {
+      opsMount.replaceChildren(h('p', { class: 'small muted card pad' }, friendly(e)));
+    });
 
   chartsRow.replaceChildren(h('div', { class: 'card pad' }, spinner()));
   await renderSummary();

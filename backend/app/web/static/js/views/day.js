@@ -939,7 +939,8 @@ export function dayView({ manager, embedded = false }) {
     services = services.filter((s) => s.is_active);
     if (!staff.length) {
       toast('Сначала добавьте специалиста', true);
-      location.hash = '#/team';
+      sessionStorage.setItem('beaty.dashScroll', 'dash-team');
+      location.hash = '#/dashboard';
       return;
     }
     const editing = Boolean(cell);
