@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Beaty — онлайн-запись, расписание, аналитика и Telegram-бот для салонов красоты и барбершопов."
+    />
+    <title>Beaty — запись онлайн для салонов</title>
+    <link rel="icon" type="image/png" href="/static/img/beaty-logo.png" />
+    <link rel="apple-touch-icon" href="/static/img/beaty-logo.png" />
+    <link rel="stylesheet" href="/static/css/platform.css?v=1" />
+  </head>
+  <body>
+    <div class="platform-glow platform-glow--a" aria-hidden="true"></div>
+    <div class="platform-glow platform-glow--b" aria-hidden="true"></div>
+
+    <header class="platform-nav">
+      <a class="platform-brand" href="/">
+        <img src="/static/img/beaty-logo.png" width="40" height="40" alt="" />
+        <span>Beaty</span>
+      </a>
+      <nav class="platform-nav-links">
+        <a href="#features">Возможности</a>
+        <a href="#showcase">Интерфейс</a>
+        <a href="#start">Старт</a>
+      </nav>
+      <div class="platform-nav-cta">
+        <a class="btn btn-ghost" href="#start" data-demo-link hidden>Демо</a>
+        <a class="btn btn-primary" href="#start">Подключить</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="platform-hero">
+        <div class="platform-hero-visual">
+          <div class="platform-logo-ring" aria-hidden="true"></div>
+          <img
+            class="platform-hero-logo"
+            src="/static/img/beaty-logo.png"
+            width="320"
+            height="320"
+            alt="Beaty-Welcome"
+          />
+        </div>
+        <div class="platform-hero-copy">
+          <p class="platform-eyebrow">Платформа для салонов</p>
+          <h1>
+            Запись, расписание и аналитика
+            <span class="platform-grad">в одном красивом кабинете</span>
+          </h1>
+          <p class="platform-lead">
+            Beaty — это Telegram- и MAX-мини-приложение для клиентов, панель управляющего с дашбордом,
+            напоминаниями и стеклянным интерфейсом, который мы довели до продакшена.
+          </p>
+          <div class="platform-hero-actions">
+            <a class="btn btn-primary btn-lg" href="#start">Запустить свой салон</a>
+            <a class="btn btn-glass btn-lg" href="#features">Смотреть возможности</a>
+          </div>
+          <ul class="platform-pills">
+            <li>Telegram &amp; MAX</li>
+            <li>Без установки приложения</li>
+            <li>Золотой glass UI</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="platform-section" id="features">
+        <h2>Возможности</h2>
+        <p class="platform-section-lead">Всё, что нужно владельцу и мастеру — без таблиц и хаоса в чатах.</p>
+        <div class="platform-grid">
+          <article class="platform-card">
+            <h3>Онлайн-запись</h3>
+            <p>Клиент выбирает услуги, время и мастера в мини-аппе за пару шагов.</p>
+          </article>
+          <article class="platform-card">
+            <h3>Расписание дня</h3>
+            <p>Сетка смен с золотыми блоками записей — наглядно и без лишнего шума.</p>
+          </article>
+          <article class="platform-card">
+            <h3>Дашборд</h3>
+            <p>Выручка, загрузка, структура записей и графики для управляющего.</p>
+          </article>
+          <article class="platform-card">
+            <h3>Напоминания</h3>
+            <p>Шаблоны в Telegram: подтверждение, за 24 часа, отмена — с превью.</p>
+          </article>
+          <article class="platform-card">
+            <h3>Профиль салона</h3>
+            <p>Витрина с портфолио, картой, виджетами — ваш бренд, не шаблон.</p>
+          </article>
+          <article class="platform-card">
+            <h3>Два мессенджера</h3>
+            <p>Telegram и MAX: один продукт, единая логика записи и уведомлений.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="platform-section platform-showcase" id="showcase">
+        <h2>Интерфейс</h2>
+        <p class="platform-section-lead">Тёмный фон, золотые акценты, стекло и blur — как в вашем логотипе, только для бизнеса.</p>
+        <div class="platform-showcase-panels">
+          <div class="platform-panel platform-panel--wide">
+            <span class="platform-panel-tag">Дашборд</span>
+            <p class="platform-panel-title">Статистика салона в реальном времени</p>
+            <div class="platform-panel-bars" aria-hidden="true">
+              <span style="--h: 72%"></span><span style="--h: 48%"></span><span style="--h: 88%"></span>
+              <span style="--h: 56%"></span><span style="--h: 94%"></span>
+            </div>
+          </div>
+          <div class="platform-panel">
+            <span class="platform-panel-tag">Запись</span>
+            <p class="platform-panel-title">Услуги → время → подтверждение</p>
+            <div class="platform-steps-demo">
+              <span class="on"><i>1</i>Услуги</span>
+              <span><i>2</i>Время</span>
+              <span><i>3</i>Запись</span>
+            </div>
+          </div>
+          <div class="platform-panel">
+            <span class="platform-panel-tag">Telegram</span>
+            <p class="platform-panel-title">Бот + мини-апп у клиента в кармане</p>
+            <p class="platform-panel-muted">Напоминания, мои записи, смена роли staff/client</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="platform-section platform-cta" id="start">
+        <div class="platform-cta-card">
+          <h2>Готовы показать салон так же круто?</h2>
+          <p>
+            Напишите платформенному боту в Telegram или MAX — подключим бота салона, веб-кабинет и запись
+            под ваш бренд. Демо-кабинет доступен по кнопке ниже, если настроен на сервере.
+          </p>
+          <div class="platform-hero-actions">
+            <a class="btn btn-primary btn-lg" href="https://t.me/" data-tg-platform hidden>Открыть в Telegram</a>
+            <a class="btn btn-glass btn-lg" href="/" data-demo-link hidden>Попробовать демо</a>
+          </div>
+          <p class="platform-footnote" data-platform-hint>
+            Укажите <code>WEB_DEFAULT_TENANT</code> на сервере — и кнопка «Демо» ведёт в живой кабинет.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="platform-footer">
+      <img src="/static/img/beaty-logo.png" width="48" height="48" alt="" />
+      <p>© Beaty — онлайн-запись для beauty-бизнеса</p>
+    </footer>
+
+    <script type="module" src="/static/js/platform.js?v=1"></script>
+  </body>
+</html>
