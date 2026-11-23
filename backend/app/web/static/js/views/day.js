@@ -224,9 +224,13 @@ export function dayView({ manager, embedded = false }) {
     return 'status-active';
   }
 
-  function buildBlockSeg(bl, startMin, pxm, trackHeight) {
-    const bs = toMin(bl.start);
-    const be = bl.end === '24:00' ? 1440 : toMin(bl.end);
+  function buildBlockSeg(bl, startMin, endMin, pxm, trackHeight) {
+    let bs = toMin(bl.start);
+    let be = bl.end === '24:00' ? 1440 : toMin(bl.end);
+    if (be <= bs && bl.end === '00:00') be = 1440;
+    bs = Math.max(bs, startMin);
+    be = Math.min(be, endMin);
+    if (be <= bs) return null;
     const bw = Math.max((be - bs) * pxm - 2, 24);
     const left = (bs - startMin) * pxm;
     const note = (bl.note || '').trim();
@@ -336,7 +340,8 @@ export function dayView({ manager, embedded = false }) {
       }
 
       for (const bl of cell.blocks || []) {
-        track.append(buildBlockSeg(bl, startMin, pxm, trackHeight));
+        const seg = buildBlockSeg(bl, startMin, endMin, pxm, trackHeight);
+        if (seg) track.append(seg);
       }
 
       for (const { b, lane } of placed) {

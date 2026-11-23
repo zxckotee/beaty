@@ -102,10 +102,14 @@ def _exception_dict(exc, tz: ZoneInfo) -> dict[str, object]:
     assert during and during.lower and during.upper
     start_local = during.lower.astimezone(tz)
     end_local = during.upper.astimezone(tz)
+    start_d = local_date(during.lower, tz)
+    end_d = local_date(during.upper, tz)
     return {
         "id": str(exc.id),
         "kind": exc.kind,
-        "date": local_date(during.lower, tz).isoformat(),
+        "date": start_d.isoformat(),
+        "start_date": start_d.isoformat(),
+        "end_date": end_d.isoformat(),
         "start_at": during.lower.isoformat(),
         "end_at": during.upper.isoformat(),
         "start": hhmm(start_local, tz),
