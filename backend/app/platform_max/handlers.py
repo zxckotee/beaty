@@ -1,9 +1,5 @@
 from aiogram import Router
-<<<<<<< HEAD
-from aiogram.filters import CommandStart
-=======
 from aiogram.filters import Command, CommandStart, StateFilter
->>>>>>> 74429f5 (Add MAX bot owner onboarding guide to platform and salon help)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message

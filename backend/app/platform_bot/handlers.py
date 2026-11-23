@@ -7,6 +7,12 @@ from aiogram.types import Message
 from aiogram.utils.token import TokenValidationError
 from sqlalchemy import select
 
+from app.bot.common.max_owner_guide import (
+    max_owner_guide_tail,
+    platform_bot_help_text,
+    send_max_onboarding_full,
+    send_max_onboarding_short,
+)
 from app.bot.factory import create_bot
 from app.bot.telegram_format import bot_mention_html
 from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
@@ -19,12 +25,6 @@ from app.domain.services.provisioning import (
     find_owned_tenant_for_telegram_user,
     find_tenant_by_bot_id,
     find_tenant_by_max_bot_id,
-)
-from app.bot.common.max_owner_guide import (
-    max_owner_guide_tail,
-    platform_bot_help_text,
-    send_max_onboarding_full,
-    send_max_onboarding_short,
 )
 from app.max.client import MaxClient
 
