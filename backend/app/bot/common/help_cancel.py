@@ -5,13 +5,10 @@ from aiogram.types import Message
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
 from app.bot.chat_readonly import reply_use_miniapp
-from app.bot.common.max_owner_guide import send_max_onboarding_full, send_max_onboarding_short
 from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
 from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
-from app.domain.models import StaffMember, Tenant, UserAccount  # noqa: TC001 — aiogram DI
-from app.domain.services.account_link_service import create_account_link_code, start_param_for_link
-from app.messenger.types import Channel
+from app.domain.models import StaffMember, Tenant  # noqa: TC001 — aiogram DI
 
 common_router = Router(name="common")
 
@@ -29,16 +26,6 @@ def _menu(
         granted_roles=roles,
         has_staff_profile=staff_member is not None,
     )
-
-
-@common_router.message(Command("maxhelp"))
-async def cmd_maxhelp(message: Message) -> None:
-    await send_max_onboarding_full(message)
-
-
-@common_router.message(Command("maxquick"))
-async def cmd_maxquick(message: Message) -> None:
-    await send_max_onboarding_short(message)
 
 
 @common_router.message(Command("cancel"))
@@ -102,10 +89,6 @@ async def cmd_help(
             [
                 "/today — записи на сегодня",
                 "Команда, Услуги — управление салоном",
-                "",
-                "Подключение MAX (владельцу):",
-                "/maxhelp — пошагово",
-                "/maxquick — кратко",
             ]
         )
     if active_ui_role == UI_ROLE_SPECIALIST and is_staff(roles):
@@ -187,32 +170,3 @@ async def text_my(
     from app.bot.client.my_bookings import send_my_bookings
 
     await send_my_bookings(message, state, tenant, db_session, client_profile)
-
-
-@common_router.message(Command("link"))
-async def cmd_link(
-    message: Message,
-    tenant: Tenant,
-    db_session,
-    user_account: UserAccount | None,
-    messenger_channel: Channel | None = None,
-) -> None:
-    if message.from_user is None:
-        return
-    channel = messenger_channel or Channel.TELEGRAM
-    if user_account is None:
-        from app.domain.services.client_service import get_or_create_user_by_messenger
-
-        user_account = await get_or_create_user_by_messenger(db_session, channel, message.from_user.id)
-        await db_session.commit()
-    code = await create_account_link_code(
-        tenant_public_id=tenant.public_id,
-        user_account_id=str(user_account.id),
-        channel=channel,
-    )
-    other = "MAX" if channel is Channel.TELEGRAM else "Telegram"
-    await message.answer(
-        f"Код привязки с {other}:\n<code>{start_param_for_link(code)}</code>\n\n"
-        f"Откройте бот в {other} и отправьте /start {start_param_for_link(code)}",
-        parse_mode="HTML",
-    )

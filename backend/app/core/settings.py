@@ -10,10 +10,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     platform_bot_token: str = ""
-    platform_max_bot_token: str = ""
-    platform_telegram_webhook_secret: str = "platform-secret"
-    max_platform_webhook_secret: str = ""
-    max_api_base_url: str = "https://platform-api2.max.ru"
     webhook_base_url: str = "http://localhost:8000"
     public_web_url: str = ""
     token_encryption_key: str = "change-me-32-bytes-base64-fernet-key!!"

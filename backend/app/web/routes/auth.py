@@ -15,14 +15,13 @@ from app.core.db import get_session
 from app.core.jwt_auth import create_web_session_token
 from app.core.redis_client import get_redis
 from app.core.settings import get_settings
-from app.core.webapp_auth import verify_webapp_init_data
+from app.core.telegram_auth import verify_webapp_init_data
 from app.domain.active_role import UI_ROLE_LABELS, write_stored_ui_role
 from app.domain.models import Branch, Tenant
 from app.domain.services.cell_service import get_default_branch, work_day_hours
-from app.domain.services.client_service import get_or_create_user_by_messenger, upsert_client_profile
+from app.domain.services.client_service import get_or_create_user_account, upsert_client_profile
 from app.domain.services.landing_service import get_or_create_landing
 from app.domain.services.web_auth_service import create_login_request, poll_login, start_param_for
-from app.messenger.types import Channel
 from app.web.deps import WebContext, cookie_name, get_context, get_tenant, require_auth, writable
 from app.web.dev_login import resolve_telegram_user_id
 from app.web.ratelimit import limit_by_ip
@@ -67,9 +66,6 @@ async def _tenant_info(session: AsyncSession, tenant: Tenant) -> dict[str, objec
         "name": tenant.name,
         "brand": tenant.brand or {},
         "bot_username": tenant.bot_username,
-        "max_bot_username": tenant.max_bot_username,
-        "telegram_linked": bool(tenant.bot_token_encrypted),
-        "max_linked": bool(tenant.max_bot_token_encrypted),
         "timezone": branch.timezone,
         "work_start": work_start,
         "work_end": work_end,
@@ -108,25 +104,15 @@ def _telegram_deep_link(tenant: Tenant, code: str) -> str | None:
     return f"https://t.me/{tenant.bot_username}?start={payload}"
 
 
-def _max_deep_link(tenant: Tenant, code: str) -> str | None:
-    if not tenant.max_bot_username:
-        return None
-    payload = quote(start_param_for(code), safe="")
-    return f"https://max.ru/{tenant.max_bot_username}?startapp={payload}"
-
-
 @router.post("/auth/start")
 async def auth_start(request: Request, tenant: Tenant = Depends(get_tenant)) -> dict[str, object]:
     await limit_by_ip(request, "auth_start", limit=20)
     code = await create_login_request(tenant.public_id)
     bot_url = _telegram_deep_link(tenant, code)
-    max_url = _max_deep_link(tenant, code)
     return {
         "code": code,
         "bot_url": bot_url,
-        "max_bot_url": max_url,
         "telegram_go": f"/api/t/{tenant.public_id}/auth/telegram-go?code={quote(code, safe='')}",
-        "max_go": f"/api/t/{tenant.public_id}/auth/max-go?code={quote(code, safe='')}",
         "expires_in": 300,
     }
 
@@ -151,25 +137,6 @@ async def telegram_go(
     return RedirectResponse(url, status_code=302)
 
 
-@router.get("/auth/max-go")
-async def max_go(
-    code: str = Query(min_length=8, max_length=64),
-    tenant: Tenant = Depends(get_tenant),
-) -> Response:
-    if not tenant.max_bot_username:
-        raise HTTPException(status_code=503, detail="MAX bot not linked")
-    redis = await get_redis()
-    raw = await redis.get(f"weblogin:{code}")
-    if raw is None:
-        raise HTTPException(status_code=410, detail="login code expired; start again from the website")
-    data = json.loads(raw)
-    if data.get("tenant") != tenant.public_id or data.get("status") not in {"pending", "confirmed"}:
-        raise HTTPException(status_code=410, detail="login code expired; start again from the website")
-    url = _max_deep_link(tenant, code)
-    assert url is not None
-    return RedirectResponse(url, status_code=302)
-
-
 @router.get("/auth/poll")
 async def auth_poll(
     response: Response,
@@ -178,9 +145,8 @@ async def auth_poll(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
     result = await poll_login(code, tenant_public_id=tenant.public_id)
-    if result.state == "confirmed" and result.messenger_user_id is not None:
-        channel = result.channel or Channel.TELEGRAM
-        user = await get_or_create_user_by_messenger(session, channel, result.messenger_user_id)
+    if result.state == "confirmed" and result.telegram_user_id is not None:
+        user = await get_or_create_user_account(session, result.telegram_user_id)
         await session.commit()
         _set_session_cookie(response, tenant, user.id, result.display_name)
     return {"state": result.state}
@@ -192,12 +158,8 @@ class DevLogin(BaseModel):
     name: str | None = None
 
 
-class WebAppAuthBody(BaseModel):
+class TelegramWebAppAuth(BaseModel):
     init_data: str = Field(min_length=1, max_length=4096)
-
-
-class TelegramWebAppAuth(WebAppAuthBody):
-    pass
 
 
 @router.post("/auth/telegram")
@@ -220,32 +182,7 @@ async def auth_telegram(
         raise HTTPException(status_code=400, detail="missing user in init data")
     telegram_user_id = int(user["id"])
     display_name = user.get("first_name") or user.get("username")
-    account = await get_or_create_user_by_messenger(session, Channel.TELEGRAM, telegram_user_id)
-    await session.commit()
-    _set_session_cookie(response, tenant, account.id, display_name)
-    return {"state": "confirmed"}
-
-
-@router.post("/auth/max")
-async def auth_max(
-    body: WebAppAuthBody,
-    response: Response,
-    tenant: Tenant = Depends(get_tenant),
-    session: AsyncSession = Depends(get_session),
-) -> dict[str, str]:
-    if not tenant.max_bot_token_encrypted:
-        raise HTTPException(status_code=503, detail="MAX bot not linked")
-    bot_token = decrypt_bot_token(tenant.max_bot_token_encrypted)
-    try:
-        parsed = verify_webapp_init_data(body.init_data, bot_token)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    user = parsed.get("user")
-    if not isinstance(user, dict) or "id" not in user:
-        raise HTTPException(status_code=400, detail="missing user in init data")
-    max_user_id = int(user["id"])
-    display_name = user.get("first_name") or user.get("username")
-    account = await get_or_create_user_by_messenger(session, Channel.MAX, max_user_id)
+    account = await get_or_create_user_account(session, telegram_user_id)
     await session.commit()
     _set_session_cookie(response, tenant, account.id, display_name)
     return {"state": "confirmed"}
@@ -268,7 +205,7 @@ async def auth_dev(
         telegram_user_id, auto_name = body.telegram_user_id, None
     else:
         raise HTTPException(status_code=400, detail="telegram_user_id or identifier required")
-    user = await get_or_create_user_by_messenger(session, Channel.TELEGRAM, telegram_user_id)
+    user = await get_or_create_user_account(session, telegram_user_id)
     await session.commit()
     _set_session_cookie(response, tenant, user.id, body.name or auto_name)
     return {"state": "confirmed"}

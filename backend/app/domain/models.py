@@ -67,11 +67,6 @@ class Tenant(Base):
     bot_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     webhook_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     bot_status: Mapped[str] = mapped_column(String(32), default="active")
-    max_bot_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
-    max_bot_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    max_bot_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    max_webhook_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    max_bot_status: Mapped[str] = mapped_column(String(32), default="active")
     brand: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     rules: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     default_schedule_rule_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -96,9 +91,7 @@ class UserAccount(Base):
     __tablename__ = "user_account"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
-    max_user_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
-    messenger_prefs: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

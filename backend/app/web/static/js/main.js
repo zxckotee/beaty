@@ -1,5 +1,5 @@
 import { api, friendly, tenantId } from './api.js';
-import { detectChannel, initData, isMessengerWebApp, prepareChrome } from './messenger.js';
+import { isTelegramWebApp, prepareTelegramChrome, telegramInitData } from './telegram.js';
 import { brandMark, clear, h, icon } from './util.js';
 import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
@@ -12,7 +12,7 @@ import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
 import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
-import { homeView } from './views/home.js?v=19';
+import { homeView } from './views/home.js?v=17';
 import { messagesView } from './views/messages.js';
 import { chatsView } from './views/chats.js';
 
@@ -184,9 +184,6 @@ async function render() {
     if (node) {
       main.append(node);
       cleanup = node.cleanup || null;
-      if (typeof node.afterMount === 'function') {
-        void node.afterMount();
-      }
     }
   } catch (e) {
     if (token !== renderToken) return;
@@ -208,24 +205,16 @@ async function boot() {
   try {
     await loadInfo();
   } catch {
-    clear(app).append(
-      h(
-        'div',
-        { class: 'main' },
-        h('div', { class: 'empty card' }, h('div', { class: 'big' }, '🔍'), h('h3', null, 'Салон не найден'), h('p', null, 'Проверьте адрес ссылки.')),
-      ),
-    );
+    app.append(h('div', { class: 'main' }, h('div', { class: 'empty card' }, h('div', { class: 'big' }, '🔍'), h('h3', null, 'Салон не найден'), h('p', null, 'Проверьте адрес ссылки.'))));
     return;
   }
   applyBrand();
-  if (isMessengerWebApp()) {
-    prepareChrome();
-    const payload = initData();
-    const channel = detectChannel();
-    if (payload && channel) {
+  if (isTelegramWebApp()) {
+    prepareTelegramChrome();
+    const initData = telegramInitData();
+    if (initData) {
       try {
-        const path = channel === 'max' ? '/auth/max' : '/auth/telegram';
-        await api.post(path, { init_data: payload });
+        await api.post('/auth/telegram', { init_data: initData });
       } catch (e) {
         toast(friendly(e), true);
       }

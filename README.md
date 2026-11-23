@@ -144,9 +144,9 @@ CI/CD: [.github/workflows/deploy.yml](.github/workflows/deploy.yml) — тест
 | `platform-bot` | Онбординг владельцев |
 | `tenant-bots` | Long polling ботов салонов |
 
-Секреты GitHub Actions: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `TELEGRAM_SECRET`, опционально `TELEGRAM_PROXY`, для MAX — `MAX_PLATFORM_BOT_TOKEN`, `MAX_PLATFORM_WEBHOOK_SECRET`, опционально `MAX_API_BASE_URL`. `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY`, `JWT_SECRET` генерируются на сервере в `/root/beaty/.secrets.env` — файл не удалять.
+Секреты GitHub Actions: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `TELEGRAM_SECRET`, опционально `TELEGRAM_PROXY`. `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY`, `JWT_SECRET` генерируются на сервере в `/root/beaty/.secrets.env` — файл не удалять.
 
-Вебхуки: Telegram `/tg/…`, MAX `/max/…` (один `WEBHOOK_BASE_URL` / `PUBLIC_HTTPS_URL`). Mini App один URL `/t/{public_id}/` для Telegram и MAX Bridge.
+Вебхуки: Telegram `/tg/…` (`WEBHOOK_BASE_URL` / `PUBLIC_HTTPS_URL`). Mini App: `/t/{public_id}/`.
 
 Обновление кода на VPS — **только через CI**; ручной `git pull` с HTTPS обычно падает без deploy-токена.
 

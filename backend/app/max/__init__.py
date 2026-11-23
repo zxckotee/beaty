@@ -1,1 +1,0 @@
-"""MAX messenger Bot API integration."""

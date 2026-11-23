@@ -9,8 +9,6 @@ from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
-from app.domain.services.client_service import get_user_by_messenger
-from app.messenger.types import Channel
 
 
 class BotContextMiddleware(BaseMiddleware):
@@ -28,9 +26,6 @@ class BotContextMiddleware(BaseMiddleware):
         tenant_public_id = getattr(bot, "tenant_public_id", None) if bot else None
         if not tenant_public_id:
             return await handler(event, data)
-
-        channel = Channel.MAX if getattr(bot, "messenger_channel", None) == "max" else Channel.TELEGRAM
-        data["messenger_channel"] = channel
 
         from_user = None
         if update.message and update.message.from_user:
@@ -52,7 +47,9 @@ class BotContextMiddleware(BaseMiddleware):
             staff_member: StaffMember | None = None
 
             if from_user:
-                user_account = await get_user_by_messenger(session, channel, from_user.id)
+                user_account = await session.scalar(
+                    select(UserAccount).where(UserAccount.telegram_user_id == from_user.id)
+                )
                 if user_account:
                     client_profile = await session.scalar(
                         select(ClientProfile).where(
