@@ -203,6 +203,37 @@ async def _busy_intervals(
     return busy
 
 
+async def block_intervals_for_day(
+    session: AsyncSession,
+    *,
+    tenant_id: UUID,
+    staff_member_id: UUID,
+    range_start: datetime,
+    range_end: datetime,
+) -> list[tuple[datetime, datetime, str | None]]:
+    """Booking block exceptions (kind=block) clipped to range, for schedule UI."""
+    rows = (
+        await session.scalars(
+            select(ScheduleException).where(
+                ScheduleException.tenant_id == tenant_id,
+                ScheduleException.staff_member_id == staff_member_id,
+                ScheduleException.kind == "block",
+            )
+        )
+    ).all()
+    blocks: list[tuple[datetime, datetime, str | None]] = []
+    for exc in rows:
+        row = await session.execute(
+            text("SELECT lower(during), upper(during) FROM schedule_exception WHERE id = :id"),
+            {"id": str(exc.id)},
+        )
+        s, e = row.one()
+        if s and e and s < range_end and e > range_start:
+            blocks.append((max(s, range_start), min(e, range_end), exc.note))
+    blocks.sort(key=lambda b: b[0])
+    return blocks
+
+
 async def _exception_busy(
     session: AsyncSession,
     *,

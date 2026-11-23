@@ -156,6 +156,14 @@ def schedule_window_dict(
         "allowed_service_ids": [],
         "staff": staff_card(view.staff, tenant_public_id),
         "bookings": [booking_dict(b, tz, reveal=reveal_clients) for b in view.bookings],
+        "blocks": [
+            {
+                "start": hhmm(b.start, tz),
+                "end": hhmm(b.end, tz),
+                "note": b.note or "",
+            }
+            for b in view.blocks
+        ],
     }
 
 
