@@ -100,6 +100,21 @@ def render_template(body: str, ctx: BookingMessageContext) -> str:
     return _TOKEN.sub(repl, body)
 
 
+def staff_media_path(
+    *,
+    photo_url: str | None,
+    photo_file_id: str | None,
+    tenant_public_id: str,
+    staff_member_id: UUID,
+) -> str | None:
+    """Same rules as web staff card: photo_url or Telegram file served from /media/tg/."""
+    if photo_url and str(photo_url).strip():
+        return str(photo_url).strip()
+    if photo_file_id:
+        return f"/media/tg/{tenant_public_id}/{staff_member_id}"
+    return None
+
+
 def abs_media_url(path: str | None) -> str | None:
     if not path:
         return None
@@ -141,8 +156,10 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
             """
             SELECT lower(bi.during) AS start_at,
                    s.name AS service_name,
+                   sm.id AS staff_id,
                    sm.display_name AS staff_name,
                    sm.photo_url AS staff_photo,
+                   sm.photo_file_id AS staff_photo_file_id,
                    bi.price_cents
             FROM booking_item bi
             JOIN service s ON s.id = bi.service_id
@@ -169,7 +186,12 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
         start_at = item["start_at"]
         service = str(item["service_name"] or "Услуга")
         staff = str(item["staff_name"] or "Мастер")
-        staff_photo = item["staff_photo"]
+        staff_photo = staff_media_path(
+            photo_url=item["staff_photo"],
+            photo_file_id=item["staff_photo_file_id"],
+            tenant_public_id=tenant.public_id,
+            staff_member_id=UUID(str(item["staff_id"])),
+        )
     cancel_message = await _cancel_client_message(session, booking_id, booking.tenant_id)
     return BookingMessageContext(
         service=service,
