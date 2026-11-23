@@ -111,6 +111,8 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
     response.headers.setdefault("Content-Security-Policy", csp)
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
+    elif request.url.path.startswith("/static/js/") or request.url.path.startswith("/static/css/"):
+        response.headers.setdefault("Cache-Control", "no-cache, must-revalidate")
     return response
 
 
