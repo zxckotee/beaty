@@ -984,10 +984,24 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
   background: color-mix(in srgb, var(--accent) 75%, var(--surface));
 }
 .wb-style-grid { display: flex; flex-direction: column; gap: 8px; }
-.wb-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
-.wb-photo-slot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
-.wb-photo-slot img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
-.wb-photo-slot .btn { position: absolute; top: 4px; right: 4px; padding: 2px 8px; min-height: 0; }
+.wb-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.wb-photo-slot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); aspect-ratio: 1; }
+.wb-photo-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wb-photo-slot .btn.danger { position: absolute; top: 4px; right: 4px; padding: 2px 8px; min-height: 0; z-index: 1; }
+.wb-photo-slot.wb-photo-add {
+  display: flex; align-items: stretch; justify-content: stretch;
+  border-style: dashed; background: color-mix(in srgb, var(--surface) 94%, var(--muted));
+}
+.wb-photo-add-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; width: 100%; min-height: 0; padding: 8px; margin: 0;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font: inherit; line-height: 1.2;
+}
+.wb-photo-add-btn .ico { width: 22px; height: 22px; opacity: .85; }
+.wb-photo-add-label { font-size: .72rem; font-weight: 600; color: var(--text); }
+.wb-photo-add-hint { font-size: .62rem; color: var(--muted); }
+.wb-photo-add-btn:active { opacity: .75; }
 .profile-widgets-zone { display: flex; flex-direction: column; gap: 18px; padding: 8px 16px 24px; }
 .profile-widget-wrap { position: relative; }
 .profile-widget-wrap .pw--draft { opacity: .55; border: 1px dashed var(--line); border-radius: 20px; }

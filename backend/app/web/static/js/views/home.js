@@ -2,7 +2,7 @@ import { api, friendly } from '../api.js';
 import { navigate } from '../main.js';
 import { isManager, store } from '../store.js';
 import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
-import { openWidgetEditor } from '../profile-widget-editor.js?v=22';
+import { openWidgetEditor } from '../profile-widget-editor.js?v=23';
 import { renderProfileWidget } from '../profile-widgets.js?v=17';
 import { h, hueFor, icon, initials, syncHeaderBrand } from '../util.js';
 

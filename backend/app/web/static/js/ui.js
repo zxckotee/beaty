@@ -144,7 +144,7 @@ export async function withBusy(button, fn) {
 }
 
 /** Avatar-like preview with a "choose photo" button. getFile() returns the picked File or null. */
-export function photoPicker({ url, name, square = false }) {
+export function photoPicker({ url, name, square = false, layout = 'row' }) {
   let file = null;
   let objectUrl = null;
   const preview = h('div');
@@ -171,10 +171,7 @@ export function photoPicker({ url, name, square = false }) {
     input.value = '';
     input.click();
   };
-  const btn = h('button', { class: 'btn sm', type: 'button', onclick: pick }, icon('camera'), 'Выбрать фото');
-  const el = h('div', { class: 'photo-field' }, preview, h('div', { class: 'col', style: { gap: '6px' } }, btn, h('span', { class: 'tiny muted' }, 'JPG, PNG, WebP до 5 МБ'), input));
-  return {
-    el,
+  const api = {
     getFile: () => file,
     setServerUrl(src) {
       if (objectUrl) {
@@ -188,4 +185,20 @@ export function photoPicker({ url, name, square = false }) {
       name = next;
     },
   };
+
+  if (layout === 'grid') {
+    const btn = h(
+      'button',
+      { class: 'wb-photo-add-btn', type: 'button', onclick: pick },
+      icon('camera'),
+      h('span', { class: 'wb-photo-add-label' }, 'Добавить'),
+      h('span', { class: 'wb-photo-add-hint' }, 'до 5 МБ'),
+    );
+    const el = h('div', { class: 'wb-photo-slot wb-photo-add' }, btn, input);
+    return { el, ...api };
+  }
+
+  const btn = h('button', { class: 'btn sm', type: 'button', onclick: pick }, icon('camera'), 'Выбрать фото');
+  const el = h('div', { class: 'photo-field' }, preview, h('div', { class: 'col', style: { gap: '6px' } }, btn, h('span', { class: 'tiny muted' }, 'JPG, PNG, WebP до 5 МБ'), input));
+  return { el, ...api };
 }
