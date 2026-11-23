@@ -25,5 +25,4 @@ def init_sentry() -> None:
             LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
         ],
         traces_sample_rate=0.1 if settings.environment == "production" else 0.0,
-        send_default_pii=False,
     )
