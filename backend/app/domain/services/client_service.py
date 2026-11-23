@@ -132,16 +132,6 @@ async def merge_user_accounts(
     ):
         raise ConflictError("both accounts have different max ids")
 
-    secondary.telegram_user_id = None
-    secondary.max_user_id = None
-    await session.flush()
-
-    if tg_from_secondary and not primary.telegram_user_id:
-        primary.telegram_user_id = tg_from_secondary
-    if max_from_secondary and not primary.max_user_id:
-        primary.max_user_id = max_from_secondary
-    await session.flush()
-
     prefs = {**(secondary.messenger_prefs or {}), **(primary.messenger_prefs or {})}
     primary.messenger_prefs = prefs
 
@@ -172,6 +162,12 @@ async def merge_user_accounts(
         staff.user_account_id = primary.id
 
     await session.delete(secondary)
+    await session.flush()
+
+    if tg_from_secondary and not primary.telegram_user_id:
+        primary.telegram_user_id = tg_from_secondary
+    if max_from_secondary and not primary.max_user_id:
+        primary.max_user_id = max_from_secondary
     await session.flush()
     if primary.telegram_user_id is None and primary.max_user_id is None:
         raise ValidationError("merged account has no messenger ids")
