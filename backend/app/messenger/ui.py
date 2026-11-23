@@ -26,12 +26,12 @@ def reply_markup_to_max_attachments(reply_markup: Any) -> list[dict[str, Any]] |
         return [{"type": "inline_keyboard", "payload": {"buttons": rows}}]
 
     if isinstance(reply_markup, ReplyKeyboardMarkup):
-        rows = []
-        for row in reply_markup.keyboard:
-            btns = []
-            for btn in row:
-                label = btn.text if isinstance(btn, KeyboardButton) else str(btn)
-                btns.append({"type": "callback", "text": label, "payload": f"reply:{label}"})
-            rows.append(btns)
-        return [{"type": "inline_keyboard", "payload": {"buttons": rows}}]
+        reply_rows: list[list[dict[str, Any]]] = []
+        for kb_row in reply_markup.keyboard:
+            kb_btns: list[dict[str, Any]] = []
+            for kb_btn in kb_row:
+                label = kb_btn.text if isinstance(kb_btn, KeyboardButton) else str(kb_btn)
+                kb_btns.append({"type": "callback", "text": label, "payload": f"reply:{label}"})
+            reply_rows.append(kb_btns)
+        return [{"type": "inline_keyboard", "payload": {"buttons": reply_rows}}]
     return None

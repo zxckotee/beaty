@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.audit import log_audit
 from app.domain.exceptions import DomainError
-from app.domain.models import StaffInvite, StaffMember, UserAccount
+from app.domain.models import StaffInvite, StaffMember
 from app.domain.services.client_service import get_or_create_user_by_messenger
 from app.messenger.types import Channel
 

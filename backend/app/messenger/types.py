@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-class Channel(str, enum.Enum):
+class Channel(enum.StrEnum):
     TELEGRAM = "telegram"
     MAX = "max"
 

@@ -13,14 +13,14 @@ from app.bot.keyboards.builders import contact_request_keyboard, tenant_reply_ke
 from app.bot.miniapp import bot_chat_write_enabled
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
+from app.domain.services.account_link_service import parse_link_code
 from app.domain.services.client_onboarding_service import (
     client_has_phone,
     complete_client_onboarding,
     ensure_user_account,
 )
+from app.domain.services.client_service import get_or_create_user_by_messenger, merge_user_accounts
 from app.domain.services.team_invite_service import accept_invite, parse_invite_token
-from app.domain.services.account_link_service import parse_link_code
-from app.domain.services.client_service import get_or_create_user_by_messenger, link_messenger_id, merge_user_accounts
 from app.domain.services.web_auth_service import (
     LOGIN_PREFIX,
     bot_message_for_confirm,
@@ -93,15 +93,19 @@ async def cmd_start(
             display_name=message.from_user.full_name,
         )
         await message.answer(
-            bot_message_for_confirm(result, bot_username=tenant.bot_username or tenant.max_bot_username, channel=channel)
+            bot_message_for_confirm(
+                result,
+                bot_username=tenant.bot_username or tenant.max_bot_username,
+                channel=channel,
+            )
         )
         return
     link_code = parse_link_code(start_param)
     if link_code and message.from_user:
+        import json
         from uuid import UUID
 
         from app.core.redis_client import get_redis
-        import json
 
         raw = await (await get_redis()).get(f"accountlink:{link_code}")
         if raw is None:

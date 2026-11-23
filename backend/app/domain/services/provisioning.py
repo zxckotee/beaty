@@ -7,7 +7,7 @@ from app.core.crypto import encrypt_bot_token
 from app.core.settings import get_settings
 from app.domain.default_rules import DEFAULT_TENANT_RULES
 from app.domain.exceptions import BotAlreadyLinkedError
-from app.domain.models import Branch, StaffMember, StaffRole, Tenant, UserAccount
+from app.domain.models import Branch, StaffMember, StaffRole, Tenant
 from app.domain.services.client_service import get_or_create_user_by_messenger
 from app.max.client import MaxClient
 from app.messenger.registry import invalidate_max_bot

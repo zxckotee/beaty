@@ -28,7 +28,7 @@ class MaxApiSession(BaseSession):
         method: TelegramMethod[Any],
         timeout: int | None = None,
     ) -> Any:
-        name = method.__api_method__  # type: ignore[attr-defined]
+        name = method.__api_method__
         if name == "sendMessage":
             attachments = None
             reply_markup = getattr(method, "reply_markup", None)
@@ -54,7 +54,7 @@ class MaxApiSession(BaseSession):
                 attachments=attachments,
             )
         if name == "answerCallbackQuery":
-            cb_id = str(getattr(method, "callback_query_id", ""))  # type: ignore[attr-defined]
+            cb_id = str(getattr(method, "callback_query_id", ""))
             if cb_id:
                 await self._max.answer_callback(cb_id)
             return True
@@ -64,7 +64,7 @@ class MaxApiSession(BaseSession):
             return True
         # Photo paths — send text placeholder with URL if provided
         if name == "sendPhoto":
-            caption = str(getattr(method, "caption", "") or "")  # type: ignore[attr-defined]
+            caption = str(getattr(method, "caption", "") or "")
             return await self._max.send_message(
                 user_id=int(method.chat_id),  # type: ignore[attr-defined]
                 text=caption or "📷",
@@ -80,8 +80,17 @@ class MaxApiSession(BaseSession):
                 await self._max.send_message(user_id=int(chat_id), text=f"({name}) {text[:500]}")
         return True
 
-    async def stream_content(self, url: str, timeout: int) -> AsyncGenerator[bytes, None]:
+    async def stream_content(
+        self,
+        url: str,
+        headers: dict[str, Any] | None = None,
+        timeout: int = 30,
+        chunk_size: int = 65536,
+        raise_for_status: bool = True,
+    ) -> AsyncGenerator[bytes, None]:
         raise NotImplementedError("MAX session does not stream telegram file URLs")
+        if False:
+            yield b""
 
 
 def create_max_bot(token: str) -> Bot:
