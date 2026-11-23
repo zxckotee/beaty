@@ -19,34 +19,32 @@ function loadLightweightCharts() {
   });
 }
 
-function pieSvg(segments, size = 168) {
-  const active = segments.filter((s) => s.value > 0);
-  const total = active.reduce((s, x) => s + x.value, 0);
+function pieDonut(segments, size = 168) {
+  const withData = segments.filter((s) => s.value > 0);
+  const total = withData.reduce((s, x) => s + x.value, 0);
   if (!total) {
     return h('div', { class: 'dash-pie-empty muted small' }, 'Нет записей за период');
   }
-  const r = size / 2 - 6;
-  const cx = size / 2;
-  const cy = size / 2;
-  let acc = -Math.PI / 2;
-  const paths = [];
-  for (const seg of active) {
-    const slice = (seg.value / total) * Math.PI * 2;
-    const x1 = cx + r * Math.cos(acc);
-    const y1 = cy + r * Math.sin(acc);
-    acc += slice;
-    const x2 = cx + r * Math.cos(acc);
-    const y2 = cy + r * Math.sin(acc);
-    const large = slice > Math.PI ? 1 : 0;
-    paths.push(
-      h('path', {
-        d: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`,
-        fill: seg.color,
-        opacity: 0.92,
-      }),
-    );
+  let acc = 0;
+  const stops = [];
+  for (const seg of withData) {
+    const pct = (100 * seg.value) / total;
+    const from = acc;
+    acc += pct;
+    stops.push(`${seg.color} ${from}% ${acc}%`);
   }
-  return h('svg', { class: 'dash-pie', width: size, height: size, viewBox: `0 0 ${size} ${size}`, role: 'img' }, ...paths);
+  const ring = h('div', {
+    class: 'dash-pie-donut',
+    style: {
+      width: `${size}px`,
+      height: `${size}px`,
+      background: `conic-gradient(from -90deg, ${stops.join(', ')})`,
+    },
+    role: 'img',
+    'aria-label': 'Структура записей',
+  });
+  const totalLabel = h('div', { class: 'dash-pie-center' }, h('b', { class: 'num' }, String(total)), h('span', { class: 'tiny muted' }, 'записей'));
+  return h('div', { class: 'dash-pie-wrap', style: { width: `${size}px`, height: `${size}px` } }, ring, totalLabel);
 }
 
 function legendRow(seg, total) {
@@ -103,7 +101,7 @@ export async function dashboardView(sub = '') {
       const total = segments.reduce((s, x) => s + x.value, 0);
       pieWrap.replaceChildren(
         h('h2', null, 'Структура записей'),
-        h('div', { class: 'row wrap', style: { gap: '16px', alignItems: 'center' } }, pieSvg(segments), h('div', { class: 'col grow', style: { gap: '6px' } }, ...segments.map((s) => legendRow(s, total)))),
+        h('div', { class: 'row wrap', style: { gap: '16px', alignItems: 'center' } }, pieDonut(segments), h('div', { class: 'col grow', style: { gap: '6px' } }, ...segments.map((s) => legendRow(s, total)))),
         data.top_services?.length
           ? h('div', null, h('h3', { class: 'small muted' }, 'Топ услуг'), ...data.top_services.map((s) => h('div', { class: 'row between small' }, h('span', null, s.name), h('b', null, s.count))))
           : null,
@@ -165,7 +163,7 @@ export async function dashboardView(sub = '') {
     const { text: textColor, gold } = chartPalette();
     let chart;
     try {
-      const initialW = Math.max(el.clientWidth, 320);
+      const initialW = Math.max(el.clientWidth || parent.clientWidth || 0, 280);
       chart = L.createChart(el, {
         width: initialW,
         layout: { background: { color: 'transparent' }, textColor },
@@ -245,7 +243,13 @@ export async function dashboardView(sub = '') {
 
   scheduleMount.replaceChildren(dayView({ manager: true, embedded: true }));
 
-  await Promise.all([renderSummary(), renderCharts()]);
+  chartsRow.replaceChildren(h('div', { class: 'card pad' }, spinner()));
+  await renderSummary();
+
+  root.afterMount = async () => {
+    await renderCharts();
+    requestAnimationFrame(() => requestAnimationFrame(resizeMountedCharts));
+  };
 
   root.cleanup = () => chartResizeObserver?.disconnect();
 

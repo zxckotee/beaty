@@ -434,6 +434,19 @@ button.chip { cursor: pointer; }
 .dash-schedule { margin: 12px 0 20px; }
 .dash-schedule .page-head h2 { margin: 0 0 6px; }
 .dash-pie-empty { width: 168px; height: 168px; display: grid; place-items: center; text-align: center; padding: 12px; }
+.dash-pie-wrap { position: relative; flex-shrink: 0; }
+.dash-pie-donut {
+  width: 100%; height: 100%; border-radius: 50%;
+  mask: radial-gradient(circle, transparent 48%, #000 49%);
+  -webkit-mask: radial-gradient(circle, transparent 48%, #000 49%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 40%, transparent);
+}
+.dash-pie-center {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center;
+  pointer-events: none; line-height: 1.2;
+}
+.dash-pie-center b { font-size: 1.35rem; }
+.dash-chart-card .dash-chart { min-height: 220px; }
 
 /* ---------- cards grid ---------- */
 .cards { display: grid; gap: 14px; grid-template-columns: 1fr; }

@@ -184,6 +184,9 @@ async function render() {
     if (node) {
       main.append(node);
       cleanup = node.cleanup || null;
+      if (typeof node.afterMount === 'function') {
+        void node.afterMount();
+      }
     }
   } catch (e) {
     if (token !== renderToken) return;
