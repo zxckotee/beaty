@@ -18,8 +18,12 @@ const KIND_HINTS = {
   booking_cancelled: 'Когда запись отменена салоном или клиентом.',
 };
 
-export async function messagesView() {
-  const root = h('div', { class: 'messages-page' });
+export async function messagesView({ embedded = false } = {}) {
+  const root = h('section', {
+    class: `messages-page${embedded ? ' messages-page--embedded dash-section' : ' dash-section-standalone'}`,
+    ...(embedded ? { id: 'dash-messages' } : {}),
+  });
+  const titleTag = embedded ? 'h2' : 'h1';
   const panel = h('div', { class: 'messages-panel' });
   let meta = null;
   let templates = {};
@@ -36,7 +40,7 @@ export async function messagesView() {
       h(
         'div',
         null,
-        h('h1', null, 'Напоминания в Telegram'),
+        h(titleTag, null, 'Напоминания в Telegram'),
         h('p', { class: 'muted' }, 'Шаблоны напоминаний с переменными, HTML и вложениями для бота.'),
       ),
     ),

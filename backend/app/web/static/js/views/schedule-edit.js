@@ -1,5 +1,5 @@
 import { h, icon } from '../util.js';
-import { navigate } from '../main.js';
+import { navigate, navigateDashboardSection } from '../main.js';
 import { mountScheduleEditor } from '../schedule-editor.js';
 
 export async function scheduleEditView(staffId) {
@@ -14,8 +14,8 @@ export async function scheduleEditView(staffId) {
         h('p', { class: 'muted' }, 'Назначьте правила по дням недели. Исключения по датам — ниже.'),
       ),
       h('div', { class: 'row wrap', style: { gap: '8px' } },
-        h('button', { class: 'btn sm soft', type: 'button', onclick: () => navigate('schedule-rules') }, 'Правила смен'),
-        h('button', { class: 'btn sm', type: 'button', onclick: () => { location.hash = '#/team'; } }, icon('chevL'), 'К команде'),
+        h('button', { class: 'btn sm soft', type: 'button', onclick: () => navigate('dashboard/rules') }, 'Шаблоны смен'),
+        h('button', { class: 'btn sm', type: 'button', onclick: () => navigateDashboardSection('dash-team') }, icon('chevL'), 'К специалистам'),
       ),
     ),
     body,

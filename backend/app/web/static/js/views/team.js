@@ -2,9 +2,10 @@ import { api, friendly } from '../api.js';
 import { duration, h, hueFor, icon, initials, money, plural } from '../util.js';
 import { avatar, emptyState, field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 
-export async function teamView() {
-  const root = h('div');
+export async function teamView({ embedded = false } = {}) {
+  const root = h('section', { class: embedded ? 'dash-section' : 'dash-section-standalone', ...(embedded ? { id: 'dash-team' } : {}) });
   const list = h('div');
+  const titleTag = embedded ? 'h2' : 'h1';
   let staff = [];
   let services = [];
 
@@ -12,7 +13,7 @@ export async function teamView() {
     h(
       'div',
       { class: 'page-head' },
-      h('div', null, h('h1', null, 'Специалисты'), h('p', null, 'Карточки мастеров: фото, описание и услуги, которые они выполняют.')),
+      h('div', null, h(titleTag, null, 'Специалисты'), h('p', null, 'Карточки мастеров: фото, описание и услуги, которые они выполняют.')),
       h('button', { class: 'btn primary', type: 'button', onclick: () => openForm(null) }, icon('plus'), 'Добавить'),
     ),
     list,

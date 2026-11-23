@@ -451,6 +451,14 @@ button.chip { cursor: pointer; }
 .dash-dot { display: inline-block; width: 10px; height: 10px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; }
 .dash-schedule { margin: 12px 0 20px; }
 .dash-schedule .page-head h2 { margin: 0 0 6px; }
+.dash-schedule-tabs { margin: 0 0 12px; }
+.dash-schedule-panel { min-width: 0; }
+.dash-ops { display: flex; flex-direction: column; gap: 28px; margin: 8px 0 28px; }
+.dash-section { scroll-margin-top: calc(var(--header-h) + 12px); }
+.dash-section .page-head { margin-bottom: 12px; }
+.dash-section .page-head h2 { margin: 0; font-size: 1.35rem; }
+.messages-page--embedded .messages-panel { margin-top: 0; }
+.schedule-rules-embed-head h3 { margin: 0; font-size: 1.05rem; }
 .dash-pie-empty { width: 168px; height: 168px; display: grid; place-items: center; text-align: center; padding: 12px; }
 .dash-pie-wrap { position: relative; flex-shrink: 0; }
 .dash-pie-donut {

@@ -61,7 +61,7 @@ export async function mountScheduleEditor(mount, staffId, opts = {}) {
     const rulesLink = h('button', {
       class: 'btn sm soft',
       type: 'button',
-      onclick: () => { if (opts.closeSheet) opts.closeSheet(); navigate('schedule-rules'); },
+      onclick: () => { if (opts.closeSheet) opts.closeSheet(); navigate('dashboard/rules'); },
     }, 'Шаблоны недели');
 
     const meta = h('p', { class: 'small muted' });
@@ -254,7 +254,7 @@ export function openScheduleRulesPicker(staffList, { anchorDate, onSaved } = {})
         h('button', {
           class: 'btn primary block',
           type: 'button',
-          onclick: () => { sheet.close(); navigate('schedule-rules'); },
+          onclick: () => { sheet.close(); navigate('dashboard/rules'); },
         }, 'Шаблоны недели'),
         h('p', { class: 'small muted', style: { marginTop: '12px' } }, 'Исключения по датам (выходной, особые часы) — в графике конкретного мастера:'),
         list,
