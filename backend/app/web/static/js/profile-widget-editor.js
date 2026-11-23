@@ -10,7 +10,7 @@ function clonePayload(p) {
 
 function styleFields(style, onChange) {
   const row = h('div', { class: 'wb-style-grid' });
-  const font = h('select', { class: 'inp' });
+  const font = h('select', { class: 'select' });
   for (const v of ['sans', 'serif', 'display']) {
     const o = h('option', { value: v }, v === 'sans' ? 'Обычный' : v === 'serif' ? 'Классика' : 'Заголовок');
     if ((style.font || 'sans') === v) o.selected = true;
@@ -18,7 +18,7 @@ function styleFields(style, onChange) {
   }
   font.addEventListener('change', () => onChange({ ...style, font: font.value }));
 
-  const size = h('select', { class: 'inp' });
+  const size = h('select', { class: 'select' });
   for (const [v, label] of [
     ['sm', 'Мелкий'],
     ['md', 'Средний'],
@@ -31,10 +31,10 @@ function styleFields(style, onChange) {
   }
   size.addEventListener('change', () => onChange({ ...style, size: size.value }));
 
-  const color = h('input', { class: 'inp', type: 'text', placeholder: '#RRGGBB', value: style.color || '' });
+  const color = h('input', { class: 'input', type: 'text', placeholder: '#RRGGBB', value: style.color || '', spellcheck: 'false' });
   color.addEventListener('change', () => onChange({ ...style, color: color.value.trim() || null }));
 
-  const bg = h('input', { class: 'inp', type: 'text', placeholder: 'Фон #RRGGBB', value: style.bg || '' });
+  const bg = h('input', { class: 'input', type: 'text', placeholder: 'Фон #RRGGBB', value: style.bg || '', spellcheck: 'false' });
   bg.addEventListener('change', () => onChange({ ...style, bg: bg.value.trim() || null }));
 
   const presets = h('div', { class: 'wb-presets row' });
@@ -65,13 +65,14 @@ function styleFields(style, onChange) {
 
 function actionStyleFields(action, index, state, refreshPreview) {
   const st = action.style || { variant: 'filled', color: null, textColor: null };
-  const variant = h('select', { class: 'inp' });
+  const variant = h('select', { class: 'select' });
+  const variantLabels = { filled: 'Заливка', outline: 'Контур', ghost: 'Мягкая' };
   for (const v of ['filled', 'outline', 'ghost']) {
-    const o = h('option', { value: v }, v);
+    const o = h('option', { value: v }, variantLabels[v] || v);
     if (st.variant === v) o.selected = true;
     variant.append(o);
   }
-  const iconSel = h('select', { class: 'inp' });
+  const iconSel = h('select', { class: 'select' });
   for (const [v, label] of [
     ['none', 'Без иконки'],
     ['calendar', 'Календарь'],
@@ -82,8 +83,8 @@ function actionStyleFields(action, index, state, refreshPreview) {
     if ((action.icon || 'none') === v) o.selected = true;
     iconSel.append(o);
   }
-  const labelInp = h('input', { class: 'inp', value: action.label || '' });
-  const hrefInp = action.kind === 'link' ? h('input', { class: 'inp', value: action.href || '', placeholder: 'https://…' }) : null;
+  const labelInp = h('input', { class: 'input', value: action.label || '' });
+  const hrefInp = action.kind === 'link' ? h('input', { class: 'input', value: action.href || '', placeholder: 'https://…', spellcheck: 'false' }) : null;
 
   const apply = () => {
     state.payload.actions[index] = {
@@ -100,8 +101,8 @@ function actionStyleFields(action, index, state, refreshPreview) {
     };
     refreshPreview();
   };
-  const colorInp = h('input', { class: 'inp', placeholder: 'Фон кнопки', value: st.color || '' });
-  const fgInp = h('input', { class: 'inp', placeholder: 'Текст кнопки', value: st.textColor || '' });
+  const colorInp = h('input', { class: 'input', placeholder: '#RRGGBB', value: st.color || '', spellcheck: 'false' });
+  const fgInp = h('input', { class: 'input', placeholder: '#RRGGBB', value: st.textColor || '', spellcheck: 'false' });
   variant.addEventListener('change', apply);
   iconSel.addEventListener('change', apply);
   labelInp.addEventListener('change', apply);
@@ -139,7 +140,14 @@ function buildEditor(state, sheet, { onSaved }) {
     inspector.replaceChildren();
     const blocksSec = h('section', null, h('h3', { class: 'wb-h' }, 'Текст'));
     state.payload.blocks.forEach((block, i) => {
-      const ta = h('textarea', { class: 'inp', rows: block.kind === 'heading' ? 2 : 4 }, block.content || '');
+      const ta = h(
+        'textarea',
+        {
+          class: `textarea wb-textarea${block.kind === 'heading' ? ' wb-textarea--heading' : ''}`,
+          rows: block.kind === 'heading' ? 2 : 4,
+        },
+        block.content || '',
+      );
       ta.addEventListener('input', () => {
         state.payload.blocks[i].content = ta.value;
         refreshPreview();
@@ -150,9 +158,9 @@ function buildEditor(state, sheet, { onSaved }) {
       });
       blocksSec.append(
         h('div', { class: 'wb-block-edit card' },
-          h('span', { class: 'tiny muted' }, block.kind === 'heading' ? 'Заголовок' : 'Текст'),
-          ta,
-          sty,
+          h('span', { class: 'wb-block-edit-label' }, block.kind === 'heading' ? 'Заголовок' : 'Текст'),
+          h('div', { class: 'wb-block-edit-field' }, ta),
+          h('div', { class: 'wb-block-edit-styles' }, h('span', { class: 'wb-style-grid-title tiny muted' }, 'Оформление'), sty),
         ),
       );
     });
