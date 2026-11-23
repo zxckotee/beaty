@@ -140,7 +140,14 @@ function buildEditor(state, sheet, { onSaved }) {
     inspector.replaceChildren();
     const blocksSec = h('section', null, h('h3', { class: 'wb-h' }, 'Текст'));
     state.payload.blocks.forEach((block, i) => {
-      const ta = h('textarea', { class: 'textarea wb-textarea', rows: block.kind === 'heading' ? 2 : 4 }, block.content || '');
+      const ta = h(
+        'textarea',
+        {
+          class: `textarea wb-textarea${block.kind === 'heading' ? ' wb-textarea--heading' : ''}`,
+          rows: block.kind === 'heading' ? 2 : 4,
+        },
+        block.content || '',
+      );
       ta.addEventListener('input', () => {
         state.payload.blocks[i].content = ta.value;
         refreshPreview();
@@ -151,9 +158,9 @@ function buildEditor(state, sheet, { onSaved }) {
       });
       blocksSec.append(
         h('div', { class: 'wb-block-edit card' },
-          h('span', { class: 'tiny muted' }, block.kind === 'heading' ? 'Заголовок' : 'Текст'),
-          ta,
-          sty,
+          h('span', { class: 'wb-block-edit-label' }, block.kind === 'heading' ? 'Заголовок' : 'Текст'),
+          h('div', { class: 'wb-block-edit-field' }, ta),
+          h('div', { class: 'wb-block-edit-styles' }, h('span', { class: 'wb-style-grid-title tiny muted' }, 'Оформление'), sty),
         ),
       );
     });
