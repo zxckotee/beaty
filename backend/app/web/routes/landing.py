@@ -2,21 +2,26 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.domain.models import LandingPortfolioItem, LandingPost, Tenant
+from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (
     get_or_create_landing,
     get_portfolio_item,
     get_post,
+    get_widget,
     list_portfolio,
     list_posts,
+    list_widgets,
+    reorder_widgets,
     update_landing,
+    validate_template,
 )
+from app.domain.services.landing_widget_payload import normalize_widget_payload
 from app.web.deps import WebContext, get_tenant, require_manager, writable
 from app.web.uploads import save_image
 
@@ -24,7 +29,24 @@ public_router = APIRouter(prefix="/api/t/{tenant_public_id}/landing", tags=["lan
 manager_router = APIRouter(prefix="/api/t/{tenant_public_id}/manager/landing", tags=["landing-manager"])
 
 
-def _landing_dict(landing, portfolio, posts, *, tenant: Tenant) -> dict[str, object]:
+def _widget_dict(w: LandingProfileWidget) -> dict[str, object]:
+    return {
+        "id": str(w.id),
+        "template": w.template,
+        "payload": w.payload or {},
+        "sort_order": w.sort_order,
+        "is_visible": w.is_visible,
+    }
+
+
+def _landing_dict(
+    landing,
+    portfolio,
+    posts,
+    widgets,
+    *,
+    tenant: Tenant,
+) -> dict[str, object]:
     return {
         "title": landing.title or tenant.name,
         "tagline": landing.tagline,
@@ -57,6 +79,7 @@ def _landing_dict(landing, portfolio, posts, *, tenant: Tenant) -> dict[str, obj
             }
             for p in posts
         ],
+        "widgets": [_widget_dict(w) for w in widgets],
     }
 
 
@@ -68,7 +91,8 @@ async def public_landing(
     await session.commit()
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=True)
-    return _landing_dict(landing, portfolio, posts, tenant=tenant)
+    widgets = await list_widgets(session, tenant.id, visible_only=True)
+    return _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
 
 
 class LandingPatch(BaseModel):
@@ -121,7 +145,8 @@ async def manager_get_landing(
     landing = await get_or_create_landing(session, tenant.id)
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=False)
-    return _landing_dict(landing, portfolio, posts, tenant=tenant)
+    widgets = await list_widgets(session, tenant.id, visible_only=False)
+    return _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
 
 
 @manager_router.patch("")
@@ -135,8 +160,32 @@ async def manager_patch_landing(
     landing = await update_landing(session, tenant=tenant, changes=changes)
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=False)
+    widgets = await list_widgets(session, tenant.id, visible_only=False)
     await session.commit()
-    return _landing_dict(landing, portfolio, posts, tenant=tenant)
+    return _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
+
+
+class WidgetIn(BaseModel):
+    template: str = Field(min_length=1, max_length=32)
+    payload: dict[str, object] = Field(default_factory=dict)
+    sort_order: int = 0
+    is_visible: bool = True
+
+
+class WidgetPatch(BaseModel):
+    template: str | None = Field(default=None, max_length=32)
+    payload: dict[str, object] | None = None
+    sort_order: int | None = None
+    is_visible: bool | None = None
+
+
+class WidgetReorderItem(BaseModel):
+    id: UUID
+    sort_order: int
+
+
+class WidgetReorderIn(BaseModel):
+    items: list[WidgetReorderItem] = Field(min_length=1, max_length=50)
 
 
 @manager_router.post("/dgis/parse")
@@ -327,3 +376,96 @@ async def upload_post_photo(
     post.photo_urls = photos[:20]
     await session.commit()
     return {"photo_urls": post.photo_urls}
+
+
+@manager_router.post("/widgets")
+async def create_widget(
+    body: WidgetIn,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    tenant = writable(ctx)
+    template = validate_template(body.template)
+    payload = normalize_widget_payload(body.payload)
+    widget = LandingProfileWidget(
+        tenant_id=tenant.id,
+        template=template,
+        payload=payload,
+        sort_order=body.sort_order,
+        is_visible=body.is_visible,
+    )
+    session.add(widget)
+    await session.commit()
+    return _widget_dict(widget)
+
+
+@manager_router.patch("/widgets/{widget_id}")
+async def patch_widget(
+    widget_id: UUID,
+    body: WidgetPatch,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    tenant = writable(ctx)
+    widget = await get_widget(session, tenant.id, widget_id)
+    data = body.model_dump(exclude_unset=True)
+    if "template" in data and data["template"] is not None:
+        widget.template = validate_template(data["template"])
+    if "payload" in data and data["payload"] is not None:
+        widget.payload = normalize_widget_payload(data["payload"])
+    if "sort_order" in data:
+        widget.sort_order = data["sort_order"]
+    if "is_visible" in data:
+        widget.is_visible = data["is_visible"]
+    await session.commit()
+    return _widget_dict(widget)
+
+
+@manager_router.delete("/widgets/{widget_id}")
+async def delete_widget(
+    widget_id: UUID,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    widget = await get_widget(session, tenant.id, widget_id)
+    await session.delete(widget)
+    await session.commit()
+    return {"status": "ok"}
+
+
+@manager_router.put("/widgets/reorder")
+async def reorder_landing_widgets(
+    body: WidgetReorderIn,
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    tenant = writable(ctx)
+    await reorder_widgets(
+        session,
+        tenant.id,
+        [(item.id, item.sort_order) for item in body.items],
+    )
+    await session.commit()
+    return {"status": "ok"}
+
+
+@manager_router.post("/widgets/{widget_id}/photos")
+async def upload_widget_photo(
+    widget_id: UUID,
+    file: UploadFile = File(...),
+    ctx: WebContext = Depends(require_manager),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    tenant = writable(ctx)
+    widget = await get_widget(session, tenant.id, widget_id)
+    url = await save_image(file, tenant.id)
+    payload = dict(widget.payload or {})
+    photos = list(payload.get("photos") or [])
+    if len(photos) >= 5:
+        raise HTTPException(status_code=400, detail="photo limit 5")
+    photos.append(url)
+    payload["photos"] = photos
+    widget.payload = normalize_widget_payload(payload)
+    await session.commit()
+    return {"photos": widget.payload.get("photos", [])}

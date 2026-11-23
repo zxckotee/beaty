@@ -2,6 +2,8 @@ import { api, friendly } from '../api.js';
 import { navigate } from '../main.js';
 import { isManager, store } from '../store.js';
 import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
+import { openWidgetEditor } from '../profile-widget-editor.js';
+import { renderProfileWidget } from '../profile-widgets.js';
 import { h, hueFor, icon, initials, syncHeaderBrand } from '../util.js';
 
 let leafletPromise = null;
@@ -48,6 +50,11 @@ export async function homeView() {
   let mapEl = null;
 
   const displayName = () => (data && data.title) || (store.info && store.info.name) || '';
+
+  async function reloadLanding() {
+    data = await api.get(edit ? '/manager/landing' : '/landing');
+    draw();
+  }
 
   async function load() {
     data = await api.get(edit ? '/manager/landing' : '/landing');
@@ -478,10 +485,102 @@ export async function homeView() {
       bindEditable(tagEl, 'tagline', 'Краткий девиз салона');
     }
 
-    const cta = h('button', { class: 'btn profile-cta', type: 'button', onclick: () => navigate('book') }, icon('scissors'), 'Записаться');
-    const heroBody = h('div', { class: 'profile-hero-body' }, avatar, titleEl, tagEl, cta);
+    const heroBody = h('div', { class: 'profile-hero-body' }, avatar, titleEl, tagEl);
 
     const sections = [];
+
+    function sortedWidgets() {
+      return (data.widgets || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+
+    async function moveWidget(widget, delta) {
+      const list = sortedWidgets();
+      const i = list.findIndex((w) => w.id === widget.id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      const next = list.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      const items = next.map((w, idx) => ({ id: w.id, sort_order: idx }));
+      try {
+        await api.put('/manager/landing/widgets/reorder', { items });
+        await reloadLanding();
+      } catch (e) {
+        toast(friendly(e), true);
+      }
+    }
+
+    async function removeWidget(widget) {
+      try {
+        await api.del(`/manager/landing/widgets/${widget.id}`);
+        toast('Виджет удалён');
+        await reloadLanding();
+      } catch (e) {
+        toast(friendly(e), true);
+      }
+    }
+
+    async function duplicateWidget(widget) {
+      try {
+        await api.post('/manager/landing/widgets', {
+          template: widget.template,
+          payload: widget.payload,
+          sort_order: sortedWidgets().length,
+        });
+        toast('Копия создана');
+        await reloadLanding();
+      } catch (e) {
+        toast(friendly(e), true);
+      }
+    }
+
+    async function toggleWidgetVisible(widget) {
+      try {
+        await api.patch(`/manager/landing/widgets/${widget.id}`, { is_visible: !widget.is_visible });
+        await reloadLanding();
+      } catch (e) {
+        toast(friendly(e), true);
+      }
+    }
+
+    function buildWidgetsZone() {
+      const widgets = sortedWidgets();
+      const visibleToGuest = widgets.filter((w) => w.is_visible);
+      if (!edit && !visibleToGuest.length) return null;
+
+      const zone = h('div', { class: 'profile-widgets-zone' });
+      for (const w of widgets) {
+        if (!edit && !w.is_visible) continue;
+        const wrap = h('div', { class: 'profile-widget-wrap' });
+        wrap.append(renderProfileWidget(w, { mode: 'app', onBook: () => navigate('book') }));
+        if (edit) {
+          wrap.append(
+            h('div', { class: 'profile-card-actions row' },
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openWidgetEditor(w, { onSaved: reloadLanding }) }, 'Изменить'),
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => duplicateWidget(w) }, 'Дублировать'),
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => moveWidget(w, -1) }, '↑'),
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => moveWidget(w, 1) }, '↓'),
+              h('button', { class: 'btn sm ghost', type: 'button', onclick: () => toggleWidgetVisible(w) }, w.is_visible ? 'Скрыть' : 'Показать'),
+              h('button', { class: 'btn sm danger', type: 'button', onclick: () => removeWidget(w) }, 'Удалить'),
+            ),
+          );
+        }
+        zone.append(wrap);
+      }
+      if (edit) {
+        const count = widgets.filter((w) => w.is_visible).length;
+        zone.append(
+          h('button', {
+            class: 'btn ghost profile-add-widget',
+            type: 'button',
+            onclick: () => openWidgetEditor(null, { sortOrder: widgets.length, onSaved: reloadLanding }),
+          }, icon('plus'), 'Добавить виджет'),
+          h('p', { class: 'tiny muted', style: { textAlign: 'center' } }, `${count} блоков на профиле`),
+        );
+      }
+      return zone;
+    }
+
+    const widgetsZone = buildWidgetsZone();
 
     if (edit) {
       sections.push(
@@ -573,7 +672,7 @@ export async function homeView() {
     }
 
     root.replaceChildren(cover, body);
-    body.replaceChildren(heroBody, ...sections);
+    body.replaceChildren(heroBody, widgetsZone, ...sections.filter(Boolean));
     if (!hasEmbed && hasMap) mountMap();
   }
 

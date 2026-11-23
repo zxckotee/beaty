@@ -58,7 +58,17 @@ const ICONS = {
   camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   chat: '<path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>',
+  vk: '<path d="M4 8h4.2c.3 2.2 1.4 3.9 2.9 5.2C11.2 8.8 13 7 15.5 4H20l-3.4 5c3.1 2.8 4.4 4.7 4.6 5.6h-4.8c-1.2-2.3-2.4-4.2-3.7-5.5l-1.5 5.5H8.5L4 8z"/>',
+  telegram: '<path d="M20 4 4 11l5.5 1.8L17 7.5 9.5 15l.3 5.2 3.2-2.8L18 20l2-16z"/>',
+  max: '<path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm6 5v2m0 4h.01"/>',
 };
+
+const SOCIAL_ICON_KEY = { vk: 'vk', telegram: 'telegram', max: 'max' };
+
+export function socialBrandIcon(preset) {
+  const key = SOCIAL_ICON_KEY[preset];
+  return key ? icon(key) : null;
+}
 
 export function icon(name) {
   const span = document.createElement('span');
