@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.domain.models import Notification, NotificationStatus
-from app.workers.telegram_sender import send_notification
+from app.workers.notification_delivery import send_notification
 
 logger = logging.getLogger(__name__)
 

@@ -4,6 +4,7 @@ from redis.asyncio import Redis
 from app.core import redis_client
 from app.core.settings import get_settings
 from app.domain.services import web_auth_service as auth
+from app.messenger.types import Channel
 
 
 @pytest.fixture(autouse=True)
@@ -30,16 +31,31 @@ def test_start_param_roundtrip() -> None:
 async def test_login_flow() -> None:
     code = await auth.create_login_request("tenant1")
     assert (await auth.poll_login(code, tenant_public_id="tenant1")).state == "pending"
-    ok = await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=42, display_name="Anna")
+    ok = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=42, display_name="Anna"
+    )
     assert ok.ok and ok.reason == "ok"
     poll = await auth.poll_login(code, tenant_public_id="tenant1")
     assert poll.state == "confirmed"
-    assert poll.telegram_user_id == 42
+    assert poll.messenger_user_id == 42
+
+
+async def test_login_flow_max() -> None:
+    code = await auth.create_login_request("tenant1")
+    ok = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.MAX, messenger_user_id=99, display_name="Max"
+    )
+    assert ok.ok
+    poll = await auth.poll_login(code, tenant_public_id="tenant1")
+    assert poll.channel is Channel.MAX
+    assert poll.messenger_user_id == 99
 
 
 async def test_code_is_bound_to_tenant() -> None:
     code = await auth.create_login_request("tenant1")
-    bad = await auth.confirm_login(code, tenant_public_id="other", telegram_user_id=1, display_name=None)
+    bad = await auth.confirm_login(
+        code, tenant_public_id="other", channel=Channel.TELEGRAM, messenger_user_id=1, display_name=None
+    )
     assert not bad.ok and bad.reason == "wrong_tenant"
     assert (await auth.poll_login(code, tenant_public_id="other")).state == "expired"
     assert (await auth.poll_login("unknown-code-123", tenant_public_id="tenant1")).state == "expired"
@@ -47,18 +63,28 @@ async def test_code_is_bound_to_tenant() -> None:
 
 async def test_confirmed_code_is_single_use() -> None:
     code = await auth.create_login_request("tenant1")
-    await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=7)
+    await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=7, display_name=None
+    )
     assert (await auth.poll_login(code, tenant_public_id="tenant1")).state == "confirmed"
     assert (await auth.poll_login(code, tenant_public_id="tenant1")).state == "expired"
-    reused = await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=7)
+    reused = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=7, display_name=None
+    )
     assert not reused.ok and reused.reason == "missing"
 
 
 async def test_confirm_idempotent_for_same_user() -> None:
     code = await auth.create_login_request("tenant1")
-    first = await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=11, display_name="A")
+    first = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=11, display_name="A"
+    )
     assert first.ok and first.reason == "ok"
-    again = await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=11, display_name="A")
+    again = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=11, display_name="A"
+    )
     assert again.ok and again.reason == "already_ok"
-    other = await auth.confirm_login(code, tenant_public_id="tenant1", telegram_user_id=12, display_name="B")
+    other = await auth.confirm_login(
+        code, tenant_public_id="tenant1", channel=Channel.TELEGRAM, messenger_user_id=12, display_name="B"
+    )
     assert not other.ok and other.reason == "used"

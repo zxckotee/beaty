@@ -18,6 +18,9 @@ PUBLIC_HTTPS_URL="${PUBLIC_HTTPS_URL:-}"
 PUBLIC_WEB_URL="${PUBLIC_WEB_URL:-}"
 TENANT_UI_MODE="${TENANT_UI_MODE:-both}"
 TELEGRAM_PROXY="${TELEGRAM_PROXY:-}"
+MAX_PLATFORM_BOT_TOKEN="${MAX_PLATFORM_BOT_TOKEN:-}"
+MAX_PLATFORM_WEBHOOK_SECRET="${MAX_PLATFORM_WEBHOOK_SECRET:-}"
+MAX_API_BASE_URL="${MAX_API_BASE_URL:-https://platform-api2.max.ru}"
 SENTRY_DSN="${SENTRY_DSN:-}"
 
 umask 077
@@ -69,6 +72,9 @@ DATABASE_URL=postgresql+asyncpg://beaty:${POSTGRES_PASSWORD}@postgres:5432/beaty
 REDIS_URL=redis://redis:6379/0
 
 PLATFORM_BOT_TOKEN=${TELEGRAM_SECRET}
+PLATFORM_MAX_BOT_TOKEN=${MAX_PLATFORM_BOT_TOKEN}
+MAX_PLATFORM_WEBHOOK_SECRET=${MAX_PLATFORM_WEBHOOK_SECRET}
+MAX_API_BASE_URL=${MAX_API_BASE_URL}
 TELEGRAM_PROXY=${TELEGRAM_PROXY}
 
 TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
@@ -87,5 +93,11 @@ chmod 600 "$ENV_FILE"
 ln -sf .env.prod "$DEPLOY_PATH/.env"
 ln -sf docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.yml"
 
+if [ -n "${MAX_PLATFORM_BOT_TOKEN}" ] && [ -z "${MAX_PLATFORM_WEBHOOK_SECRET}" ]; then
+  echo "WARN: MAX_PLATFORM_BOT_TOKEN set but MAX_PLATFORM_WEBHOOK_SECRET empty" >&2
+fi
+if [ -z "${MAX_PLATFORM_BOT_TOKEN}" ]; then
+  echo "NOTE: MAX platform bot not configured (optional)" >&2
+fi
 echo "Wrote $ENV_FILE (public URL: $PUBLIC_URL)"
 echo "Linked .env and docker-compose.yml for plain docker-compose logs/ps on the server"

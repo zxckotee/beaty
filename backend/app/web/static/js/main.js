@@ -1,5 +1,5 @@
 import { api, friendly, tenantId } from './api.js';
-import { isTelegramWebApp, prepareTelegramChrome, telegramInitData } from './telegram.js';
+import { detectChannel, initData, isMessengerWebApp, prepareChrome } from './messenger.js';
 import { brandMark, clear, h, icon } from './util.js';
 import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
@@ -209,12 +209,14 @@ async function boot() {
     return;
   }
   applyBrand();
-  if (isTelegramWebApp()) {
-    prepareTelegramChrome();
-    const initData = telegramInitData();
-    if (initData) {
+  if (isMessengerWebApp()) {
+    prepareChrome();
+    const payload = initData();
+    const channel = detectChannel();
+    if (payload && channel) {
       try {
-        await api.post('/auth/telegram', { init_data: initData });
+        const path = channel === 'max' ? '/auth/max' : '/auth/telegram';
+        await api.post(path, { init_data: payload });
       } catch (e) {
         toast(friendly(e), true);
       }
