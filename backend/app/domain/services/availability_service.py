@@ -39,9 +39,9 @@ from app.domain.services.slot_repository import (
     WORK_OVERRIDE_KIND,
     _busy_intervals,
     _exception_busy,
-    block_intervals_for_day,
     _slot_rules_from_tenant,
     _work_intervals_for_day,
+    block_intervals_for_day,
 )
 from app.domain.slots import SlotRules, TimeInterval, compute_slots, subtract_busy
 
