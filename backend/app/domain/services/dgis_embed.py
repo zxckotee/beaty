@@ -6,6 +6,7 @@ import json
 from typing import Any
 from urllib.parse import quote
 
+from app.domain.models import TenantLanding
 from app.domain.services.dgis_url import parse_dgis_url
 
 _MAX_FIRMS = 20
@@ -86,7 +87,7 @@ def normalize_dgis_locations(raw: list[Any] | None) -> list[dict[str, Any]]:
     return out
 
 
-def landing_locations_from_row(landing) -> list[dict[str, Any]]:
+def landing_locations_from_row(landing: TenantLanding) -> list[dict[str, Any]]:
     stored = getattr(landing, "dgis_locations", None) or []
     if stored:
         return list(stored)
@@ -105,7 +106,7 @@ def landing_locations_from_row(landing) -> list[dict[str, Any]]:
     return legacy
 
 
-def sync_legacy_dgis_fields(landing, locations: list[dict[str, Any]]) -> None:
+def sync_legacy_dgis_fields(landing: TenantLanding, locations: list[dict[str, Any]]) -> None:
     if not locations:
         landing.dgis_url = None
         landing.dgis_firm_id = None
@@ -121,7 +122,7 @@ def sync_legacy_dgis_fields(landing, locations: list[dict[str, Any]]) -> None:
     landing.map_zoom = primary.get("map_zoom")
 
 
-def dgis_map_payload(landing) -> dict[str, Any]:
+def dgis_map_payload(landing: TenantLanding) -> dict[str, Any]:
     locations = landing_locations_from_row(landing)
     firm_ids = [str(x["firm_id"]) for x in locations if x.get("firm_id")]
     embed_src = build_firmsonmap_embed_src(firm_ids)
