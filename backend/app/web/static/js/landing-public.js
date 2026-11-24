@@ -35,15 +35,39 @@ function bookUrl(tenantId, botUsername) {
   return `/t/${tenantId}/#/book`;
 }
 
-function initMap(lon, lat, zoom, title) {
+function mapPointsFromData(data) {
+  const pts = [];
+  for (const loc of data.dgis_locations || []) {
+    if (loc.map_lat != null && loc.map_lon != null) {
+      pts.push({ lat: Number(loc.map_lat), lon: Number(loc.map_lon), label: loc.label || '' });
+    }
+  }
+  if (!pts.length && data.map_lat != null && data.map_lon != null) {
+    pts.push({ lat: Number(data.map_lat), lon: Number(data.map_lon), label: data.title || '' });
+  }
+  return pts;
+}
+
+function initMapFromPoints(data) {
+  const pts = mapPointsFromData(data);
   const mapEl = document.getElementById('studio-map');
-  if (!mapEl || !window.L) return;
-  const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], zoom || 17);
+  if (!mapEl || !window.L || !pts.length) return;
+  const map = L.map(mapEl, { scrollWheelZoom: false });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap',
     maxZoom: 19,
   }).addTo(map);
-  L.marker([lat, lon]).addTo(map).bindPopup(title || '');
+  const markers = [];
+  for (const p of pts) {
+    const m = L.marker([p.lat, p.lon]).addTo(map);
+    if (p.label) m.bindPopup(p.label);
+    markers.push(m);
+  }
+  if (pts.length === 1) {
+    map.setView([pts[0].lat, pts[0].lon], data.map_zoom || 17);
+  } else {
+    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.12));
+  }
   setTimeout(() => map.invalidateSize(), 200);
 }
 
@@ -125,7 +149,7 @@ function render(data, tenantId) {
   if (hasDgisMap || data.dgis_url || (data.map_lat != null && data.map_lon != null)) {
     const sec = el('section', { class: 'studio-section' });
     sec.append(el('h2', null, 'Как нас найти'));
-    if (!hasDgisMap && data.map_lat != null && data.map_lon != null) {
+    if (!hasDgisMap && mapPointsFromData(data).length) {
       sec.append(el('div', { class: 'map-wrap' }, el('div', { id: 'studio-map' })));
     }
     const actions = el('div', { class: 'map-actions' });
@@ -191,8 +215,8 @@ function render(data, tenantId) {
   root.append(wrap);
 
   const usedDgisEmbed = Boolean(data.dgis_embed_src || data.dgis_embed_html);
-  if (!usedDgisEmbed && data.map_lat != null && data.map_lon != null) {
-    initMap(Number(data.map_lon), Number(data.map_lat), data.map_zoom, data.title);
+  if (!usedDgisEmbed && mapPointsFromData(data).length) {
+    initMapFromPoints(data);
   }
   loadFloorsScript(data.dgis_complex_id, data.dgis_firm_id);
 }

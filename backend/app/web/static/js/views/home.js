@@ -419,24 +419,47 @@ export async function homeView() {
     });
   }
 
+  function mapPointsFromData(d) {
+    const pts = [];
+    for (const loc of d.dgis_locations || []) {
+      if (loc.map_lat != null && loc.map_lon != null) {
+        pts.push({ lat: Number(loc.map_lat), lon: Number(loc.map_lon), label: loc.label || '' });
+      }
+    }
+    if (!pts.length && d.map_lat != null && d.map_lon != null) {
+      pts.push({ lat: Number(d.map_lat), lon: Number(d.map_lon), label: d.title || '' });
+    }
+    return pts;
+  }
+
   async function mountMap() {
-    if (data.map_lat == null || data.map_lon == null || !mapEl) return;
+    const pts = mapPointsFromData(data);
+    if (!pts.length || !mapEl) return;
     try {
       await ensureLeaflet();
     } catch {
       return;
     }
     destroyMap();
-    map = window.L.map(mapEl, { scrollWheelZoom: false, attributionControl: true }).setView(
-      [data.map_lat, data.map_lon],
-      data.map_zoom || 16,
-    );
+    const zoom = data.map_zoom || 16;
+    map = window.L.map(mapEl, { scrollWheelZoom: false, attributionControl: true });
     if (map.attributionControl) map.attributionControl.setPrefix('');
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
-    window.L.marker([data.map_lat, data.map_lon]).addTo(map);
+    const markers = [];
+    for (const p of pts) {
+      const m = window.L.marker([p.lat, p.lon]).addTo(map);
+      if (p.label) m.bindPopup(p.label);
+      markers.push(m);
+    }
+    if (pts.length === 1) {
+      map.setView([pts[0].lat, pts[0].lon], zoom);
+    } else {
+      const group = window.L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.12));
+    }
     setTimeout(() => map.invalidateSize(), 80);
   }
 
@@ -663,7 +686,7 @@ export async function homeView() {
     }
 
     const hasEmbed = hasDgisMap(data);
-    const hasMap = data.map_lat != null && data.map_lon != null;
+    const hasMap = mapPointsFromData(data).length > 0;
     const showMap = edit || hasEmbed || hasMap || data.dgis_url;
     if (showMap) {
       const mapBlock = h('section', { class: 'profile-section' }, h('h2', null, 'Как нас найти'));
