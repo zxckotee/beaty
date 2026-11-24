@@ -1,11 +1,33 @@
-:root {
-  --bg: #0f1115;
-  --card: #171a21;
-  --text: #f4f5f7;
-  --muted: #9aa3b2;
-  --accent: #7c6cf0;
-  --line: rgba(255, 255, 255, 0.08);
+:root,
+[data-theme="dark"] {
+  --ui-gold: #b8a06a;
+  --ui-gold-deep: #948256;
+  --neon: #e879f9;
+  --neon-2: #a855f7;
+  --bg: #000;
+  --card: color-mix(in srgb, #141414 72%, transparent);
+  --text: #ececec;
+  --muted: #9a9a9a;
+  --accent: var(--ui-gold);
+  --accent-ink: #1a1a1a;
+  --line: color-mix(in srgb, #fff 8%, transparent);
+  --glass-blur: 16px;
+  --glow-opacity: 0.35;
+  --body-gradient: repeating-radial-gradient(circle at 50% 40%, #1a1020 0, transparent 120px);
   --max: 720px;
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg: #ececec;
+  --card: color-mix(in srgb, #f5f5f5 88%, transparent);
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --neon: #c084d8;
+  --neon-2: #9b6fd4;
+  --line: color-mix(in srgb, #000 8%, transparent);
+  --glow-opacity: 0.18;
+  --body-gradient: repeating-radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--neon-2) 8%, transparent) 0, transparent 120px);
+  color-scheme: light;
 }
 
 * {
@@ -13,13 +35,61 @@
 }
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
+  background-image: var(--body-gradient);
   color: var(--text);
   line-height: 1.45;
+  overflow-x: hidden;
+}
+.studio-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: var(--glow-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+.studio-glow--a {
+  width: 360px;
+  height: 360px;
+  top: -60px;
+  right: -40px;
+  background: radial-gradient(circle, var(--neon), transparent 70%);
+}
+.studio-glow--b {
+  width: 300px;
+  height: 300px;
+  bottom: 8%;
+  left: -60px;
+  background: radial-gradient(circle, var(--ui-gold), transparent 70%);
+}
+.studio-theme-fab {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.studio-theme-fab .ico svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .studio {
+  position: relative;
+  z-index: 1;
   max-width: var(--max);
   margin: 0 auto;
   padding-bottom: 48px;
@@ -31,7 +101,7 @@ body {
 }
 .studio-cover {
   height: clamp(160px, 38vw, 260px);
-  background: linear-gradient(135deg, #5b4bb4, #c75b8a);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--neon-2) 55%, #000), color-mix(in srgb, var(--ui-gold) 45%, var(--neon)));
   background-size: cover;
   background-position: center;
 }
@@ -56,8 +126,8 @@ body {
   place-items: center;
   font-weight: 800;
   font-size: 2rem;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), #d46a8f);
+  color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--ui-gold), var(--ui-gold-deep));
 }
 .studio-title {
   margin: 0 0 6px;
@@ -82,10 +152,11 @@ body {
   gap: 8px;
   padding: 12px 22px;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: linear-gradient(135deg, var(--ui-gold), var(--ui-gold-deep));
+  color: var(--accent-ink);
   text-decoration: none;
   font-weight: 650;
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--ui-gold) 35%, transparent);
 }
 
 .studio-section {
@@ -110,6 +181,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
+  backdrop-filter: blur(var(--glass-blur));
 }
 .portfolio-card img {
   width: 100%;
@@ -165,11 +237,13 @@ body {
   color: var(--text);
   text-decoration: none;
   font-weight: 600;
+  background: var(--card);
+  backdrop-filter: blur(8px);
 }
 .map-actions a.primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--ui-gold), var(--ui-gold-deep));
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-ink);
 }
 .dgis-embed,
 .floors-wrap {
@@ -189,6 +263,7 @@ body {
   border-radius: 16px;
   padding: 14px 16px;
   margin-bottom: 12px;
+  backdrop-filter: blur(var(--glass-blur));
 }
 .post-card h3 {
   margin: 0 0 8px;
@@ -217,7 +292,7 @@ body {
 }
 
 .leaflet-container {
-  background: #1a1d24;
+  background: color-mix(in srgb, var(--card) 90%, var(--bg));
 }
 
 .studio-widgets .pw {
@@ -225,6 +300,7 @@ body {
   border: 1px solid var(--line);
   background: var(--card);
   padding: clamp(14px, 3vw, 22px);
+  backdrop-filter: blur(var(--glass-blur));
 }
 .studio-widgets .pw-text { color: var(--muted); }
 .studio-widgets .pw-action {
@@ -236,7 +312,7 @@ body {
   font-weight: 650;
   text-decoration: none;
   background: var(--pw-btn-bg, var(--accent));
-  color: var(--pw-btn-fg, #fff);
+  color: var(--pw-btn-fg, var(--accent-ink));
 }
 .studio-widgets .pw-action--outline {
   background: transparent;
@@ -249,4 +325,9 @@ body {
 .studio-widgets .pw-action--vk { --pw-btn-bg: #0077ff; --pw-btn-fg: #fff; }
 .studio-widgets .pw-action--telegram { --pw-btn-bg: #2aabee; --pw-btn-fg: #fff; }
 .studio-widgets .pw-action--max { --pw-btn-bg: #5c3be8; --pw-btn-fg: #fff; }
+.studio-widgets .pw-action--vk,
+.studio-widgets .pw-action--telegram,
+.studio-widgets .pw-action--max {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--pw-btn-bg) 35%, transparent);
+}
 .studio-widgets .ico svg { width: 18px; height: 18px; }
