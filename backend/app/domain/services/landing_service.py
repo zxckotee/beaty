@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import NotFoundError
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant, TenantLanding
-from app.domain.services.dgis_embed import normalize_dgis_locations, sync_legacy_dgis_fields
+from app.domain.services.dgis_catalog import enrich_locations_coords
+from app.domain.services.dgis_embed import landing_locations_from_row, normalize_dgis_locations, sync_legacy_dgis_fields
 from app.domain.services.landing_widget_payload import WIDGET_TEMPLATES
 
 
@@ -30,13 +31,16 @@ async def update_landing(
     landing = await get_or_create_landing(session, tenant.id)
     if "dgis_locations" in changes:
         locs = normalize_dgis_locations(changes.pop("dgis_locations"))
+        locs = await enrich_locations_coords(locs)
         landing.dgis_locations = locs
         landing.dgis_embed_html = None
         sync_legacy_dgis_fields(landing, locs)
     elif "dgis_url" in changes:
         raw = changes.pop("dgis_url")
         if raw:
-            locs = normalize_dgis_locations([{"dgis_url": str(raw).strip()}])
+            locs = await enrich_locations_coords(
+                normalize_dgis_locations([{"dgis_url": str(raw).strip()}])
+            )
             landing.dgis_locations = locs
             landing.dgis_embed_html = None
             sync_legacy_dgis_fields(landing, locs)
@@ -50,6 +54,17 @@ async def update_landing(
         if hasattr(landing, key):
             setattr(landing, key, val)
     return landing
+
+
+def persist_legacy_dgis_locations(landing: TenantLanding) -> bool:
+    """Copy legacy dgis_url row into dgis_locations JSON when column is still empty."""
+    if landing.dgis_locations:
+        return False
+    locs = landing_locations_from_row(landing)
+    if not locs:
+        return False
+    landing.dgis_locations = locs
+    return True
 
 
 async def list_portfolio(session: AsyncSession, tenant_id: uuid.UUID) -> list[LandingPortfolioItem]:

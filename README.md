@@ -164,13 +164,15 @@ docker compose ps
 
 ## Лендинг и 2ГИС (опционально)
 
-Публичный профиль салона: `/t/{public_id}/` (редактирование менеджером прямо на странице). Запись — кнопка «Записаться» или `#/book`. Карта строится по координатам из ссылки 2ГИС (Leaflet + OpenStreetMap) без API-ключей.
+Публичный профиль салона: `/t/{public_id}/` (редактирование менеджером на странице профиля). Запись — «Записаться» или `#/book`.
 
-Опциональные переменные окружения для будущей интеграции Catalog / MapGL:
+**Карта 2ГИС:** менеджер указывает ссылки на филиалы (`…/firm/<id>`), можно несколько. Бэкенд строит один виджет [firmsonmap](https://widgets.2gis.com/) без API-ключа; на профиле — один iframe со всеми точками. Подробнее: [docs/dgis-profile-map.md](docs/dgis-profile-map.md).
+
+Запасной вариант без виджета: Leaflet + OpenStreetMap с маркерами по координатам из ссылок.
 
 | Переменная | Назначение |
 | --- | --- |
-| `DGIS_CATALOG_API_KEY` | Авто-адрес и `building_id` по `firm_id` |
-| `DGIS_MAPGL_KEY` | Встроенная карта 2ГИС вместо или вместе с OSM |
+| `DGIS_CATALOG_API_KEY` | (фаза 2) координаты по `firm_id`, если их нет в URL — см. [docs/dgis-mapgl-phase2.md](docs/dgis-mapgl-phase2.md) |
+| `DGIS_MAPGL_KEY` | (фаза 2) MapGL вместо iframe |
 
 Перед выкладкой Mini App на домен — [docs/pilot-checklist.md](docs/pilot-checklist.md).

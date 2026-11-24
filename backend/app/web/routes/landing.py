@@ -18,6 +18,7 @@ from app.domain.services.landing_service import (
     list_portfolio,
     list_posts,
     list_widgets,
+    persist_legacy_dgis_locations,
     reorder_widgets,
     update_landing,
     validate_template,
@@ -153,6 +154,8 @@ async def manager_get_landing(
 ) -> dict[str, object]:
     tenant = writable(ctx)
     landing = await get_or_create_landing(session, tenant.id)
+    if persist_legacy_dgis_locations(landing):
+        await session.commit()
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=False)
     widgets = await list_widgets(session, tenant.id, visible_only=False)
