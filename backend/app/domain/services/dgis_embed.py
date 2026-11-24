@@ -64,8 +64,7 @@ def location_from_url(raw: str, *, label: str | None = None) -> dict[str, Any] |
 def normalize_dgis_locations(raw: list[Any] | None) -> list[dict[str, Any]]:
     if not raw:
         return []
-    out: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    by_firm: dict[str, dict[str, Any]] = {}
     for item in raw:
         if isinstance(item, str):
             url = item.strip()
@@ -78,13 +77,17 @@ def normalize_dgis_locations(raw: list[Any] | None) -> list[dict[str, Any]]:
         if not url:
             continue
         loc = location_from_url(url, label=str(label) if label else None)
-        if loc is None or loc["firm_id"] in seen:
+        if loc is None:
             continue
-        seen.add(loc["firm_id"])
-        out.append(loc)
-        if len(out) >= _MAX_FIRMS:
+        fid = loc["firm_id"]
+        if fid in by_firm:
+            if loc.get("label") and not by_firm[fid].get("label"):
+                by_firm[fid]["label"] = loc["label"]
+            continue
+        by_firm[fid] = loc
+        if len(by_firm) >= _MAX_FIRMS:
             break
-    return out
+    return list(by_firm.values())
 
 
 def landing_locations_from_row(landing: TenantLanding) -> list[dict[str, Any]]:
