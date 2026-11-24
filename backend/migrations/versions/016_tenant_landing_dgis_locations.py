@@ -8,8 +8,8 @@ Create Date: 2025-11-24
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "016_dgis_locations"

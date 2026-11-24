@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant
-from app.domain.services.dgis_embed import dgis_map_payload, normalize_dgis_locations
+from app.domain.services.dgis_embed import dgis_map_payload
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (
     get_or_create_landing,
