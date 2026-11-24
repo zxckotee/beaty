@@ -1,6 +1,7 @@
 import { api, friendly, tenantId } from './api.js';
 import { isTelegramWebApp, prepareTelegramChrome, telegramInitData } from './telegram.js';
 import { brandMark, clear, h, icon } from './util.js';
+import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
 import { isManager, isSpecialist, loadInfo, loadMe, store } from './store.js';
 import { toast } from './ui.js';
 import { loginView } from './views/login.js';
@@ -90,9 +91,15 @@ function applyBrand() {
   const root = document.documentElement;
   root.style.removeProperty('--brand');
   root.style.removeProperty('--accent');
-  const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.setAttribute('content', '#000000');
   document.title = store.info ? `${store.info.name} · запись онлайн` : 'Запись онлайн';
+}
+
+function ensureAppGlow() {
+  if (document.querySelector('.app-glow--a')) return;
+  document.body.prepend(
+    h('div', { class: 'app-glow app-glow--a', 'aria-hidden': 'true' }),
+    h('div', { class: 'app-glow app-glow--b', 'aria-hidden': 'true' }),
+  );
 }
 
 function navRouteActive(route, current, sub) {
@@ -109,6 +116,7 @@ function header(route, sub = '') {
       { class: 'header header--profile-guest' },
       h('a', { class: 'brand', href: '#/home' }, brandMark(store.info)),
       h('div', { class: 'header-spacer' }),
+      themeToggleButton(),
       h('a', { class: 'btn sm primary', href: '#/book' }, 'Записаться'),
     );
   }
@@ -140,6 +148,7 @@ function header(route, sub = '') {
   } else {
     right.append(h('a', { class: 'btn sm primary', href: '#/login' }, 'Войти'));
   }
+  right.prepend(themeToggleButton());
   const name = store.info ? store.info.name : '';
   return h(
     'header',
@@ -233,6 +242,8 @@ async function render() {
 }
 
 async function boot() {
+  applyTheme(resolveInitialTheme());
+  ensureAppGlow();
   if (!tenantId) {
     app.textContent = 'Откройте ссылку вашего салона.';
     return;

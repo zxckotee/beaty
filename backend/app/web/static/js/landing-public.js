@@ -28,6 +28,7 @@ function initials(name) {
 }
 
 import { renderProfileWidget } from './profile-widgets.js';
+import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
 
 function bookUrl(tenantId, botUsername) {
   if (botUsername) return `https://t.me/${botUsername}?start=book`;
@@ -168,7 +169,15 @@ function render(data, tenantId) {
   loadFloorsScript(data.dgis_complex_id, data.dgis_firm_id);
 }
 
+function mountStudioChrome() {
+  applyTheme(resolveInitialTheme());
+  const fab = themeToggleButton();
+  fab.className = 'studio-theme-fab theme-toggle';
+  document.body.append(fab);
+}
+
 async function main() {
+  mountStudioChrome();
   const tenantId = tenantFromPath();
   const root = document.getElementById('studio-root');
   if (!tenantId) {

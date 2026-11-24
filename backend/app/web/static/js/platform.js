@@ -1,4 +1,10 @@
+import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
+
 async function boot() {
+  applyTheme(resolveInitialTheme());
+  const cta = document.querySelector('.platform-nav-cta');
+  if (cta) cta.insertBefore(themeToggleButton(), cta.firstChild);
+
   const demoLinks = document.querySelectorAll('[data-demo-link]');
   const tgLink = document.querySelector('[data-tg-platform]');
   const hint = document.querySelector('[data-platform-hint]');
