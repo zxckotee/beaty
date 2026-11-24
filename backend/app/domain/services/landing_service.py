@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import uuid
 from typing import Any
 
@@ -9,26 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.exceptions import NotFoundError
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant, TenantLanding
-from app.domain.services.dgis_url import parse_dgis_url
+from app.domain.services.dgis_embed import normalize_dgis_locations, sync_legacy_dgis_fields
 from app.domain.services.landing_widget_payload import WIDGET_TEMPLATES
-
-_IFRAME_2GIS = re.compile(r"<iframe[\s\S]*?src=[\"'](https://[^\"']*2gis[^\"']*)[\"']", re.IGNORECASE)
-
-
-def sanitize_dgis_embed(html: str | None) -> str | None:
-    if not html or not html.strip():
-        return None
-    text = html.strip()
-    if "<script" in text.lower():
-        return None
-    m = _IFRAME_2GIS.search(text)
-    if not m:
-        return None
-    src = m.group(1)
-    return (
-        f'<iframe src="{src}" width="100%" height="100%" style="border:0;" '
-        'loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
-    )
 
 
 async def get_or_create_landing(session: AsyncSession, tenant_id: uuid.UUID) -> TenantLanding:
@@ -47,24 +28,24 @@ async def update_landing(
     changes: dict[str, Any],
 ) -> TenantLanding:
     landing = await get_or_create_landing(session, tenant.id)
-    if "dgis_url" in changes:
+    if "dgis_locations" in changes:
+        locs = normalize_dgis_locations(changes.pop("dgis_locations"))
+        landing.dgis_locations = locs
+        landing.dgis_embed_html = None
+        sync_legacy_dgis_fields(landing, locs)
+    elif "dgis_url" in changes:
         raw = changes.pop("dgis_url")
         if raw:
-            parsed = parse_dgis_url(str(raw))
-            landing.dgis_url = parsed.dgis_url or str(raw).strip()
-            if parsed.firm_id:
-                landing.dgis_firm_id = parsed.firm_id
-            if parsed.map_lon is not None:
-                landing.map_lon = parsed.map_lon
-            if parsed.map_lat is not None:
-                landing.map_lat = parsed.map_lat
-            if parsed.map_zoom is not None:
-                landing.map_zoom = parsed.map_zoom
+            locs = normalize_dgis_locations([{"dgis_url": str(raw).strip()}])
+            landing.dgis_locations = locs
+            landing.dgis_embed_html = None
+            sync_legacy_dgis_fields(landing, locs)
         else:
-            landing.dgis_url = None
-            landing.dgis_firm_id = None
+            landing.dgis_locations = []
+            landing.dgis_embed_html = None
+            sync_legacy_dgis_fields(landing, [])
     if "dgis_embed_html" in changes:
-        changes["dgis_embed_html"] = sanitize_dgis_embed(changes.get("dgis_embed_html"))
+        changes.pop("dgis_embed_html")
     for key, val in changes.items():
         if hasattr(landing, key):
             setattr(landing, key, val)

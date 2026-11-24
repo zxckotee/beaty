@@ -510,6 +510,7 @@ class TenantLanding(Base):
     dgis_firm_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dgis_complex_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dgis_embed_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dgis_locations: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     map_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     map_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     map_zoom: Mapped[float | None] = mapped_column(Float, nullable=True)

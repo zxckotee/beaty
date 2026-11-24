@@ -34,21 +34,33 @@ export async function landingView() {
     const tagline = h('textarea', { class: 'textarea', placeholder: 'Девиз (курсив)' }, data.tagline || '');
     const cover = photoPicker({ url: data.cover_url, name: data.title || 'Cover', square: true });
     const avatar = photoPicker({ url: data.avatar_url, name: data.title || 'A', square: false });
-    const dgis = h('input', { class: 'input', value: data.dgis_url || '', placeholder: 'Ссылка 2ГИС' });
+    const dgisRows = h('div', { class: 'col', style: { gap: '8px' } });
+    const locs = (data.dgis_locations && data.dgis_locations.length)
+      ? data.dgis_locations
+      : data.dgis_url
+        ? [{ dgis_url: data.dgis_url, label: '' }]
+        : [{ dgis_url: '', label: '' }];
+    const locInputs = [];
+    for (const loc of locs) {
+      const inp = h('input', { class: 'input', value: loc.dgis_url || '', placeholder: 'Ссылка 2ГИС на филиал' });
+      locInputs.push(inp);
+      dgisRows.append(inp);
+    }
     const complex = h('input', { class: 'input', value: data.dgis_complex_id || '', placeholder: 'complex_id (ТЦ, опционально)' });
-    const embed = h('textarea', { class: 'textarea', placeholder: 'iframe из конструктора 2ГИС' }, data.dgis_embed_html || '');
     const lon = h('input', { class: 'input', type: 'number', step: 'any', value: data.map_lon ?? '', placeholder: 'Долгота' });
     const lat = h('input', { class: 'input', type: 'number', step: 'any', value: data.map_lat ?? '', placeholder: 'Широта' });
     const zoom = h('input', { class: 'input', type: 'number', step: 'any', value: data.map_zoom ?? '', placeholder: 'Zoom' });
     const parseBtn = h('button', { class: 'btn sm', type: 'button' }, 'Разобрать ссылку');
 
     parseBtn.addEventListener('click', async () => {
+      const first = locInputs[0];
+      if (!first || !first.value.trim()) return;
       try {
-        const parsed = await api.post('/manager/landing/dgis/parse', { url: dgis.value.trim() });
+        const parsed = await api.post('/manager/landing/dgis/parse', { url: first.value.trim() });
         if (parsed.map_lon != null) lon.value = parsed.map_lon;
         if (parsed.map_lat != null) lat.value = parsed.map_lat;
         if (parsed.map_zoom != null) zoom.value = parsed.map_zoom;
-        if (parsed.dgis_url) dgis.value = parsed.dgis_url;
+        if (parsed.dgis_url) first.value = parsed.dgis_url;
         toast('Ссылка разобрана');
       } catch (e) {
         toast(friendly(e), true);
@@ -91,11 +103,10 @@ export async function landingView() {
       avatar.el,
       field('Название', title),
       field('Девиз', tagline),
-      field('Ссылка 2ГИС', h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, dgis, parseBtn)),
+      field('Ссылки на филиалы 2ГИС', h('div', { class: 'col', style: { gap: '8px' } }, dgisRows, parseBtn)),
       h('div', { class: 'grid2' }, field('Долгота', lon), field('Широта', lat)),
       field('Масштаб карты', zoom),
       field('complex_id (FloorsJS)', complex),
-      field('Код виджета 2ГИС', embed),
       h('h3', null, 'Портфолио'),
       portfolioList,
       h('button', { class: 'btn sm', type: 'button', onclick: () => editPortfolio(null) }, icon('plus'), 'Добавить работу'),
@@ -111,9 +122,10 @@ export async function landingView() {
           const payload = {
             title: title.value.trim() || null,
             tagline: tagline.value.trim() || null,
-            dgis_url: dgis.value.trim() || null,
+            dgis_locations: locInputs
+              .map((inp) => ({ dgis_url: inp.value.trim() }))
+              .filter((row) => row.dgis_url),
             dgis_complex_id: complex.value.trim() || null,
-            dgis_embed_html: embed.value.trim() || null,
             map_lon: lon.value === '' ? null : Number(lon.value),
             map_lat: lat.value === '' ? null : Number(lat.value),
             map_zoom: zoom.value === '' ? null : Number(zoom.value),

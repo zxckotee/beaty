@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant
+from app.domain.services.dgis_embed import dgis_map_payload, normalize_dgis_locations
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (
     get_or_create_landing,
@@ -47,6 +48,7 @@ def _landing_dict(
     *,
     tenant: Tenant,
 ) -> dict[str, object]:
+    dgis = dgis_map_payload(landing)
     return {
         "title": landing.title or tenant.name,
         "tagline": landing.tagline,
@@ -54,7 +56,9 @@ def _landing_dict(
         "avatar_url": landing.avatar_url,
         "dgis_url": landing.dgis_url,
         "dgis_firm_id": landing.dgis_firm_id,
-        "dgis_embed_html": landing.dgis_embed_html,
+        "dgis_locations": dgis["dgis_locations"],
+        "dgis_embed_src": dgis["dgis_embed_src"],
+        "dgis_embed_html": dgis["dgis_embed_html"],
         "map_lon": landing.map_lon,
         "map_lat": landing.map_lat,
         "map_zoom": landing.map_zoom,
@@ -95,10 +99,16 @@ async def public_landing(
     return _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
 
 
+class DgisLocationIn(BaseModel):
+    dgis_url: str = Field(min_length=4, max_length=2000)
+    label: str | None = Field(default=None, max_length=120)
+
+
 class LandingPatch(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     tagline: str | None = Field(default=None, max_length=4000)
     dgis_url: str | None = None
+    dgis_locations: list[DgisLocationIn] | None = Field(default=None, max_length=20)
     dgis_embed_html: str | None = Field(default=None, max_length=12000)
 
 

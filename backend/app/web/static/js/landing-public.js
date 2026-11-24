@@ -121,19 +121,46 @@ function render(data, tenantId) {
     wrap.append(sec);
   }
 
-  if (data.dgis_url || (data.map_lat != null && data.map_lon != null)) {
+  const hasDgisMap = data.dgis_embed_src || (data.dgis_locations && data.dgis_locations.length) || data.dgis_embed_html;
+  if (hasDgisMap || data.dgis_url || (data.map_lat != null && data.map_lon != null)) {
     const sec = el('section', { class: 'studio-section' });
     sec.append(el('h2', null, 'Как нас найти'));
-    if (data.map_lat != null && data.map_lon != null) {
+    if (!hasDgisMap && data.map_lat != null && data.map_lon != null) {
       sec.append(el('div', { class: 'map-wrap' }, el('div', { id: 'studio-map' })));
     }
     const actions = el('div', { class: 'map-actions' });
-    if (data.dgis_url) {
-      actions.append(el('a', { class: 'primary', href: data.dgis_url, target: '_blank', rel: 'noopener' }, 'Открыть в 2ГИС'));
+    const locs =
+      (data.dgis_locations && data.dgis_locations.length)
+        ? data.dgis_locations
+        : data.dgis_url
+          ? [{ dgis_url: data.dgis_url, label: null }]
+          : [];
+    for (const loc of locs) {
+      if (loc.dgis_url) {
+        actions.append(
+          el('a', {
+            class: locs.length === 1 ? 'primary' : '',
+            href: loc.dgis_url,
+            target: '_blank',
+            rel: 'noopener',
+          }, loc.label || 'Открыть в 2ГИС'),
+        );
+      }
     }
     actions.append(el('a', { href: bookUrl(tenantId, data.bot_username) }, 'Онлайн-запись'));
     sec.append(actions);
-    if (data.dgis_embed_html) {
+    if (data.dgis_embed_src) {
+      const embedWrap = el('div', { class: 'dgis-embed' });
+      embedWrap.append(
+        el('iframe', {
+          src: data.dgis_embed_src,
+          title: 'Карта 2ГИС',
+          loading: 'lazy',
+          style: 'border:0;width:100%;height:100%;min-height:320px',
+        }),
+      );
+      sec.append(embedWrap);
+    } else if (data.dgis_embed_html) {
       sec.append(el('div', { class: 'dgis-embed', html: data.dgis_embed_html }));
     }
     if (data.dgis_complex_id && data.dgis_firm_id) {
@@ -163,7 +190,8 @@ function render(data, tenantId) {
 
   root.append(wrap);
 
-  if (data.map_lat != null && data.map_lon != null) {
+  const usedDgisEmbed = Boolean(data.dgis_embed_src || data.dgis_embed_html);
+  if (!usedDgisEmbed && data.map_lat != null && data.map_lon != null) {
     initMap(Number(data.map_lon), Number(data.map_lat), data.map_zoom, data.title);
   }
   loadFloorsScript(data.dgis_complex_id, data.dgis_firm_id);
