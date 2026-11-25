@@ -832,6 +832,8 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .leaflet-container { background: var(--surface-2); }
 .leaflet-attribution-flag,
 .leaflet-control-attribution img.leaflet-attribution-flag { display: none !important; }
+.profile-map-wrap .leaflet-control-attribution,
+.map-wrap .leaflet-control-attribution { display: none !important; }
 .profile-dgis-embed {
   min-height: clamp(280px, 45vw, 400px);
   border-radius: 16px;

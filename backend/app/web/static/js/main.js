@@ -13,7 +13,7 @@ import { bookView } from './views/book.js';
 import { mineView } from './views/mine.js';
 import { scheduleEditView } from './views/schedule-edit.js';
 import { scheduleRulesView } from './views/schedule-rules.js';
-import { homeView } from './views/home.js?v=20';
+import { homeView } from './views/home.js?v=21';
 import { messagesView } from './views/messages.js';
 import { chatsView } from './views/chats.js';
 

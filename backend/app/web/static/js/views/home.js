@@ -5,11 +5,14 @@ import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.j
 import { openWidgetEditor } from '../profile-widget-editor.js?v=23';
 import { renderProfileWidget } from '../profile-widgets.js?v=17';
 import {
+  addOsmMarkers,
+  createOsmMapLayer,
   hasDgisBranches,
   hasDgisIframe,
   hasInteractiveMapPoints,
   mapPointsFromData,
-} from '../dgis-map-view.js?v=1';
+  shouldShowDgisEmbedPrimary,
+} from '../dgis-map-view.js?v=3';
 import { h, hueFor, icon, initials, syncHeaderBrand } from '../util.js';
 
 let leafletPromise = null;
@@ -418,19 +421,6 @@ export async function homeView() {
     });
   }
 
-  function mapPointsFromData(d) {
-    const pts = [];
-    for (const loc of d.dgis_locations || []) {
-      if (loc.map_lat != null && loc.map_lon != null) {
-        pts.push({ lat: Number(loc.map_lat), lon: Number(loc.map_lon), label: loc.label || '' });
-      }
-    }
-    if (!pts.length && d.map_lat != null && d.map_lon != null) {
-      pts.push({ lat: Number(d.map_lat), lon: Number(d.map_lon), label: d.title || '' });
-    }
-    return pts;
-  }
-
   async function mountMap() {
     const pts = mapPointsFromData(data);
     if (!pts.length || !mapEl) return;
@@ -440,25 +430,8 @@ export async function homeView() {
       return;
     }
     destroyMap();
-    const zoom = data.map_zoom || 16;
-    map = window.L.map(mapEl, { scrollWheelZoom: false, attributionControl: true });
-    if (map.attributionControl) map.attributionControl.setPrefix('');
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
-    const markers = [];
-    for (const p of pts) {
-      const m = window.L.marker([p.lat, p.lon]).addTo(map);
-      if (p.label) m.bindPopup(p.label);
-      markers.push(m);
-    }
-    if (pts.length === 1) {
-      map.setView([pts[0].lat, pts[0].lon], zoom);
-    } else {
-      const group = window.L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.12));
-    }
+    map = createOsmMapLayer(window.L, mapEl);
+    addOsmMarkers(map, pts, data, window.L);
     setTimeout(() => map.invalidateSize(), 80);
   }
 
@@ -685,14 +658,27 @@ export async function homeView() {
     }
 
     const hasMap = hasInteractiveMapPoints(data);
+    const showDgisPrimary = shouldShowDgisEmbedPrimary(data);
     const hasIframe = hasDgisIframe(data);
     const hasBranches = hasDgisBranches(data);
     const showMap = edit || hasBranches || hasMap || data.dgis_url;
+    let mountOsm = hasMap && !showDgisPrimary;
     if (showMap) {
       const mapBlock = h('section', { class: 'profile-section' }, h('h2', null, 'Как нас найти'));
-      if (hasMap) {
+      if (showDgisPrimary) {
+        mapBlock.append(embedMapNode(data));
+        if (hasMap) {
+          mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
+          const osmWrap = h('div', {
+            class: 'profile-map-wrap profile-map-wrap--fallback',
+            style: mountOsm ? {} : { display: 'none' },
+          }, mapEl);
+          mapBlock.append(osmWrap);
+        }
+      } else if (hasMap) {
         mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
         mapBlock.append(h('div', { class: 'profile-map-wrap' }, mapEl));
+        mountOsm = true;
       } else if (edit && hasBranches) {
         mapBlock.append(
           h(
@@ -705,9 +691,6 @@ export async function homeView() {
         mapBlock.append(
           h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Добавьте ссылки на филиалы в 2ГИС'),
         );
-      }
-      if (hasIframe) {
-        mapBlock.append(embedMapNode(data));
       }
       if (edit) mapBlock.append(buildInlineMapEditor());
       const actions = h('div', { class: 'profile-map-actions' });
@@ -759,7 +742,7 @@ export async function homeView() {
 
     root.replaceChildren(cover, body);
     body.replaceChildren(heroBody, widgetsZone, ...sections.filter(Boolean));
-    if (hasMap) mountMap();
+    if (mountOsm) mountMap();
   }
 
   try {

@@ -43,7 +43,8 @@ class Settings(BaseSettings):
 
     dgis_catalog_api_key: str = ""
     dgis_mapgl_key: str = ""
-    dgis_firmsonmap_embed: bool = False
+    dgis_firmsonmap_embed: bool = True
+    dgis_firmsonmap_probe: bool = True
 
 
 @lru_cache

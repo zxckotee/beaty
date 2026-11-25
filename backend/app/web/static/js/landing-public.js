@@ -28,11 +28,13 @@ function initials(name) {
 }
 
 import {
+  addOsmMarkers,
+  createOsmMapLayer,
   hasDgisBranches,
-  hasDgisIframe,
   hasInteractiveMapPoints,
   mapPointsFromData,
-} from './dgis-map-view.js?v=1';
+  shouldShowDgisEmbedPrimary,
+} from './dgis-map-view.js?v=3';
 import { renderProfileWidget } from './profile-widgets.js';
 import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
 
@@ -41,27 +43,39 @@ function bookUrl(tenantId, botUsername) {
   return `/t/${tenantId}/#/book`;
 }
 
-function initMapFromPoints(data) {
+function initOsmFallbackMap(data) {
   const pts = mapPointsFromData(data);
   const mapEl = document.getElementById('studio-map');
   if (!mapEl || !window.L || !pts.length) return;
-  const map = L.map(mapEl, { scrollWheelZoom: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap',
-    maxZoom: 19,
-  }).addTo(map);
-  const markers = [];
-  for (const p of pts) {
-    const m = L.marker([p.lat, p.lon]).addTo(map);
-    if (p.label) m.bindPopup(p.label);
-    markers.push(m);
+  const map = createOsmMapLayer(L, mapEl);
+  addOsmMarkers(map, pts, data, L);
+}
+
+function attachDgisEmbedClientFallback(iframe, onFallback) {
+  if (!iframe || typeof onFallback !== 'function') return;
+  iframe.addEventListener('error', () => onFallback());
+}
+
+function appendDgisEmbed(sec, data) {
+  if (data.dgis_embed_src) {
+    const embedWrap = el('div', { class: 'dgis-embed dgis-embed--primary' });
+    const iframe = el('iframe', {
+      src: data.dgis_embed_src,
+      title: 'Карта 2ГИС',
+      loading: 'lazy',
+      style: 'border:0;width:100%;height:100%;min-height:420px',
+      allow: 'geolocation',
+    });
+    embedWrap.append(iframe);
+    sec.append(embedWrap);
+    return { embedWrap, iframe };
   }
-  if (pts.length === 1) {
-    map.setView([pts[0].lat, pts[0].lon], data.map_zoom || 17);
-  } else {
-    map.fitBounds(L.featureGroup(markers).getBounds().pad(0.12));
+  if (data.dgis_embed_html && String(data.dgis_embed_html).trim()) {
+    const embedWrap = el('div', { class: 'dgis-embed dgis-embed--primary', html: data.dgis_embed_html });
+    sec.append(embedWrap);
+    return { embedWrap, iframe: null };
   }
-  setTimeout(() => map.invalidateSize(), 200);
+  return { embedWrap: null, iframe: null };
 }
 
 function initFloors(complexId, firmId) {
@@ -139,14 +153,36 @@ function render(data, tenantId) {
   }
 
   const hasMap = hasInteractiveMapPoints(data);
-  const hasIframe = hasDgisIframe(data);
+  const showDgisPrimary = shouldShowDgisEmbedPrimary(data);
   const showMapSection = hasDgisBranches(data) || hasMap || data.dgis_url;
+  let osmFallbackNeeded = hasMap && !showDgisPrimary;
   if (showMapSection) {
     const sec = el('section', { class: 'studio-section' });
     sec.append(el('h2', null, 'Как нас найти'));
-    if (hasMap) {
-      sec.append(el('div', { class: 'map-wrap' }, el('div', { id: 'studio-map' })));
+    const mapStack = el('div', { class: 'studio-map-stack' });
+    let osmWrap = null;
+    if (showDgisPrimary) {
+      const { embedWrap, iframe } = appendDgisEmbed(mapStack, data);
+      if (hasMap) {
+        osmWrap = el('div', {
+          class: 'map-wrap map-wrap--fallback',
+          style: osmFallbackNeeded ? '' : 'display:none',
+        }, el('div', { id: 'studio-map' }));
+        mapStack.append(osmWrap);
+        if (iframe) {
+          attachDgisEmbedClientFallback(iframe, () => {
+            if (embedWrap) embedWrap.style.display = 'none';
+            if (osmWrap) osmWrap.style.display = '';
+            osmFallbackNeeded = true;
+            initOsmFallbackMap(data);
+          });
+        }
+      }
+    } else if (hasMap) {
+      mapStack.append(el('div', { class: 'map-wrap' }, el('div', { id: 'studio-map' })));
+      osmFallbackNeeded = true;
     }
+    if (mapStack.childNodes.length) sec.append(mapStack);
     const actions = el('div', { class: 'map-actions' });
     const locs =
       (data.dgis_locations && data.dgis_locations.length)
@@ -168,22 +204,6 @@ function render(data, tenantId) {
     }
     actions.append(el('a', { href: bookUrl(tenantId, data.bot_username) }, 'Онлайн-запись'));
     sec.append(actions);
-    if (hasIframe) {
-      if (data.dgis_embed_src) {
-        const embedWrap = el('div', { class: 'dgis-embed' });
-        embedWrap.append(
-          el('iframe', {
-            src: data.dgis_embed_src,
-            title: 'Карта 2ГИС',
-            loading: 'lazy',
-            style: 'border:0;width:100%;height:100%;min-height:320px',
-          }),
-        );
-        sec.append(embedWrap);
-      } else if (data.dgis_embed_html) {
-        sec.append(el('div', { class: 'dgis-embed', html: data.dgis_embed_html }));
-      }
-    }
     if (data.dgis_complex_id && data.dgis_firm_id) {
       sec.append(el('div', { id: 'studio-floors', class: 'floors-wrap' }));
     }
@@ -211,8 +231,8 @@ function render(data, tenantId) {
 
   root.append(wrap);
 
-  if (hasInteractiveMapPoints(data)) {
-    initMapFromPoints(data);
+  if (osmFallbackNeeded) {
+    initOsmFallbackMap(data);
   }
   loadFloorsScript(data.dgis_complex_id, data.dgis_firm_id);
 }

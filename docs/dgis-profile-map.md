@@ -8,7 +8,7 @@
 | `dgis_url`, `dgis_firm_id` | Синхронизируются с **первым** элементом `dgis_locations` (уведомления, FloorsJS) |
 | `dgis_embed_html` | Legacy: iframe из конструктора; при сохранении ссылок очищается. До пересохранения всё ещё отдаётся в API |
 | `map_*` | Координаты первого филиала; Leaflet/OSM на профиле |
-| `dgis_embed_src` | Только при `DGIS_FIRMSONMAP_EMBED=true` (виджет firmsonmap сейчас ненадёжен) |
+| `dgis_embed_src`, `dgis_embed_probe_ok` | firmsonmap по умолчанию; probe отключает iframe при ошибке виджета |
 
 ## Поток для менеджера
 
@@ -16,7 +16,7 @@
 2. Вставить одну или несколько ссылок вида `https://2gis.ru/…/firm/<id>` (желательно с координатами в path: `…/firm/<id>/<lon>,<lat>`).
 3. `PATCH /api/t/{id}/manager/landing` с `{ "dgis_locations": [{ "dgis_url": "...", "label": "..." }] }`.
 4. На профиле — **интерактивная карта Leaflet + OpenStreetMap** по координатам филиалов; кнопки «Открыть в 2ГИС» по каждому филиалу.
-5. Опционально: при `DGIS_FIRMSONMAP_EMBED=true` API дополнительно отдаёт `dgis_embed_src` для iframe [firmsonmap](https://widgets.2gis.com/) (ниже OSM, не вместо неё).
+5. Если `dgis_embed_probe_ok` — на лендинге **сначала** iframe [firmsonmap](https://widgets.2gis.com/) (клик по точке → карточка 2ГИС внутри виджета); иначе OSM по координатам из ссылки, клик по метке → `dgis_url`.
 
 ## Legacy
 
