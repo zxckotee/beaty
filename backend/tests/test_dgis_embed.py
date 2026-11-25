@@ -5,6 +5,7 @@ from app.domain.services.dgis_embed import (
     build_firmsonmap_embed_src,
     dgis_map_payload,
     normalize_dgis_locations,
+    probe_firmsonmap_embed,
 )
 from app.domain.services.dgis_url import parse_dgis_url
 
@@ -22,6 +23,18 @@ def test_build_firmsonmap_embed_src_single():
     assert "widgets.2gis.com/widget" in src
     assert "firmsonmap" in src
     assert "70000001065110165" in src
+
+
+def test_build_firmsonmap_embed_src_includes_map_center():
+    src = build_firmsonmap_embed_src(
+        ["70000001065110165"],
+        center_lon=38.964322,
+        center_lat=45.015825,
+        center_zoom=17.0,
+    )
+    assert src is not None
+    assert "pos" in src
+    assert "38.964322" in src
 
 
 def test_build_firmsonmap_embed_src_multi():
@@ -49,21 +62,42 @@ class _LegacyLanding:
     dgis_embed_html = None
 
 
-def test_dgis_map_payload_legacy_row_embed_disabled_by_default():
-    payload = dgis_map_payload(_LegacyLanding())
-    assert len(payload["dgis_locations"]) == 1
-    assert payload["dgis_embed_src"] is None
-    assert payload["dgis_firmsonmap_embed_enabled"] is False
-    assert payload["dgis_locations"][0]["map_lon"] == 38.96
-
-
-def test_dgis_map_payload_firmsonmap_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DGIS_FIRMSONMAP_EMBED", "true")
+def test_dgis_map_payload_embed_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DGIS_FIRMSONMAP_PROBE", "false")
     get_settings.cache_clear()
     payload = dgis_map_payload(_LegacyLanding())
+    assert len(payload["dgis_locations"]) == 1
     assert payload["dgis_embed_src"] is not None
-    assert "firmsonmap" in payload["dgis_embed_src"]
     assert payload["dgis_firmsonmap_embed_enabled"] is True
+    assert payload["dgis_locations"][0]["map_lon"] == 38.96
+    assert payload["dgis_embed_probe_ok"] is True
+
+
+def test_dgis_map_payload_embed_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DGIS_FIRMSONMAP_EMBED", "false")
+    monkeypatch.setenv("DGIS_FIRMSONMAP_PROBE", "false")
+    get_settings.cache_clear()
+    payload = dgis_map_payload(_LegacyLanding())
+    assert payload["dgis_embed_src"] is None
+    assert payload["dgis_firmsonmap_embed_enabled"] is False
+
+
+def test_dgis_map_payload_probe_marks_unhealthy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DGIS_FIRMSONMAP_PROBE", "true")
+    get_settings.cache_clear()
+    probe_firmsonmap_embed.cache_clear()
+    src = build_firmsonmap_embed_src(["70000001065110165"])
+    assert src is not None
+
+    def fail_probe(_url: str) -> bool:
+        return False
+
+    monkeypatch.setattr("app.domain.services.dgis_embed.probe_firmsonmap_embed", fail_probe)
+    payload = dgis_map_payload(_LegacyLanding())
+    assert payload["dgis_embed_src"] is not None
+    assert payload["dgis_embed_probe_ok"] is False
 
 
 def test_parse_and_embed_roundtrip():

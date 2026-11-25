@@ -216,6 +216,9 @@ body {
 #studio-map {
   height: 280px;
 }
+.map-wrap .leaflet-control-attribution {
+  display: none !important;
+}
 @media (min-width: 560px) {
   #studio-map {
     height: 400px;
@@ -245,13 +248,24 @@ body {
   border-color: transparent;
   color: var(--accent-ink);
 }
+.studio-map-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .dgis-embed,
 .floors-wrap {
-  margin-top: 14px;
+  margin-top: 0;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--line);
-  min-height: 320px;
+  min-height: 420px;
+}
+.dgis-embed--primary iframe {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  height: min(70vh, 560px);
 }
 .floors-wrap {
   height: 360px;
