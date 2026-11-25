@@ -27,25 +27,18 @@ function initials(name) {
     .toUpperCase();
 }
 
+import {
+  hasDgisBranches,
+  hasDgisIframe,
+  hasInteractiveMapPoints,
+  mapPointsFromData,
+} from './dgis-map-view.js?v=1';
 import { renderProfileWidget } from './profile-widgets.js';
 import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
 
 function bookUrl(tenantId, botUsername) {
   if (botUsername) return `https://t.me/${botUsername}?start=book`;
   return `/t/${tenantId}/#/book`;
-}
-
-function mapPointsFromData(data) {
-  const pts = [];
-  for (const loc of data.dgis_locations || []) {
-    if (loc.map_lat != null && loc.map_lon != null) {
-      pts.push({ lat: Number(loc.map_lat), lon: Number(loc.map_lon), label: loc.label || '' });
-    }
-  }
-  if (!pts.length && data.map_lat != null && data.map_lon != null) {
-    pts.push({ lat: Number(data.map_lat), lon: Number(data.map_lon), label: data.title || '' });
-  }
-  return pts;
 }
 
 function initMapFromPoints(data) {
@@ -145,11 +138,13 @@ function render(data, tenantId) {
     wrap.append(sec);
   }
 
-  const hasDgisMap = data.dgis_embed_src || (data.dgis_locations && data.dgis_locations.length) || data.dgis_embed_html;
-  if (hasDgisMap || data.dgis_url || (data.map_lat != null && data.map_lon != null)) {
+  const hasMap = hasInteractiveMapPoints(data);
+  const hasIframe = hasDgisIframe(data);
+  const showMapSection = hasDgisBranches(data) || hasMap || data.dgis_url;
+  if (showMapSection) {
     const sec = el('section', { class: 'studio-section' });
     sec.append(el('h2', null, 'Как нас найти'));
-    if (!hasDgisMap && mapPointsFromData(data).length) {
+    if (hasMap) {
       sec.append(el('div', { class: 'map-wrap' }, el('div', { id: 'studio-map' })));
     }
     const actions = el('div', { class: 'map-actions' });
@@ -173,19 +168,21 @@ function render(data, tenantId) {
     }
     actions.append(el('a', { href: bookUrl(tenantId, data.bot_username) }, 'Онлайн-запись'));
     sec.append(actions);
-    if (data.dgis_embed_src) {
-      const embedWrap = el('div', { class: 'dgis-embed' });
-      embedWrap.append(
-        el('iframe', {
-          src: data.dgis_embed_src,
-          title: 'Карта 2ГИС',
-          loading: 'lazy',
-          style: 'border:0;width:100%;height:100%;min-height:320px',
-        }),
-      );
-      sec.append(embedWrap);
-    } else if (data.dgis_embed_html) {
-      sec.append(el('div', { class: 'dgis-embed', html: data.dgis_embed_html }));
+    if (hasIframe) {
+      if (data.dgis_embed_src) {
+        const embedWrap = el('div', { class: 'dgis-embed' });
+        embedWrap.append(
+          el('iframe', {
+            src: data.dgis_embed_src,
+            title: 'Карта 2ГИС',
+            loading: 'lazy',
+            style: 'border:0;width:100%;height:100%;min-height:320px',
+          }),
+        );
+        sec.append(embedWrap);
+      } else if (data.dgis_embed_html) {
+        sec.append(el('div', { class: 'dgis-embed', html: data.dgis_embed_html }));
+      }
     }
     if (data.dgis_complex_id && data.dgis_firm_id) {
       sec.append(el('div', { id: 'studio-floors', class: 'floors-wrap' }));
@@ -214,8 +211,7 @@ function render(data, tenantId) {
 
   root.append(wrap);
 
-  const usedDgisEmbed = Boolean(data.dgis_embed_src || data.dgis_embed_html);
-  if (!usedDgisEmbed && mapPointsFromData(data).length) {
+  if (hasInteractiveMapPoints(data)) {
     initMapFromPoints(data);
   }
   loadFloorsScript(data.dgis_complex_id, data.dgis_firm_id);

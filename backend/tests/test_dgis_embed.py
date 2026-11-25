@@ -1,9 +1,19 @@
+import pytest
+
+from app.core.settings import get_settings
 from app.domain.services.dgis_embed import (
     build_firmsonmap_embed_src,
     dgis_map_payload,
     normalize_dgis_locations,
 )
 from app.domain.services.dgis_url import parse_dgis_url
+
+
+@pytest.fixture(autouse=True)
+def _reset_settings_cache() -> None:
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_build_firmsonmap_embed_src_single():
@@ -39,10 +49,21 @@ class _LegacyLanding:
     dgis_embed_html = None
 
 
-def test_dgis_map_payload_legacy_row():
+def test_dgis_map_payload_legacy_row_embed_disabled_by_default():
     payload = dgis_map_payload(_LegacyLanding())
     assert len(payload["dgis_locations"]) == 1
+    assert payload["dgis_embed_src"] is None
+    assert payload["dgis_firmsonmap_embed_enabled"] is False
+    assert payload["dgis_locations"][0]["map_lon"] == 38.96
+
+
+def test_dgis_map_payload_firmsonmap_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DGIS_FIRMSONMAP_EMBED", "true")
+    get_settings.cache_clear()
+    payload = dgis_map_payload(_LegacyLanding())
     assert payload["dgis_embed_src"] is not None
+    assert "firmsonmap" in payload["dgis_embed_src"]
+    assert payload["dgis_firmsonmap_embed_enabled"] is True
 
 
 def test_parse_and_embed_roundtrip():

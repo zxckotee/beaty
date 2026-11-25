@@ -60,6 +60,7 @@ def _landing_dict(
         "dgis_locations": dgis["dgis_locations"],
         "dgis_embed_src": dgis["dgis_embed_src"],
         "dgis_embed_html": dgis["dgis_embed_html"],
+        "dgis_firmsonmap_embed_enabled": dgis["dgis_firmsonmap_embed_enabled"],
         "map_lon": landing.map_lon,
         "map_lat": landing.map_lat,
         "map_zoom": landing.map_zoom,

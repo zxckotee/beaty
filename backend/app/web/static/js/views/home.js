@@ -4,6 +4,12 @@ import { isManager, store } from '../store.js';
 import { field, openSheet, photoPicker, spinner, toast, withBusy } from '../ui.js';
 import { openWidgetEditor } from '../profile-widget-editor.js?v=23';
 import { renderProfileWidget } from '../profile-widgets.js?v=17';
+import {
+  hasDgisBranches,
+  hasDgisIframe,
+  hasInteractiveMapPoints,
+  mapPointsFromData,
+} from '../dgis-map-view.js?v=1';
 import { h, hueFor, icon, initials, syncHeaderBrand } from '../util.js';
 
 let leafletPromise = null;
@@ -186,8 +192,8 @@ export async function homeView() {
       }),
     );
     const clearBtn =
-      hasDgisMap(data) &&
-      h('button', { class: 'btn sm ghost', type: 'button' }, 'Очистить → OpenStreetMap');
+      hasDgisBranches(data) &&
+      h('button', { class: 'btn sm ghost', type: 'button' }, 'Сбросить филиалы');
     if (clearBtn) {
       clearBtn.addEventListener('click', () =>
         withBusy(clearBtn, async () => {
@@ -206,18 +212,11 @@ export async function homeView() {
       h(
         'p',
         { class: 'tiny muted' },
-        'Вставьте ссылки на филиалы в 2ГИС — на профиле появится одна карта со всеми точками. API-ключ не нужен.',
+        'Ссылки на филиалы в 2ГИС: на профиле — карта с точками, кнопки откроют маршрут в приложении 2ГИС. Координаты берутся из ссылки ( …/firm/id/долгота,широта ), если указаны.',
       ),
       locEditor.rows,
       h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, addBtn, saveBtn, clearBtn),
     );
-  }
-
-  function hasDgisMap(d) {
-    if (!d) return false;
-    if (d.dgis_embed_src) return true;
-    if (d.dgis_locations && d.dgis_locations.length) return true;
-    return Boolean(d.dgis_embed_html && String(d.dgis_embed_html).trim());
   }
 
   function editDgisSheet() {
@@ -685,23 +684,30 @@ export async function homeView() {
       sections.push(h('section', { class: 'profile-section' }, h('h2', null, 'Портфолио'), grid));
     }
 
-    const hasEmbed = hasDgisMap(data);
-    const hasMap = mapPointsFromData(data).length > 0;
-    const showMap = edit || hasEmbed || hasMap || data.dgis_url;
+    const hasMap = hasInteractiveMapPoints(data);
+    const hasIframe = hasDgisIframe(data);
+    const hasBranches = hasDgisBranches(data);
+    const showMap = edit || hasBranches || hasMap || data.dgis_url;
     if (showMap) {
       const mapBlock = h('section', { class: 'profile-section' }, h('h2', null, 'Как нас найти'));
-      if (hasEmbed) {
-        mapBlock.append(embedMapNode(data));
-      } else if (hasMap) {
+      if (hasMap) {
         mapEl = h('div', { id: 'profile-map', class: 'profile-map' });
         mapBlock.append(h('div', { class: 'profile-map-wrap' }, mapEl));
-        if (edit) {
-          mapBlock.append(h('p', { class: 'tiny muted profile-map-hint' }, 'Сейчас показана OpenStreetMap. Добавьте ссылки 2ГИС ниже, чтобы показать карту 2ГИС.'));
-        }
+      } else if (edit && hasBranches) {
+        mapBlock.append(
+          h(
+            'p',
+            { class: 'tiny muted profile-map-hint' },
+            'Координаты не распознаны. Добавьте в ссылку шаблон …/firm/id/долгота,широта или настройте Catalog API на сервере.',
+          ),
+        );
       } else if (edit) {
         mapBlock.append(
           h('button', { class: 'profile-placeholder card', type: 'button', onclick: () => editDgisSheet() }, 'Добавьте ссылки на филиалы в 2ГИС'),
         );
+      }
+      if (hasIframe) {
+        mapBlock.append(embedMapNode(data));
       }
       if (edit) mapBlock.append(buildInlineMapEditor());
       const actions = h('div', { class: 'profile-map-actions' });
@@ -753,7 +759,7 @@ export async function homeView() {
 
     root.replaceChildren(cover, body);
     body.replaceChildren(heroBody, widgetsZone, ...sections.filter(Boolean));
-    if (!hasEmbed && hasMap) mountMap();
+    if (hasMap) mountMap();
   }
 
   try {
