@@ -168,10 +168,9 @@ docker compose ps
 
 **Карта и 2ГИС:** менеджер указывает ссылки на филиалы (`…/firm/<id>`, лучше с координатами в URL). На профиле — Leaflet/OSM по точкам и кнопки «Открыть в 2ГИС». Опциональный iframe firmsonmap: `DGIS_FIRMSONMAP_EMBED=true`. Подробнее: [docs/dgis-profile-map.md](docs/dgis-profile-map.md).
 
-Запасной вариант без виджета: Leaflet + OpenStreetMap с маркерами по координатам из ссылок.
-
 | Переменная | Назначение |
 | --- | --- |
+| `DGIS_FIRMSONMAP_EMBED` | `true` — дополнительно отдавать iframe firmsonmap (по умолчанию выкл.) |
 | `DGIS_CATALOG_API_KEY` | (фаза 2) координаты по `firm_id`, если их нет в URL — см. [docs/dgis-mapgl-phase2.md](docs/dgis-mapgl-phase2.md) |
 | `DGIS_MAPGL_KEY` | (фаза 2) MapGL вместо iframe |
 

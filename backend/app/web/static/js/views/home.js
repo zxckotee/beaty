@@ -418,6 +418,19 @@ export async function homeView() {
     });
   }
 
+  function mapPointsFromData(d) {
+    const pts = [];
+    for (const loc of d.dgis_locations || []) {
+      if (loc.map_lat != null && loc.map_lon != null) {
+        pts.push({ lat: Number(loc.map_lat), lon: Number(loc.map_lon), label: loc.label || '' });
+      }
+    }
+    if (!pts.length && d.map_lat != null && d.map_lon != null) {
+      pts.push({ lat: Number(d.map_lat), lon: Number(d.map_lon), label: d.title || '' });
+    }
+    return pts;
+  }
+
   async function mountMap() {
     const pts = mapPointsFromData(data);
     if (!pts.length || !mapEl) return;
