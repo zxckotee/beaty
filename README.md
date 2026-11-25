@@ -166,7 +166,7 @@ docker compose ps
 
 Публичный профиль салона: `/t/{public_id}/` (редактирование менеджером на странице профиля). Запись — «Записаться» или `#/book`.
 
-**Карта 2ГИС:** менеджер указывает ссылки на филиалы (`…/firm/<id>`), можно несколько. Бэкенд строит один виджет [firmsonmap](https://widgets.2gis.com/) без API-ключа; на профиле — один iframe со всеми точками. Подробнее: [docs/dgis-profile-map.md](docs/dgis-profile-map.md).
+**Карта и 2ГИС:** менеджер указывает ссылки на филиалы (`…/firm/<id>`, лучше с координатами в URL). На профиле — Leaflet/OSM по точкам и кнопки «Открыть в 2ГИС». Опциональный iframe firmsonmap: `DGIS_FIRMSONMAP_EMBED=true`. Подробнее: [docs/dgis-profile-map.md](docs/dgis-profile-map.md).
 
 Запасной вариант без виджета: Leaflet + OpenStreetMap с маркерами по координатам из ссылок.
 

@@ -6,6 +6,7 @@ import json
 from typing import Any
 from urllib.parse import quote
 
+from app.core.settings import get_settings
 from app.domain.models import TenantLanding
 from app.domain.services.dgis_url import parse_dgis_url
 
@@ -128,8 +129,13 @@ def sync_legacy_dgis_fields(landing: TenantLanding, locations: list[dict[str, An
 def dgis_map_payload(landing: TenantLanding) -> dict[str, Any]:
     locations = landing_locations_from_row(landing)
     firm_ids = [str(x["firm_id"]) for x in locations if x.get("firm_id")]
-    embed_src = build_firmsonmap_embed_src(firm_ids)
-    embed_html = build_firmsonmap_iframe_html(embed_src) if embed_src else None
+    firmsonmap_enabled = bool(get_settings().dgis_firmsonmap_embed)
+    embed_src: str | None = None
+    embed_html: str | None = None
+    if firmsonmap_enabled:
+        embed_src = build_firmsonmap_embed_src(firm_ids)
+        if embed_src:
+            embed_html = build_firmsonmap_iframe_html(embed_src)
     legacy_html = getattr(landing, "dgis_embed_html", None)
     if embed_html is None and legacy_html and str(legacy_html).strip():
         embed_html = str(legacy_html).strip()
@@ -137,4 +143,5 @@ def dgis_map_payload(landing: TenantLanding) -> dict[str, Any]:
         "dgis_locations": locations,
         "dgis_embed_src": embed_src,
         "dgis_embed_html": embed_html,
+        "dgis_firmsonmap_embed_enabled": firmsonmap_enabled,
     }
