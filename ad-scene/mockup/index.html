@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Beaty-Welcome — HTML-макет рекламного UI</title>
+    <link rel="stylesheet" href="ad-ui.css" />
+    <style>
+      [data-highlight="true"] {
+        outline: 2px solid var(--ui-gold);
+        outline-offset: 3px;
+      }
+      .beat-frame {
+        min-height: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="mock-nav">
+      <a href="#master">Мастер-кадр</a>
+      <a href="#beats">6 кадров</a>
+      <a href="#catalog">Каталог</a>
+    </nav>
+
+    <div class="page-wrap">
+      <h1 class="page-title">Beaty-Welcome · макет UI рекламы</h1>
+      <p class="page-desc">
+        Статичный HTML по docs/sales-call-script.md. У плашек есть id для импорта в анимацию. Стили как app.css.
+      </p>
+
+      <section id="master" class="artboard artboard--vertical">
+        <div class="artboard-label">MASTER 1080×1920 · #artboard-master</div>
+        <div class="artboard-inner" id="artboard-master">
+          <header class="brand-lockup" id="brand-lockup">
+            <img src="beaty-welcome-hero.png" alt="Beaty-Welcome" width="88" height="88" id="img-logo" />
+            <div>
+              <p class="brand-lockup__name" id="text-brand-name">Beaty-Welcome</p>
+              <p class="brand-lockup__tag" id="text-brand-tag">Запись под брендом салона · Telegram</p>
+            </div>
+          </header>
+
+          <div class="narrative" id="narrative-slot">
+            <h2 id="narrative-title">Клиент уже выбрал вас в Картах</h2>
+            <p id="narrative-sub">На последнем шаге вы забираете запись или отдаёте её соседу</p>
+          </div>
+
+          <div class="screen-frame" id="screen-phone" data-layer="device-screen">
+            <span class="screen-caption">Контакты · вид клиента из Карт</span>
+
+            <div class="plate plate--soft" id="plate-00-beaty-welcome" data-beat="hook" data-role="brand-chip">
+              <span class="plate__title">Beaty-Welcome</span>
+              <span class="plate__line">Запись под вашим брендом</span>
+            </div>
+
+            <div class="plate plate--card" id="plate-01-maps" data-beat="maps" data-role="maps-card">
+              <span class="plate__title">Яндекс.Карты</span>
+              <span class="plate__line">★ 4.9 · рядом · 3 мин · «Свой стиль»</span>
+            </div>
+
+            <div class="row-2" id="row-fork" data-beat="fork">
+              <div class="plate plate--btn plate--ghost" id="plate-02-phone" data-role="fork-bad">
+                <span class="plate__title">Позвонить</span>
+                <span class="plate__line">Линия занята · вечер</span>
+              </div>
+              <div class="plate plate--btn plate--primary" id="plate-03-bot" data-role="fork-good">
+                <span class="plate__title">Записаться</span>
+                <span class="plate__line">Telegram · ваш бот</span>
+              </div>
+            </div>
+
+            <div class="row-2" id="row-pain" data-beat="pain">
+              <div class="plate plate--chip plate--warn" id="plate-04-empty-slot" data-role="pain-1">
+                <span class="plate__title">Пустой слот</span>
+                <span class="plate__line">Мастер ждёт</span>
+              </div>
+              <div class="plate plate--chip plate--bad" id="plate-05-noshow" data-role="pain-2">
+                <span class="plate__title">Неявка</span>
+                <span class="plate__line">Утром дырка</span>
+              </div>
+            </div>
+
+            <div class="row-3" id="row-solution" data-beat="solution">
+              <div class="plate plate--soft" id="plate-06-247" data-role="solution-1">
+                <span class="plate__title">24/7</span>
+                <span class="plate__line">Вне смены</span>
+              </div>
+              <div class="plate plate--soft" id="plate-07-confirm" data-role="solution-2">
+                <span class="plate__title">Подтвердить</span>
+                <span class="plate__line">Меньше неявок</span>
+              </div>
+              <div class="plate plate--soft" id="plate-08-rhythm" data-role="solution-3">
+                <span class="plate__title">Пора снова</span>
+                <span class="plate__line">Ритм визитов</span>
+              </div>
+            </div>
+
+            <div class="plate plate--btn plate--primary" id="plate-09-cta" data-beat="cta" data-role="cta">
+              <span class="plate__title">Подключить тест</span>
+              <span class="plate__line">5 мин · демо 10 мин</span>
+            </div>
+          </div>
+
+          <p class="screen-caption" style="margin-top: auto" id="footer-strap">
+            Карты приводят — Beaty-Welcome закрывает сделку
+          </p>
+        </div>
+      </section>
+
+      <h2 style="font-size: 1.2rem; margin: 32px 0 16px" id="beats">Кадры сюжета</h2>
+
+      <div class="catalog" id="catalog-beats">
+        <article class="artboard" data-scene="beat-hook" id="beat-hook">
+          <div class="artboard-label">BEAT 1 · hook</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Клиент уже выбрал вас в Картах</h2>
+              <p>Последний шаг — деньги или сосед</p>
+            </div>
+            <div class="screen-frame">
+              <div class="plate plate--soft" data-highlight="true" id="beat-hook-plate-00">
+                <span class="plate__title">Beaty-Welcome</span>
+                <span class="plate__line">Ваш бренд в Telegram</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="artboard" data-scene="beat-maps" id="beat-maps">
+          <div class="artboard-label">BEAT 2 · maps</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Карты → контакты</h2>
+              <p>Рейтинг и кнопка записи</p>
+            </div>
+            <div class="screen-frame">
+              <div class="plate plate--card" data-highlight="true" id="beat-maps-plate-01">
+                <span class="plate__title">Яндекс.Карты</span>
+                <span class="plate__line">Клиент уже нашёл вас</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="artboard" data-scene="beat-fork" id="beat-fork">
+          <div class="artboard-label">BEAT 3 · fork</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Телефон или бот</h2>
+              <p>Один тап — два исхода</p>
+            </div>
+            <div class="screen-frame row-2">
+              <div class="plate plate--btn plate--ghost" id="beat-fork-plate-02">
+                <span class="plate__title">Позвонить</span>
+                <span class="plate__line">Свайп → сосед</span>
+              </div>
+              <div class="plate plate--btn plate--primary" data-highlight="true" id="beat-fork-plate-03">
+                <span class="plate__title">Записаться</span>
+                <span class="plate__line">30 сек · в кассе</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="artboard" data-scene="beat-pain" id="beat-pain">
+          <div class="artboard-label">BEAT 4 · pain</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Дыры в выручке</h2>
+              <p>Простой · неявки</p>
+            </div>
+            <div class="screen-frame row-2">
+              <div class="plate plate--chip plate--warn" data-highlight="true" id="beat-pain-plate-04">
+                <span class="plate__title">Пустой слот</span>
+              </div>
+              <div class="plate plate--chip plate--bad" data-highlight="true" id="beat-pain-plate-05">
+                <span class="plate__title">Неявка</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="artboard" data-scene="beat-solution" id="beat-solution">
+          <div class="artboard-label">BEAT 5 · solution</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Три удара Beaty-Welcome</h2>
+              <p>Свой бренд в Telegram</p>
+            </div>
+            <div class="screen-frame row-3">
+              <div class="plate plate--soft" data-highlight="true" id="beat-sol-plate-06">
+                <span class="plate__title">24/7</span>
+              </div>
+              <div class="plate plate--soft" data-highlight="true" id="beat-sol-plate-07">
+                <span class="plate__title">Подтвердить</span>
+              </div>
+              <div class="plate plate--soft" data-highlight="true" id="beat-sol-plate-08">
+                <span class="plate__title">Пора снова</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="artboard" data-scene="beat-cta" id="beat-cta">
+          <div class="artboard-label">BEAT 6 · cta</div>
+          <div class="artboard-inner beat-frame">
+            <div class="narrative">
+              <h2>Карты приводят — бот закрывает</h2>
+              <p>Ссылка в Карты · QR</p>
+            </div>
+            <div class="screen-frame">
+              <div class="plate plate--btn plate--primary" data-highlight="true" id="beat-cta-plate-09">
+                <span class="plate__title">Подключить тест</span>
+                <span class="plate__line">Бесплатный старт</span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <h2 style="font-size: 1.2rem; margin: 48px 0 16px" id="catalog">Каталог компонентов</h2>
+      <div class="catalog" id="catalog-components">
+        <section class="catalog-section">
+          <h3>Типы плашек</h3>
+          <div class="component-card">
+            <p class="plate-id">#ref-card · .plate--card</p>
+            <div class="plate plate--card" id="ref-card">
+              <span class="plate__title">Карточка салона</span>
+              <span class="plate__line">Яндекс.Карты</span>
+            </div>
+          </div>
+          <div class="component-card">
+            <p class="plate-id">#ref-btn-primary</p>
+            <div class="plate plate--btn plate--primary" id="ref-btn-primary">Записаться</div>
+          </div>
+          <div class="component-card">
+            <p class="plate-id">#ref-btn-ghost</p>
+            <div class="plate plate--btn plate--ghost" id="ref-btn-ghost">Позвонить</div>
+          </div>
+          <div class="component-card">
+            <p class="plate-id">#ref-chip-warn · #ref-chip-bad</p>
+            <div class="row-2">
+              <div class="plate plate--chip plate--warn" id="ref-chip-warn">Пустой слот</div>
+              <div class="plate plate--chip plate--bad" id="ref-chip-bad">Неявка</div>
+            </div>
+          </div>
+          <div class="component-card">
+            <p class="plate-id">#ref-soft</p>
+            <div class="plate plate--soft" id="ref-soft">
+              <span class="plate__title">Beaty-Welcome</span>
+              <span class="plate__line">Фича</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="legend">
+        <p><strong>Слои для анимации:</strong></p>
+        <ul>
+          <li>#artboard-master — полный вертикальный макет</li>
+          <li>#screen-phone — контейнер экрана</li>
+          <li>#plate-00-beaty-welcome … #plate-09-cta</li>
+          <li>#beat-hook … #beat-cta — 6 кадров</li>
+          <li>#img-logo — key visual</li>
+        </ul>
+        <p>cd ad-scene/mockup && python3 -m http.server 8765</p>
+      </div>
+    </div>
+  </body>
+</html>
