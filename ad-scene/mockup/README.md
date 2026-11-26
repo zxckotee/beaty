@@ -3,11 +3,20 @@
 Статичная вёрстка всех плашек для последующей анимации в других инструментах.
 
 ```bash
+cd ad-scene
+python3 serve-mockup.py
+```
+
+Или:
+
+```bash
 cd ad-scene/mockup
 python3 -m http.server 8765
 ```
 
 Открыть [http://127.0.0.1:8765/index.html](http://127.0.0.1:8765/index.html)
+
+Не запускайте `http.server` из корня `ad-scene/` — там Vite `index.html`, будет белый экран.
 
 ## Файлы
 
