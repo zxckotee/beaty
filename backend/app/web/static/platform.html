@@ -13,7 +13,7 @@
     <title>Beaty — запись онлайн для салонов</title>
     <link rel="icon" type="image/png" href="/static/img/beaty-logo.png?v=2" />
     <link rel="apple-touch-icon" href="/static/img/beaty-logo.png?v=2" />
-    <link rel="stylesheet" href="/static/css/platform.css?v=2" />
+    <link rel="stylesheet" href="/static/css/platform.css?v=4" />
   </head>
   <body>
     <div class="platform-glow platform-glow--a" aria-hidden="true"></div>
@@ -133,16 +133,20 @@
         <div class="platform-cta-card">
           <h2>Готовы показать салон так же круто?</h2>
           <p>
-            Напишите платформенному боту в Telegram — подключим бота салона, веб-кабинет и запись
-            под ваш бренд. Демо-кабинет доступен по кнопке ниже, если настроен на сервере.
+            Напишите платформенному боту
+            <a href="https://t.me/beaty_welcome_agent" rel="noopener" target="_blank">@beaty_welcome_agent</a>
+            в Telegram — подключим бота салона, веб-кабинет и запись под ваш бренд.
           </p>
-          <div class="platform-hero-actions">
-            <a class="btn btn-primary btn-lg" href="https://t.me/" data-tg-platform hidden>Открыть в Telegram</a>
+          <div class="platform-hero-actions platform-hero-actions--center">
+            <a
+              class="btn btn-primary btn-lg"
+              href="https://t.me/beaty_welcome_agent"
+              rel="noopener"
+              target="_blank"
+              data-tg-platform
+            >Открыть @beaty_welcome_agent</a>
             <a class="btn btn-glass btn-lg" href="/" data-demo-link hidden>Попробовать демо</a>
           </div>
-          <p class="platform-footnote" data-platform-hint>
-            Укажите <code>WEB_DEFAULT_TENANT</code> на сервере — и кнопка «Демо» ведёт в живой кабинет.
-          </p>
         </div>
       </section>
     </main>
@@ -150,8 +154,34 @@
     <footer class="platform-footer">
       <img src="/static/img/beaty-logo.png?v=2" width="48" height="48" alt="" />
       <p>© Beaty — онлайн-запись для beauty-бизнеса</p>
+      <div class="platform-footer-legal">
+        <p>
+          ИП Черниенко М.А., ИНН 920002708332<br />
+          г. Краснодар, ул. Старокубанская, д.&nbsp;119, кв.&nbsp;44
+        </p>
+        <p>
+          <strong>Описание услуги.</strong>
+          Предоставление доступа к программному комплексу Beaty (SaaS) для салонов красоты,
+          барбершопов и студий: онлайн-запись клиентов, расписание мастеров, веб-кабинет
+          управляющего, напоминания и Telegram-бот салона. Платёж за подписку вносит
+          само заведение (салон) по модели с ежемесячным автоматическим списанием.
+          Конечные клиенты салона за пользование записью и уведомлениями через Beaty
+          исполнителю платформы не платят — услуги парикмахерские, косметологические
+          и иные оказываются салоном по своим ценам.
+        </p>
+        <p>
+          <strong>Условия оказания (выдачи) услуги.</strong>
+          Доступ предоставляется дистанционно через сеть Интернет после регистрации бизнеса
+          в платформенном боте и активации оплаченной подписки. Услуга считается оказанной
+          на протяжении оплаченного расчётного периода при наличии технической возможности
+          пользоваться функционалом. Срок действия — до окончания оплаченного месяца;
+          продление — при успешном ежемесячном списании либо ручной оплате по тарифу.
+          Порядок оплаты, изменения тарифа, приостановки доступа при неоплате и возврата
+          средств определяются офертой и правилами, доведёнными при подключении в боте.
+        </p>
+      </div>
     </footer>
 
-    <script type="module" src="/static/js/platform.js?v=2"></script>
+    <script type="module" src="/static/js/platform.js?v=3"></script>
   </body>
 </html>
