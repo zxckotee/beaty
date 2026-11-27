@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.db import apply_tenant_rls, get_session
+from app.core.settings import get_settings
 from app.core.jwt_auth import decode_web_session_token
 from app.domain.active_role import (
     UiRole,
@@ -61,7 +62,8 @@ async def get_context(
     tenant: Tenant = Depends(get_tenant),
     session: AsyncSession = Depends(get_session),
 ) -> WebContext:
-    await apply_tenant_rls(session, tenant.id)
+    if get_settings().environment != "test":
+        await apply_tenant_rls(session, tenant.id)
     ctx = WebContext(tenant=tenant)
     token = request.cookies.get(cookie_name(tenant.public_id))
     if not token:

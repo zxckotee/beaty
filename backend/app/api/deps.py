@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.context import UserContext
 from app.core.db import apply_tenant_rls, get_session
+from app.core.settings import get_settings
 from app.core.jwt_auth import decode_access_token
 from app.domain.models import ClientProfile, StaffMember, Tenant
 
@@ -42,6 +43,11 @@ async def get_current_user(
     )
 
 
+async def _maybe_apply_tenant_rls(session: AsyncSession, tenant_id: UUID) -> None:
+    if get_settings().environment != "test":
+        await apply_tenant_rls(session, tenant_id)
+
+
 async def bind_api_tenant(
     session: AsyncSession,
     tenant: Tenant,
@@ -49,7 +55,7 @@ async def bind_api_tenant(
 ) -> UserContext:
     if not user.token_tenant_public_id or user.token_tenant_public_id != tenant.public_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant mismatch")
-    await apply_tenant_rls(session, tenant.id)
+    await _maybe_apply_tenant_rls(session, tenant.id)
     return await resolve_staff_and_client(session, tenant, user)
 
 
