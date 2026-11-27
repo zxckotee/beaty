@@ -106,7 +106,8 @@ body {
   letter-spacing: -0.02em;
 }
 .platform-brand img {
-  border-radius: 12px;
+  border-radius: 50%;
+  object-fit: cover;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--neon) 40%, transparent),
     0 8px 24px color-mix(in srgb, var(--neon-2) 25%, transparent);
 }
@@ -224,16 +225,18 @@ main {
 }
 .platform-hero-logo {
   position: relative;
-  width: min(280px, 70vw);
-  height: auto;
-  border-radius: 24px;
-  object-fit: contain;
+  width: min(252px, 62vw);
+  height: min(252px, 62vw);
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
   z-index: 1;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 35%, transparent);
 }
-.platform-brand img,
 .platform-footer img {
-  object-fit: contain;
-  background: #000;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
 }
 @keyframes platform-pulse {
   0%,
