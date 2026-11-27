@@ -38,6 +38,33 @@ function mountTelegramLoginWidget(container, botUsername) {
   container.replaceChildren(script);
 }
 
+function fillDocsSectionBody(body, section) {
+  body.replaceChildren();
+  const paragraphs = Array.isArray(section.paragraphs) ? section.paragraphs : null;
+  if (paragraphs?.length) {
+    for (const text of paragraphs) {
+      const p = document.createElement('p');
+      p.textContent = text;
+      body.append(p);
+    }
+  } else if (section.body) {
+    const p = document.createElement('p');
+    p.textContent = section.body;
+    body.append(p);
+  }
+  const bullets = Array.isArray(section.bullets) ? section.bullets : null;
+  if (bullets?.length) {
+    const ul = document.createElement('ul');
+    ul.className = 'platform-details-list';
+    for (const text of bullets) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      ul.append(li);
+    }
+    body.append(ul);
+  }
+}
+
 function appendDocsSection(root, section, openByDefault) {
   const det = document.createElement('details');
   det.className = 'platform-details';
@@ -46,9 +73,7 @@ function appendDocsSection(root, section, openByDefault) {
   summary.textContent = section.title;
   const body = document.createElement('div');
   body.className = 'platform-details-body';
-  const p = document.createElement('p');
-  p.textContent = section.body;
-  body.append(p);
+  fillDocsSectionBody(body, section);
   det.append(summary, body);
   root.append(det);
 }
@@ -63,8 +88,9 @@ async function loadPlatformDocsPage() {
       return r.json();
     });
     sectionsRoot.replaceChildren();
+    const openIds = new Set(['platform-onboard', 'platform-first-steps', 'platform-product']);
     for (const s of data.sections || []) {
-      appendDocsSection(sectionsRoot, s, s.id === 'platform-onboard');
+      appendDocsSection(sectionsRoot, s, openIds.has(s.id));
     }
     if (legalRoot) {
       legalRoot.replaceChildren();

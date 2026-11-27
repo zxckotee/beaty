@@ -16,6 +16,7 @@ def test_production_root_serves_platform_landing(monkeypatch) -> None:
         assert r.status_code == 200
         assert "Beaty" in r.text
         assert "platform.css" in r.text
+        assert "unsafe-eval" in r.headers.get("content-security-policy", "")
         assert client.get("/login").status_code == 404
         meta = client.get("/api/platform").json()
         assert meta["product"] == "Beaty"
@@ -45,7 +46,10 @@ def test_platform_docs_api_and_page() -> None:
     assert client.get("/docs").status_code == 200
     payload = client.get("/api/docs/platform").json()
     assert payload["product"] == "Beaty"
-    assert any(s["id"] == "platform-onboard" for s in payload["sections"])
+    platform_sections = [s for s in payload["sections"] if s.get("id", "").startswith("platform-")]
+    assert len(platform_sections) >= 6
+    onboard = next(s for s in platform_sections if s["id"] == "platform-onboard")
+    assert onboard.get("bullets") or onboard.get("body") or onboard.get("paragraphs")
     r = client.get("/legal/privacy")
     assert r.status_code == 200
     assert "152-ФЗ" in r.text

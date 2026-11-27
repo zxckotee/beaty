@@ -63,9 +63,21 @@ _STATUS_BY_ERROR: tuple[tuple[type[DomainError], int], ...] = (
     (ConflictError, 409),
 )
 
+_SCRIPT_SRC = "'self' https://telegram.org https://unpkg.com"
+_SCRIPT_SRC_PLATFORM = f"{_SCRIPT_SRC} 'unsafe-eval'"
+
 CSP_BROWSER = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
-    "script-src 'self' https://telegram.org https://unpkg.com; "
+    f"script-src {_SCRIPT_SRC}; "
+    "connect-src 'self' https://*.tile.openstreetmap.org; "
+    "frame-src https://oauth.telegram.org https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
+    "https://widgets.2gis.com https://map-widget.api.2gis.com; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+)
+
+CSP_PLATFORM = (
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
+    f"script-src {_SCRIPT_SRC_PLATFORM}; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
     "frame-src https://oauth.telegram.org https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
     "https://widgets.2gis.com https://map-widget.api.2gis.com; "
@@ -74,13 +86,18 @@ CSP_BROWSER = (
 
 CSP_TELEGRAM = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
-    "script-src 'self' https://telegram.org https://unpkg.com; "
+    f"script-src {_SCRIPT_SRC}; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
     "frame-src https://oauth.telegram.org https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
     "https://widgets.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
     "base-uri 'none'; form-action 'self'"
 )
+
+
+def _platform_public_site(request: Request) -> bool:
+    path = request.url.path
+    return path in {"/", "/docs"} or path.startswith("/legal/")
 
 
 def _telegram_miniapp_context(request: Request) -> bool:
@@ -111,6 +128,8 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
     response.headers.setdefault("Referrer-Policy", "same-origin")
     if _telegram_miniapp_context(request):
         csp = CSP_TELEGRAM
+    elif _platform_public_site(request):
+        csp = CSP_PLATFORM
     else:
         csp = CSP_BROWSER
     response.headers.setdefault("Content-Security-Policy", csp)
