@@ -22,7 +22,7 @@ from app.domain.services.provisioning import (
 platform_router = Router(name="platform")
 
 PLATFORM_START_WELCOME = (
-    "💇‍♀️ Добро пожаловать в Beaty!\n\n"
+    "💇‍♀️ Добро пожаловать в Beaty-Welcome!\n\n"
     "Вы подключаете свой Telegram-бот для записи под брендом салона — "
     "без агрегаторов и без «позвоните администратору».\n\n"
     "━━━━━━━━━━━━━━━━━━\n"
