@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.db import apply_tenant_rls, get_session
-from app.core.settings import get_settings
 from app.core.jwt_auth import decode_web_session_token
+from app.core.settings import get_settings
 from app.domain.active_role import (
     UiRole,
     available_ui_roles,

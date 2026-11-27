@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.context import UserContext
 from app.core.db import apply_tenant_rls, get_session
-from app.core.settings import get_settings
 from app.core.jwt_auth import decode_access_token
+from app.core.settings import get_settings
 from app.domain.models import ClientProfile, StaffMember, Tenant
 
 
