@@ -196,6 +196,16 @@ body {
 .platform-nav-cta .btn-telegram {
   white-space: nowrap;
 }
+.platform-tg-login {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.platform-tg-login iframe {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
 .btn.icon-btn,
 .theme-toggle {
   min-height: 40px;
