@@ -1,4 +1,5 @@
-from app.domain.services.dgis_url import parse_dgis_url
+from app.domain.services.dgis_embed import normalize_dgis_locations
+from app.domain.services.dgis_url import parse_dgis_url, parse_dgis_url_resolved, resolve_dgis_url
 
 
 def test_parse_full_krasnodar_url():
@@ -30,3 +31,33 @@ def test_parse_empty():
 def test_parse_non_2gis():
     r = parse_dgis_url("https://example.com/firm/123")
     assert r.firm_id is None
+
+
+def test_resolve_short_link_mocked(monkeypatch):
+    final = "https://2gis.ru/krasnodar/firm/3237945779887750/39.031188,45.019835"
+
+    class _Resp:
+        url = final
+
+    class _Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, _url):
+            return _Resp()
+
+    monkeypatch.setattr("app.domain.services.dgis_url.httpx.Client", _Client)
+    resolve_dgis_url.cache_clear()
+    resolved = resolve_dgis_url("https://go.2gis.com/udOWv")
+    assert resolved == final
+    r = parse_dgis_url_resolved("https://go.2gis.com/udOWv")
+    assert r.firm_id == "3237945779887750"
+    locs = normalize_dgis_locations(["https://go.2gis.com/udOWv"])
+    assert len(locs) == 1
+    assert locs[0]["firm_id"] == "3237945779887750"
