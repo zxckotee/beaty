@@ -57,7 +57,6 @@ export async function homeView() {
   let data = null;
   let reviewsData = null;
   let reviewable = [];
-  let pendingAfter = [];
   let map = null;
   let mapEl = null;
 
@@ -78,14 +77,11 @@ export async function homeView() {
       try {
         const r = await api.get('/reviews/reviewable');
         reviewable = r.bookings || [];
-        pendingAfter = r.pending_after || [];
       } catch {
         reviewable = [];
-        pendingAfter = [];
       }
     } else {
       reviewable = [];
-      pendingAfter = [];
     }
   }
 
@@ -726,15 +722,6 @@ export async function homeView() {
       });
     }
 
-    function formatReviewOpensAt(iso) {
-      if (!iso) return '';
-      try {
-        return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-      } catch {
-        return iso;
-      }
-    }
-
     const reviewItems = (reviewsData && reviewsData.items) || [];
     const isClient = store.me.authenticated && store.me.active_role === 'client';
     const showReviews =
@@ -760,20 +747,10 @@ export async function homeView() {
         list.append(card);
       }
       if (!reviewItems.length && !isClient) list.append(h('p', { class: 'muted tiny' }, 'Пока нет отзывов'));
-      if (isClient && !reviewItems.length && !reviewable.length && !pendingAfter.length) {
+      if (isClient && !reviewItems.length && !reviewable.length) {
         list.append(h('p', { class: 'muted tiny' }, 'Пока нет отзывов. После визита здесь можно будет оценить салон.'));
       }
       sec.append(list);
-      if (isClient && pendingAfter.length) {
-        const pending = h('div', { class: 'col', style: { gap: '6px', marginBottom: '8px' } });
-        for (const p of pendingAfter) {
-          const label = (p.service_names || []).join(', ') || 'Визит';
-          pending.append(
-            h('p', { class: 'small muted' }, `${label}: оценка станет доступна после ${formatReviewOpensAt(p.review_opens_at)}`),
-          );
-        }
-        sec.append(pending);
-      }
       if (isClient && reviewable.length) {
         sec.append(h('button', { class: 'btn primary', type: 'button', onclick: () => openClientReviewSheet() }, 'Оставить отзыв'));
       }

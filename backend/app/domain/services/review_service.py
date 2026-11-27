@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -8,23 +7,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import Booking, BookingItem, BookingStatus, ClientProfile, Review, Service
-
-
-async def _booking_visit_end(session: AsyncSession, booking_id: UUID) -> datetime | None:
-    ends_at = await session.scalar(
-        select(func.max(func.upper(BookingItem.during))).where(BookingItem.booking_id == booking_id)
-    )
-    if isinstance(ends_at, datetime):
-        return ends_at
-    return None
-
-
-async def _assert_visit_ended(session: AsyncSession, booking_id: UUID) -> None:
-    ends_at = await _booking_visit_end(session, booking_id)
-    if ends_at is None:
-        return
-    if ends_at > datetime.now(UTC):
-        raise ValueError("review opens after visit end")
 
 
 async def _assert_client_booking(
@@ -41,7 +23,6 @@ async def _assert_client_booking(
         raise ValueError("booking not found")
     if booking.status != BookingStatus.COMPLETED.value:
         raise ValueError("review only after completed visit")
-    await _assert_visit_ended(session, booking_id)
     return booking
 
 
@@ -83,7 +64,7 @@ async def list_published_for_tenant(
 
 async def list_reviewable_bookings(
     session: AsyncSession, *, tenant_id: UUID, client_profile_id: UUID
-) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+) -> list[dict[str, object]]:
     reviewed_ids = select(Review.booking_id).where(Review.tenant_id == tenant_id)
     bookings = (
         await session.scalars(
@@ -97,14 +78,11 @@ async def list_reviewable_bookings(
             .order_by(Booking.created_at.desc())
         )
     ).all()
-    now = datetime.now(UTC)
     out: list[dict[str, object]] = []
-    pending_after: list[dict[str, object]] = []
     for b in bookings:
         starts_at = await session.scalar(
             select(func.min(func.lower(BookingItem.during))).where(BookingItem.booking_id == b.id)
         )
-        ends_at = await _booking_visit_end(session, b.id)
         names = (
             await session.scalars(
                 select(Service.name)
@@ -112,12 +90,8 @@ async def list_reviewable_bookings(
                 .where(BookingItem.booking_id == b.id)
             )
         ).all()
-        row = {"booking_id": b.id, "starts_at": starts_at, "service_names": list(names)}
-        if ends_at is not None and ends_at > now:
-            pending_after.append({**row, "review_opens_at": ends_at})
-            continue
-        out.append(row)
-    return out, pending_after
+        out.append({"booking_id": b.id, "starts_at": starts_at, "service_names": list(names)})
+    return out
 
 
 async def create_review_for_client(

@@ -169,16 +169,15 @@ async def test_reviewable_past_completed(session: AsyncSession) -> None:
     await _add_visit_slot(
         session, booking=booking, staff_id=staff.id, service_id=service.id, start=past_start, end=past_end
     )
-    reviewable, pending = await list_reviewable_bookings(
+    reviewable = await list_reviewable_bookings(
         session, tenant_id=tenant.id, client_profile_id=profile.id
     )
     assert len(reviewable) == 1
     assert reviewable[0]["booking_id"] == booking.id
-    assert pending == []
 
 
 @pytest.mark.asyncio
-async def test_reviewable_future_completed_not_listed(session: AsyncSession) -> None:
+async def test_reviewable_future_completed_when_marked_done(session: AsyncSession) -> None:
     tenant = await create_tenant_for_owner(
         session, owner_telegram_id=random_telegram_id(), business_name="R5", owner_display_name="O"
     )
@@ -203,48 +202,17 @@ async def test_reviewable_future_completed_not_listed(session: AsyncSession) -> 
     await _add_visit_slot(
         session, booking=booking, staff_id=staff.id, service_id=service.id, start=future_start, end=future_end
     )
-    reviewable, pending = await list_reviewable_bookings(
+    reviewable = await list_reviewable_bookings(
         session, tenant_id=tenant.id, client_profile_id=profile.id
     )
-    assert reviewable == []
-    assert len(pending) == 1
-    assert pending[0]["booking_id"] == booking.id
-    assert pending[0]["review_opens_at"] == future_end
-
-
-@pytest.mark.asyncio
-async def test_create_review_blocked_until_visit_end(session: AsyncSession) -> None:
-    tenant = await create_tenant_for_owner(
-        session, owner_telegram_id=random_telegram_id(), business_name="R6", owner_display_name="O"
-    )
-    branch = await session.scalar(select(Branch).where(Branch.tenant_id == tenant.id))
-    staff = await session.scalar(select(StaffMember).where(StaffMember.tenant_id == tenant.id))
-    assert branch is not None and staff is not None
-    service = await create_service(session, tenant=tenant, name="Cut", price_cents=100000, duration_minutes=45)
-    user = await ensure_user_account(session, random_telegram_id())
-    profile = await register_client(
-        session, tenant_id=tenant.id, user_account_id=user.id, name="C", phone="79007776655"
-    )
-    booking = Booking(
+    assert len(reviewable) == 1
+    assert reviewable[0]["booking_id"] == booking.id
+    await create_review_for_client(
+        session,
         tenant_id=tenant.id,
-        branch_id=branch.id,
+        booking_id=booking.id,
         client_profile_id=profile.id,
-        status=BookingStatus.COMPLETED.value,
+        salon_rating=5,
+        staff_rating=5,
+        text="early complete",
     )
-    session.add(booking)
-    await session.flush()
-    future_start = datetime.now(UTC) + timedelta(days=2)
-    future_end = future_start + timedelta(minutes=30)
-    await _add_visit_slot(
-        session, booking=booking, staff_id=staff.id, service_id=service.id, start=future_start, end=future_end
-    )
-    with pytest.raises(ValueError, match="visit end"):
-        await create_review_for_client(
-            session,
-            tenant_id=tenant.id,
-            booking_id=booking.id,
-            client_profile_id=profile.id,
-            salon_rating=5,
-            staff_rating=5,
-            text=None,
-        )
