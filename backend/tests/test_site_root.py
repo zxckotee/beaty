@@ -46,4 +46,7 @@ def test_platform_docs_api_and_page() -> None:
     payload = client.get("/api/docs/platform").json()
     assert payload["product"] == "Beaty"
     assert any(s["id"] == "platform-onboard" for s in payload["sections"])
-    assert client.get("/legal/privacy").status_code == 200
+    r = client.get("/legal/privacy")
+    assert r.status_code == 200
+    assert "152-ФЗ" in r.text
+    assert "legal-article" in r.text
