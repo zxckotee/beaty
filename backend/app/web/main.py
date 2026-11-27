@@ -118,7 +118,14 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     await close_redis()
 
 
-app = FastAPI(title="Beaty-Welcome Web", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(
+    title="Beaty-Welcome Web",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 
 @app.middleware("http")
