@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "beaty-backend"
 version = "0.1.0"
-description = "Beaty booking platform backend"
+description = "Beaty-Welcome booking platform backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

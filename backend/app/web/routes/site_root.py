@@ -1,4 +1,4 @@
-"""Public Beaty platform site (no tenant)."""
+"""Public Beaty-Welcome platform site (no tenant)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ async def platform_meta() -> dict[str, str | None]:
     settings = get_settings()
     demo = (settings.web_default_tenant or "").strip() or None
     return {
-        "product": "Beaty",
+        "product": "Beaty-Welcome",
         "tagline": "Онлайн-запись и кабинет салона в Telegram",
         "demo_tenant_id": demo,
     }

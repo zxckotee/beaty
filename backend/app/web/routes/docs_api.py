@@ -14,7 +14,7 @@ tenant_docs_router = APIRouter(prefix="/api/t/{tenant_public_id}/docs", tags=["d
 @platform_docs_router.get("/api/docs/platform")
 async def platform_docs() -> dict:
     return {
-        "product": "Beaty",
+        "product": "Beaty-Welcome",
         "sections": docs_sections(audience="platform"),
         "legal_links": [
             {"href": "/legal/privacy", "label": "Политика конфиденциальности"},
@@ -36,7 +36,7 @@ async def tenant_docs(
     return {
         "sections": sections,
         "legal_links": [
-            {"href": "/legal/privacy", "label": "Политика Beaty"},
+            {"href": "/legal/privacy", "label": "Политика Beaty-Welcome"},
             {"href": "/legal/salon-privacy", "label": "Шаблон политики салона"},
         ],
     }

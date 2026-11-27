@@ -101,7 +101,7 @@ async def platform_start(message: Message, state: FSMContext) -> None:
     kb.button(text="Принимаю оферту и поручение", callback_data="platform:offer:yes")
     kb.adjust(1)
     await message.answer(
-        "Подключение Beaty — SaaS для салонов. Оплата подписки вносит владелец бизнеса.\n\n"
+        "Подключение Beaty-Welcome — SaaS для салонов. Оплата подписки вносит владелец бизнеса.\n\n"
         f"📄 <a href=\"{offer}\">Оферта</a> · <a href=\"{pd}\">Поручение на обработку ПДн</a>\n\n"
         "Нажмите кнопку ниже, чтобы продолжить настройку.",
         parse_mode="HTML",

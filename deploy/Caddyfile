@@ -1,4 +1,4 @@
-# TLS reverse proxy for Beaty production (see docker-compose.tls.yml).
+# TLS reverse proxy for Beaty-Welcome production (see docker-compose.tls.yml).
 # Set PUBLIC_DOMAIN and ACME_EMAIL in .env.prod before starting Caddy.
 #
 # Bot-only stack: all public HTTP goes to the API (webhooks, health, REST).
@@ -24,6 +24,6 @@
 	}
 
 	handle {
-		respond "Beaty API — use Telegram bots" 404
+		respond "Beaty-Welcome API — use Telegram bots" 404
 	}
 }

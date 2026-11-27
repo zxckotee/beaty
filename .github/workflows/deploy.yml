@@ -71,7 +71,7 @@ jobs:
             AUTH_REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPOSITORY}.git"
 
             echo "============================================"
-            echo "  Beaty deploy — $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "  Beaty-Welcome deploy — $(date '+%Y-%m-%d %H:%M:%S')"
             echo "  Trigger: $TRIGGER"
             echo "  Branch:  $BRANCH"
             echo "  Path:    $DEPLOY_PATH"
@@ -107,4 +107,4 @@ jobs:
               CERTBOT_EMAIL="$CERTBOT_EMAIL" bash scripts/enable-ssl-betwelc.sh "$DEPLOY_PATH" || true
             fi
 
-            echo "Beaty deploy complete"
+            echo "Beaty-Welcome deploy complete"

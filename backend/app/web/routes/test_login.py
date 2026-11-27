@@ -65,7 +65,7 @@ def _page(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Beaty — тестовый вход</title>
+  <title>Beaty-Welcome — тестовый вход</title>
   <style>
     body {{ font-family: system-ui, sans-serif; max-width: 28rem; margin: 2rem auto; }}
     h1 {{ font-size: 1.35rem; }}
@@ -79,7 +79,7 @@ def _page(
   </style>
 </head>
 <body>
-  <h1>Beaty — тестовый вход</h1>
+  <h1>Beaty-Welcome — тестовый вход</h1>
   <p>Временная страница для проверки кабинета без OAuth через Telegram.</p>
   {disabled_note}
   {err}
