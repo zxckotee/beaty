@@ -64,26 +64,14 @@ export async function mineView() {
   }
 
   let reviewableIds = new Set();
-  let pendingReview = new Map();
 
   async function loadReviewState() {
     reviewableIds = new Set();
-    pendingReview = new Map();
     try {
       const r = await api.get('/reviews/reviewable');
       for (const b of r.bookings || []) reviewableIds.add(String(b.booking_id));
-      for (const p of r.pending_after || []) pendingReview.set(String(p.booking_id), p.review_opens_at);
     } catch {
       /* client may not have reviewable visits */
-    }
-  }
-
-  function formatOpensAt(iso) {
-    if (!iso) return '';
-    try {
-      return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return iso;
     }
   }
 
@@ -108,7 +96,6 @@ export async function mineView() {
     const [label, tone] = STATUS[b.status] || [b.status, ''];
     const id = String(b.id);
     const canReview = b.status === 'completed' && reviewableIds.has(id);
-    const opensAt = b.status === 'completed' ? pendingReview.get(id) : null;
     let action = null;
     if (cancellable) {
       action = h('button', { class: 'btn sm danger', type: 'button', onclick: () => cancel(b) }, icon('close'), 'Отменить');
@@ -120,9 +107,6 @@ export async function mineView() {
       { class: 'card pad col' },
       h('div', { class: 'row between' }, h('b', null, `${longDayLabel(b.date)}, ${b.start}–${b.end}`), h('span', { class: `chip ${tone}` }, label)),
       h('div', { class: 'row' }, avatar(b.staff), h('div', { class: 'grow' }, h('b', null, b.staff.name), h('div', { class: 'small muted' }, b.services.map((s) => `${s.name} · ${duration(s.duration_minutes)}`).join(', ')))),
-      opensAt && !canReview
-        ? h('p', { class: 'small muted' }, `Оценка станет доступна после ${formatOpensAt(opensAt)}`)
-        : null,
       h(
         'div',
         { class: 'row between' },
