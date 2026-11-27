@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.registry import get_bot_for_tenant
 from app.core.db import get_session
+from app.core.settings import get_settings
 from app.domain.models import ClientChatMessage
 from app.domain.services.client_chat_service import (
     list_messages,
@@ -65,11 +66,16 @@ async def chat_send(
     photo_name: str | None = None
     voice_bytes: bytes | None = None
     voice_name: str | None = None
+    max_bytes = get_settings().web_max_upload_bytes
     if photo is not None and photo.filename:
-        photo_bytes = await photo.read()
+        photo_bytes = await photo.read(max_bytes + 1)
+        if len(photo_bytes) > max_bytes:
+            raise HTTPException(status_code=413, detail="file too large")
         photo_name = photo.filename
     if voice is not None and voice.filename:
-        voice_bytes = await voice.read()
+        voice_bytes = await voice.read(max_bytes + 1)
+        if len(voice_bytes) > max_bytes:
+            raise HTTPException(status_code=413, detail="file too large")
         voice_name = voice.filename
     msg = await send_manager_message(
         session,

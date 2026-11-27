@@ -11,6 +11,7 @@ from app.core.db import SessionLocal
 from app.core.redis_client import get_redis
 from app.domain.models import Tenant
 from app.platform_bot.dispatcher_setup import platform_dispatcher
+from app.webhook.security import verify_platform_webhook_secret, verify_tenant_webhook_secret
 
 logger = logging.getLogger(__name__)
 webhook_router = APIRouter()
@@ -31,9 +32,7 @@ async def platform_webhook(
     from app.core.settings import get_settings
 
     settings = get_settings()
-    expected = settings.platform_bot_token.split(":")[0] if settings.platform_bot_token else ""
-    if expected and x_telegram_bot_api_secret_token != "platform-secret":
-        raise HTTPException(status_code=403, detail="invalid secret")
+    verify_platform_webhook_secret(x_telegram_bot_api_secret_token)
     data = await request.json()
     update = Update.model_validate(data)
     if update.update_id and not await _dedupe_update("platform", update.update_id):
@@ -55,8 +54,7 @@ async def tenant_webhook(
         tenant = await session.scalar(select(Tenant).where(Tenant.public_id == tenant_public_id))
         if tenant is None:
             raise HTTPException(status_code=404, detail="tenant not found")
-        if tenant.webhook_secret and x_telegram_bot_api_secret_token != tenant.webhook_secret:
-            raise HTTPException(status_code=403, detail="invalid secret")
+        verify_tenant_webhook_secret(x_telegram_bot_api_secret_token, tenant.webhook_secret)
         bot = get_bot_for_tenant(tenant)
     data = await request.json()
     update = Update.model_validate(data)

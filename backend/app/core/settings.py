@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     platform_bot_token: str = ""
+    platform_telegram_webhook_secret: str = "platform-secret"
     webhook_base_url: str = "http://localhost:8000"
     public_web_url: str = ""
     token_encryption_key: str = "change-me-32-bytes-base64-fernet-key!!"
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     tenant_ui_mode: str = "miniapp"  # bot (chat writes) | miniapp | both (miniapp writes, chat reads)
     enable_public_api: bool = False
+    cors_origins: str = ""
 
     web_ui_port: int = 3030
     media_dir: str = "./media"

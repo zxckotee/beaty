@@ -17,6 +17,7 @@ class UserContext:
     roles: set[str] = field(default_factory=set)
     client_profile_id: UUID | None = None
     staff_member_id: UUID | None = None
+    token_tenant_public_id: str | None = None
 
     def has_role(self, *names: str) -> bool:
         return bool(self.roles.intersection(names))

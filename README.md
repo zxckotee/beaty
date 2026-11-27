@@ -95,6 +95,7 @@ flowchart TB
 | --- | --- |
 | [docs/product.md](docs/product.md) | Роли, воронки, жизненный цикл записи, пограничные случаи |
 | [docs/architecture.md](docs/architecture.md) | Мультитенантный сервис, стек, данные, слоты, безопасность |
+| [docs/security.md](docs/security.md) | Чеклист секретов, webhooks, JWT, угрозы в production |
 | [docs/business.md](docs/business.md) | Монетизация, онбординг, 152-ФЗ, метрики |
 | [docs/roadmap.md](docs/roadmap.md) | MVP / V1 / V2 и статус фаз в коде |
 | [docs/bot-only-concept.md](docs/bot-only-concept.md) | Упрощённая «chat-first» модель (исторически; веб-кабинет развивается параллельно) |

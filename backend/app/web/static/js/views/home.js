@@ -134,8 +134,6 @@ export async function homeView() {
           style: { border: 0, width: '100%', height: '100%' },
         }),
       );
-    } else if (d && d.dgis_embed_html && String(d.dgis_embed_html).trim()) {
-      wrap.insertAdjacentHTML('beforeend', d.dgis_embed_html);
     }
     return wrap;
   }

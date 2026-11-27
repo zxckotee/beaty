@@ -22,6 +22,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+async def apply_tenant_rls(session: AsyncSession, tenant_id: UUID) -> None:
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :tid, true)"),
+        {"tid": str(tenant_id)},
+    )
+
+
 @asynccontextmanager
 async def tenant_session(tenant_id: UUID | None) -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:

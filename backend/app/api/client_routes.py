@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_tenant_by_public_id, resolve_staff_and_client
+from app.api.deps import get_current_user, get_tenant_by_public_id, prepare_api_tenant_user
 from app.api.schemas import BookingOut, HoldBookingRequest, RescheduleRequest, SlotOut
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
@@ -60,9 +60,8 @@ async def client_hold(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
-    user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client profile required")
     branch_id = UUID(str((tenant.rules or {}).get("default_branch_id")))
@@ -100,7 +99,7 @@ async def client_reschedule(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
     try:
         booking = await reschedule_booking(
@@ -130,7 +129,7 @@ async def client_force_majeure_choice(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict[str, str]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
     from app.domain.services.force_majeure import apply_force_majeure_choice
 
@@ -151,8 +150,7 @@ async def client_bookings_detailed(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> list[dict]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    user = await resolve_staff_and_client(session, tenant, user)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     if user.client_profile_id is None:
         return []
     rows = await session.execute(

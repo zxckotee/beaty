@@ -16,8 +16,10 @@ from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.core.logging_config import setup_logging
+from app.core.production_guard import validate_production_settings
 from app.core.redis_client import close_redis
 from app.core.sentry_init import init_sentry
+from app.core.settings import get_settings
 from app.domain.exceptions import (
     CellInUseError,
     CellOverlapError,
@@ -113,6 +115,7 @@ def _telegram_miniapp_context(request: Request) -> bool:
 async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     setup_logging()
     init_sentry()
+    validate_production_settings(get_settings())
     media_root()
     yield
     await close_redis()
