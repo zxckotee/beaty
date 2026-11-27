@@ -14,11 +14,9 @@ from app.web.deps import WebContext, get_context, require_auth, require_manager
 router = APIRouter(prefix="/api/t/{tenant_public_id}", tags=["reviews"])
 
 
-def _mask_name(name: str | None) -> str:
-    raw = (name or "Клиент").strip()
-    if len(raw) <= 2:
-        return raw[0] + "*" if raw else "Клиент"
-    return raw[0] + "*" * (len(raw) - 2) + raw[-1]
+def _display_name(name: str | None) -> str:
+    raw = (name or "").strip()
+    return raw or "Клиент"
 
 
 def _review_dict(row: dict) -> dict:
@@ -28,7 +26,7 @@ def _review_dict(row: dict) -> dict:
         "staff_rating": row.get("staff_rating"),
         "text": row.get("text"),
         "business_reply": row.get("business_reply"),
-        "client_name": _mask_name(row.get("client_name")),
+        "client_name": _display_name(row.get("client_name")),
         "created_at": (
             row["created_at"].isoformat()
             if isinstance(row.get("created_at"), datetime)

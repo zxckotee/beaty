@@ -33,11 +33,9 @@ public_router = APIRouter(prefix="/api/t/{tenant_public_id}/landing", tags=["lan
 manager_router = APIRouter(prefix="/api/t/{tenant_public_id}/manager/landing", tags=["landing-manager"])
 
 
-def _mask_client_name(name: str | None) -> str:
-    raw = (name or "Клиент").strip()
-    if len(raw) <= 2:
-        return raw[0] + "*" if raw else "Клиент"
-    return raw[0] + "*" * (len(raw) - 2) + raw[-1]
+def _display_client_name(name: str | None) -> str:
+    raw = (name or "").strip()
+    return raw or "Клиент"
 
 
 async def _reviews_preview(session: AsyncSession, tenant_id) -> dict[str, object]:
@@ -50,7 +48,7 @@ async def _reviews_preview(session: AsyncSession, tenant_id) -> dict[str, object
                 "salon_rating": r["salon_rating"],
                 "text": r.get("text"),
                 "business_reply": r.get("business_reply"),
-                "client_name": _mask_client_name(r.get("client_name")),
+                "client_name": _display_client_name(r.get("client_name")),
                 "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
             }
             for r in rows
