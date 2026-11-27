@@ -27,6 +27,15 @@ async def _reset_redis_between_tests() -> AsyncIterator[None]:
     await close_redis()
 
 
+@pytest.fixture(autouse=True)
+async def _reset_db_engine_between_tests() -> AsyncIterator[None]:
+    """Discard pooled asyncpg connections so the next test's loop gets fresh ones."""
+    yield
+    from app.core.db import engine
+
+    await engine.dispose()
+
+
 @pytest.fixture
 async def session() -> AsyncIterator[AsyncSession]:
     """Real Postgres session (NullPool: every test runs in its own event loop); skipped when the DB is down."""
