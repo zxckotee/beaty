@@ -4,16 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem('beaty.theme') || 'dark';
-          document.documentElement.dataset.theme = t;
-        } catch (e) {
-          document.documentElement.dataset.theme = 'dark';
-        }
-      })();
-    </script>
+    <script src="/static/js/platform-theme-boot.js?v=1"></script>
     <title>Документация · Beaty</title>
     <link rel="icon" type="image/png" href="/static/img/beaty-logo.png?v=4" />
     <link rel="stylesheet" href="/static/css/platform.css?v=9" />
