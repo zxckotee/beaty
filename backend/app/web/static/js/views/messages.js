@@ -125,14 +125,30 @@ export async function messagesView({ embedded = false } = {}) {
 
     const staffPhoto = h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'staff') });
     const coverPhoto = h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'venue_cover') });
+    const dgisLocation = h('input', { type: 'checkbox', class: 'check', checked: slotHas(tpl, 'dgis_location') });
     const custom = photoPicker({ url: customUrl(tpl), name: 'Вложение', square: true });
     let customUrlStored = customUrl(tpl);
 
-    const photoGrid = h('div', { class: 'messages-photo-grid' },
+    const photoGrid = h('div', { class: 'messages-photo-grid messages-photo-grid--4' },
       h('label', { class: 'messages-photo-opt' }, staffPhoto, h('span', { class: 'messages-photo-icon' }, icon('users')), h('span', null, 'Фото мастера')),
       h('label', { class: 'messages-photo-opt' }, coverPhoto, h('span', { class: 'messages-photo-icon' }, icon('globe')), h('span', null, 'Обложка профиля')),
+      h(
+        'label',
+        { class: 'messages-photo-opt' },
+        dgisLocation,
+        h('span', { class: 'messages-photo-icon' }, icon('globe')),
+        h('span', null, 'Геолокация 2ГИС'),
+      ),
       h('div', { class: 'messages-photo-opt messages-photo-custom' }, custom.el),
     );
+    const locationHint = h(
+      'p',
+      { class: 'tiny muted messages-location-hint', hidden: !dgisLocation.checked },
+      'После текста клиент получит точку на карте по координатам основного филиала из 2ГИС (если они заданы в профиле).',
+    );
+    dgisLocation.addEventListener('change', () => {
+      locationHint.hidden = !dgisLocation.checked;
+    });
 
     const previewBtn = h('button', { class: 'btn sm soft', type: 'button' }, icon('chat'), 'Обновить превью');
     previewBtn.addEventListener('click', () => runPreview());
@@ -144,6 +160,7 @@ export async function messagesView({ embedded = false } = {}) {
           const slots = [];
           if (staffPhoto.checked) slots.push('staff');
           if (coverPhoto.checked) slots.push('venue_cover');
+          if (dgisLocation.checked) slots.push('dgis_location');
           const file = custom.getFile();
           if (file) {
             const up = await api.upload('/manager/messages/photo', file);
@@ -180,6 +197,7 @@ export async function messagesView({ embedded = false } = {}) {
         h('div', { class: 'messages-block' },
           h('span', { class: 'label' }, 'Вложения к напоминанию'),
           photoGrid,
+          locationHint,
         ),
         h('div', { class: 'messages-actions row' }, previewBtn, save),
       ),

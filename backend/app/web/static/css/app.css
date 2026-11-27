@@ -880,6 +880,7 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 @media (min-width: 560px) {
   .messages-photo-grid { grid-template-columns: repeat(2, 1fr); }
 }
+.messages-location-hint { margin: 8px 0 0; max-width: 52ch; }
 .messages-photo-opt {
   display: flex; align-items: center; gap: 10px; padding: 12px 14px;
   border-radius: 16px; border: 1.5px solid var(--line); background: var(--glass-bg);
