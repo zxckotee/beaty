@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <script src="/static/js/platform-theme-boot.js?v=1"></script>
+    <title>{{ doc.title }} · Beaty</title>
+    <link rel="icon" type="image/png" href="/static/img/beaty-logo.png?v=4" />
+    <link rel="stylesheet" href="/static/css/platform.css?v=11" />
+  </head>
+  <body class="platform-page legal-page">
+    <div class="platform-glow platform-glow--a" aria-hidden="true"></div>
+    <div class="platform-glow platform-glow--b" aria-hidden="true"></div>
+    <header class="platform-nav">
+      <a class="platform-brand" href="/">
+        <img src="/static/img/beaty-logo.png?v=4" width="40" height="40" alt="" />
+        <span>Beaty</span>
+      </a>
+      <nav class="platform-nav-links">
+        <a href="/">Главная</a>
+        <a href="/docs">Документация</a>
+        <a href="/legal/privacy" aria-current="page">Правовые документы</a>
+      </nav>
+      <div class="platform-nav-cta">
+        <a class="btn btn-primary" href="https://t.me/beaty_welcome_agent" rel="noopener" target="_blank">Подключить салон</a>
+      </div>
+    </header>
+    <main class="legal-main">
+      <article class="legal-article">
+        <header class="legal-article-head">
+          <p class="legal-doc-kind">Правовой документ</p>
+          <h1>{{ doc.title }}</h1>
+          <p class="legal-meta">
+            Редакция от {{ doc.effective_date }}. Оператор платформы Beaty:
+            {{ operator.name }}, ИНН {{ operator.inn }}, {{ operator.address }}.
+          </p>
+        </header>
+        {% if doc.intro %}
+        <p class="legal-intro">{{ doc.intro }}</p>
+        {% endif %}
+        {% for section in doc.sections %}
+        <section class="legal-section" id="section-{{ loop.index }}">
+          <h2>{{ section.title }}</h2>
+          {% for p in section.paragraphs %}
+          <p>{{ p }}</p>
+          {% endfor %}
+          {% if section.bullets %}
+          <ul>
+            {% for item in section.bullets %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if section.ordered %}
+          <ol>
+            {% for item in section.ordered %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ol>
+          {% endif %}
+        </section>
+        {% endfor %}
+        <nav class="legal-crossnav" aria-label="Связанные документы">
+          <span class="legal-crossnav-label">См. также:</span>
+          {% for link in related_links %}
+          <a href="{{ link.href }}">{{ link.label }}</a>
+          {% endfor %}
+        </nav>
+      </article>
+    </main>
+    <footer class="platform-footer">
+      <img src="/static/img/beaty-logo.png?v=4" width="48" height="48" alt="" />
+      <p>© Beaty — онлайн-запись для beauty-бизнеса</p>
+    </footer>
+    <script type="module" src="/static/js/platform.js?v=6"></script>
+  </body>
+</html>

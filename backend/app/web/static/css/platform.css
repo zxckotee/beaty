@@ -783,9 +783,105 @@ main {
   flex-wrap: wrap;
   gap: 12px;
 }
-.legal-page main {
-  line-height: 1.55;
+.legal-page .platform-glow {
+  opacity: 0.35;
 }
-.legal-page p {
-  margin: 0 0 1rem;
+.legal-main {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4.5rem;
+}
+.legal-article {
+  border-radius: 22px;
+  background: var(--glass);
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--line));
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  box-shadow:
+    0 20px 50px color-mix(in srgb, var(--neon-2) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+  padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.25rem, 4vw, 2rem);
+}
+.legal-article-head {
+  margin-bottom: 1.25rem;
+}
+.legal-doc-kind {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.legal-article h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  line-height: 1.2;
+  color: var(--text);
+  font-family: var(--font-display, ui-serif, Georgia, serif);
+}
+.legal-meta {
+  margin: 0.85rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.legal-intro {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+.legal-section {
+  margin-top: 1.5rem;
+}
+.legal-section h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.legal-section p {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
+}
+.legal-section ul,
+.legal-section ol {
+  margin: 0 0 0.75rem;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--text) 90%, var(--muted));
+}
+.legal-section li {
+  margin-bottom: 0.4rem;
+}
+.legal-section li:last-child {
+  margin-bottom: 0;
+}
+.legal-crossnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+.legal-crossnav-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+.legal-crossnav a {
+  color: var(--gold);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+}
+.legal-crossnav a:hover {
+  border-bottom-color: var(--gold);
 }
