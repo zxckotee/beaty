@@ -461,6 +461,30 @@ main {
   opacity: 0.85;
 }
 
+.platform-footer-legal {
+  max-width: 68ch;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+  text-align: center;
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--muted) 88%, transparent);
+}
+
+.platform-footer-legal p {
+  margin: 0 0 10px;
+}
+
+.platform-footer-legal p:last-child {
+  margin-bottom: 0;
+}
+
+.platform-footer-legal strong {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--muted) 96%, transparent);
+}
+
 [hidden] {
   display: none !important;
 }
