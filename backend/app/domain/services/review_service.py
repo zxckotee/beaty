@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -27,7 +28,7 @@ async def _assert_client_booking(
 
 async def list_published_for_tenant(
     session: AsyncSession, *, tenant_id: UUID, limit: int = 50
-) -> tuple[list[dict], float | None]:
+) -> tuple[list[dict[str, Any]], float | None]:
     q = (
         select(Review, ClientProfile.name)
         .join(ClientProfile, ClientProfile.id == Review.client_profile_id)
@@ -63,7 +64,7 @@ async def list_published_for_tenant(
 
 async def list_reviewable_bookings(
     session: AsyncSession, *, tenant_id: UUID, client_profile_id: UUID
-) -> list[dict]:
+) -> list[dict[str, object]]:
     reviewed_ids = select(Review.booking_id).where(Review.tenant_id == tenant_id)
     bookings = (
         await session.scalars(
@@ -77,7 +78,7 @@ async def list_reviewable_bookings(
             .order_by(Booking.created_at.desc())
         )
     ).all()
-    out: list[dict] = []
+    out: list[dict[str, object]] = []
     for b in bookings:
         starts_at = await session.scalar(
             select(func.min(func.lower(BookingItem.during))).where(BookingItem.booking_id == b.id)

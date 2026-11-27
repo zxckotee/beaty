@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -13,7 +14,7 @@ from app.domain.models import Booking, ClientProfile, Review
 
 async def export_client_data(
     session: AsyncSession, *, tenant_id: UUID, client_profile_id: UUID
-) -> dict:
+) -> dict[str, Any]:
     profile = await session.get(ClientProfile, client_profile_id)
     if profile is None or profile.tenant_id != tenant_id:
         raise ValueError("client not found")
