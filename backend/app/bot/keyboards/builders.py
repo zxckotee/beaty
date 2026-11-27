@@ -44,7 +44,7 @@ def view_menu_reply(
         builder.row(KeyboardButton(text="Мой день"), KeyboardButton(text="Мои записи"))
     else:
         builder.row(KeyboardButton(text="Мои записи"))
-    builder.row(KeyboardButton(text="Помощь"))
+    builder.row(KeyboardButton(text="Справка"))
     return builder.as_markup(resize_keyboard=True)
 
 
@@ -66,7 +66,7 @@ def main_menu_reply(
         builder.row(KeyboardButton(text="Повторить прошлую"))
     if can_switch_ui_role:
         builder.row(KeyboardButton(text="Сменить режим"))
-    builder.row(KeyboardButton(text="Помощь"))
+    builder.row(KeyboardButton(text="Справка"))
     return builder.as_markup(resize_keyboard=True)
 
 

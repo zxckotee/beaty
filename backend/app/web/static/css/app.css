@@ -1160,3 +1160,13 @@ button.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .pw-action--vk, .pw-action--telegram, .pw-action--max {
   box-shadow: 0 6px 20px color-mix(in srgb, var(--pw-btn-bg) 35%, transparent);
 }
+
+.profile-reviews .review-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.review-card { border-radius: var(--radius, 16px); }
+.review-meta { justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.review-stars { color: #f5c518; letter-spacing: 0.04em; }
+.review-avg { font-weight: 650; margin: 0 0 8px; }
+.review-reply { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 8px; }
+.review-stars-input .btn.active { color: #f5c518; border-color: #f5c518; }
+.docs-sections details { margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.docs-details summary { cursor: pointer; font-weight: 650; }

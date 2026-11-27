@@ -1,0 +1,328 @@
+"""Help and documentation copy for bots and web UI."""
+
+from __future__ import annotations
+
+from typing import Any, Literal, TYPE_CHECKING
+
+from app.core.settings import get_settings
+
+if TYPE_CHECKING:
+    from app.domain.models import Tenant
+
+Audience = Literal["client", "manager", "platform"]
+
+HELP_BUTTON = "Справка"
+LEGACY_HELP_BUTTON = "Помощь"
+
+PLATFORM_BOT_USERNAME = "beaty_welcome_agent"
+
+
+def public_web_base() -> str:
+    settings = get_settings()
+    base = (settings.public_web_url or settings.webhook_base_url or "").strip().rstrip("/")
+    return base
+
+
+def tenant_web_url(public_id: str, *, hash_route: str = "home") -> str:
+    base = public_web_base()
+    if not base:
+        return f"/t/{public_id}/#/{hash_route}"
+    return f"{base}/t/{public_id}/#/{hash_route}"
+
+
+def tenant_docs_url(public_id: str) -> str:
+    return tenant_web_url(public_id, hash_route="docs")
+
+
+def platform_docs_url() -> str:
+    base = public_web_base()
+    if not base:
+        return "/docs"
+    return f"{base}/docs"
+
+
+def platform_landing_url() -> str:
+    base = public_web_base()
+    return base or "/"
+
+
+def tg_platform_url() -> str:
+    return f"https://t.me/{PLATFORM_BOT_USERNAME}"
+
+
+def telegram_bot_url(username: str | None, *, start: str | None = None) -> str:
+    u = (username or "bot").lstrip("@")
+    url = f"https://t.me/{u}"
+    if start:
+        url = f"{url}?start={start}"
+    return url
+
+
+def _sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "client-booking",
+            "title": "Запись клиента",
+            "audience": "client",
+            "body": (
+                "Запишитесь через бот или мини-приложение: услуга → мастер → время → подтверждение. "
+                "Напоминания приходят в Telegram. Можно повторить прошлую запись из меню."
+            ),
+        },
+        {
+            "id": "client-mine",
+            "title": "Мои записи",
+            "audience": "client",
+            "body": (
+                "В разделе «Мои записи» — предстоящие и прошедшие визиты. Отмена и перенос — по правилам салона "
+                "(срок до визита задаёт салон)."
+            ),
+        },
+        {
+            "id": "client-pd-rights",
+            "title": "Ваши персональные данные",
+            "audience": "client",
+            "body": (
+                "В «Мои записи» — выгрузка данных и запрос удаления ПДн. Записи в салоне сохраняются анонимно для отчётности. "
+                "Отзыв согласия на маркетинг — в боте при онбординге или у администратора."
+            ),
+        },
+        {
+            "id": "client-reviews",
+            "title": "Отзывы",
+            "audience": "client",
+            "body": (
+                "После завершённого визита можно оставить оценку и текст в профиле салона (раздел «Отзывы») "
+                "или по кнопке в уведомлении в Telegram. Один отзыв на визит."
+            ),
+        },
+        {
+            "id": "mgr-dashboard",
+            "title": "Дашборд и расписание",
+            "audience": "manager",
+            "body": (
+                "Веб-кабинет: дашборд (выручка, загрузка), сетка дня с записями, ручная запись клиента. "
+                "В боте: «Сегодня», «Записать клиента», «Мой день» для мастера."
+            ),
+        },
+        {
+            "id": "mgr-team",
+            "title": "Команда и услуги",
+            "audience": "manager",
+            "body": (
+                "«Команда» — мастера, роли, приглашения. «Услуги» — каталог, цены, длительность, фото. "
+                "Правила расписания — в кабинете (раздел правил)."
+            ),
+        },
+        {
+            "id": "mgr-comms",
+            "title": "Чаты и напоминания",
+            "audience": "manager",
+            "body": (
+                "Чаты с клиентами в кабинете. Шаблоны напоминаний в Telegram: подтверждение, за 24 часа, отмена."
+            ),
+        },
+        {
+            "id": "mgr-landing",
+            "title": "Профиль салона",
+            "audience": "manager",
+            "body": (
+                "Витрина: обложка, портфолио, карта 2ГИС, виджеты. Публичная студия — `/t/{id}/studio`. "
+                "Ссылка и QR для соцсетей и ресепшена."
+            ),
+        },
+        {
+            "id": "mgr-reviews",
+            "title": "Отзывы салона",
+            "audience": "manager",
+            "body": (
+                "Клиенты оставляют отзывы после визита. Вы видите список в профиле и можете публично ответить. "
+                "Скрывать негативные отзывы нельзя — только ответить."
+            ),
+        },
+        {
+            "id": "platform-onboard",
+            "title": "Подключение салона",
+            "audience": "platform",
+            "body": (
+                f"Платформенный бот @{PLATFORM_BOT_USERNAME}: название салона → токен из @BotFather → "
+                "настройка бота салона. Подписка с ежемесячным списанием оплачивается салоном; клиенты платформе не платят."
+            ),
+        },
+        {
+            "id": "platform-product",
+            "title": "Возможности Beaty",
+            "audience": "platform",
+            "body": (
+                "Брендированный Telegram-бот, онлайн-запись, веб-кабинет, напоминания, аналитика, "
+                "лендинг студии, отзывы, роли владельца/мастера/клиента."
+            ),
+        },
+        {
+            "id": "legal-pd",
+            "title": "Персональные данные (152-ФЗ)",
+            "audience": "manager",
+            "body": (
+                "Клиенты салона — вы оператор ПДн, Beaty — обработчик по поручению. "
+                "Укажите ссылку на политику в настройках бота; шаблон — в /legal/salon-privacy. "
+                "Маркетинговые рассылки — только с отдельного согласия клиента."
+            ),
+        },
+        {
+            "id": "legal-marketing",
+            "title": "Реклама и рассылки (38-ФЗ)",
+            "audience": "manager",
+            "body": (
+                "Сервисные напоминания о записи — не реклама. Акции и акции салона — только тем, "
+                "кто согласился в боте. Отписка — через бот или менеджера."
+            ),
+        },
+    ]
+
+
+def docs_sections(*, audience: Audience | None = None) -> list[dict[str, Any]]:
+    rows = _sections()
+    if audience is None:
+        return rows
+    if audience == "manager":
+        return [s for s in rows if s["audience"] in {"client", "manager"}]
+    return [s for s in rows if s["audience"] == audience]
+
+
+def build_tenant_client_help(tenant: Tenant, *, miniapp: bool) -> str:
+    name = tenant.name or "салон"
+    lines = [
+        f"📖 Справка для клиента · {name}",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "✅ ЧТО ВЫ МОЖЕТЕ",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📅 Запись — услуга, мастер, время, подтверждение.",
+        "📋 Мои записи — отмена и перенос по правилам салона.",
+        "🔁 Повторить прошлую — быстрая запись как в прошлый раз.",
+    ]
+    if miniapp:
+        lines.extend(
+            [
+                "",
+                "📱 Кнопка «Открыть» — запись и кабинет в мини-приложении.",
+                "💬 В чате — «Мои записи» и «Справка».",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "💬 Запись и управление — кнопками в чате бота.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "⭐ После визита — отзыв в профиле салона (звёзды и текст).",
+            "",
+            "/cancel — отменить текущий шаг в диалоге.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_tenant_manager_help(
+    tenant: Tenant,
+    *,
+    miniapp: bool,
+    web_docs_url: str | None = None,
+) -> tuple[str, str | None]:
+    """Returns (part1, part2_or_none)."""
+    docs = web_docs_url or tenant_docs_url(tenant.public_id)
+    home = tenant_web_url(tenant.public_id)
+    name = tenant.name or "салон"
+    client_block = [
+        "━━━━━━━━━━━━━━━━━━",
+        "👤 ДЛЯ КЛИЕНТОВ",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📅 Запись · 📋 Мои записи · 🔁 Повторить прошлую",
+        "⭐ Отзыв после завершённого визита — в профиле салона",
+    ]
+    if miniapp:
+        client_block.append("📱 «Открыть» — мини-приложение записи")
+    mgr1 = [
+        f"📖 Справка управляющего · {name}",
+        "",
+        *client_block,
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "🛠 ДЛЯ ВАС",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📊 Веб-кабинет: дашборд, сетка дня, ручная запись",
+        "👥 Команда · 💅 Услуги · 📅 Правила расписания",
+        "📲 Бот: Сегодня · Записать клиента · Клиенты",
+        "💬 Чаты · 🔔 Шаблоны напоминаний",
+        f"🌐 Профиль и витрина: {home}",
+    ]
+    mgr2 = [
+        f"📖 Справка · {name} (продолжение)",
+        "",
+        "⭐ Отзывы — ответы в профиле салона",
+        "📍 Портфолио, карта 2ГИС, виджеты — в «Профиль»",
+        "🔁 «Сменить режим» — клиент / мастер / управляющий",
+        "💳 Подписка — @beaty_welcome_agent",
+        "",
+        f"📚 Документация: {docs}",
+        "",
+        "/cancel — отменить текущий шаг",
+    ]
+    text1 = "\n".join(mgr1)
+    if len(text1) + len("\n\n" + "\n".join(mgr2)) <= 4000:
+        return text1 + "\n\n" + "\n".join(mgr2), None
+    return text1, "\n".join(mgr2)
+
+
+def build_tenant_manager_help_single(tenant: Tenant, *, miniapp: bool, web_docs_url: str | None = None) -> str:
+    a, b = build_tenant_manager_help(tenant, miniapp=miniapp, web_docs_url=web_docs_url)
+    if b:
+        return a + "\n\n" + b
+    return a
+
+
+def build_platform_owner_help(*, web_docs_url: str | None = None, platform_bot_url: str | None = None) -> str:
+    docs = web_docs_url or platform_docs_url()
+    land = platform_landing_url()
+    bot = platform_bot_url or tg_platform_url()
+    return "\n".join(
+        [
+            "📖 Справка · Beaty-Welcome",
+            "",
+            "━━━━━━━━━━━━━━━━━━",
+            "🚀 ПОДКЛЮЧЕНИЕ",
+            "━━━━━━━━━━━━━━━━━━",
+            "",
+            "1️⃣ Бот в @BotFather под брендом салона",
+            "2️⃣ Токен — сюда, в этот чат",
+            "3️⃣ Услуги, график, команда — в боте салона",
+            "",
+            "━━━━━━━━━━━━━━━━━━",
+            "🎁 ВОЗМОЖНОСТИ",
+            "━━━━━━━━━━━━━━━━━━",
+            "",
+            "✅ Свой бот для клиентов",
+            "📲 Запись 24/7 в Telegram",
+            "🔔 Напоминания и подтверждения",
+            "📊 Веб-кабинет: расписание, записи, аналитика",
+            "⭐ Отзывы после визита",
+            "💳 Подписка salon → Beaty (клиенты платформе не платят)",
+            "",
+            f"🌐 Лендинг: {land}",
+            f"📚 Документация: {docs}",
+            f"💬 Этот бот: {bot}",
+            "",
+            "/cancel — отменить шаг онбординга.",
+        ]
+    )
+
+
+def docs_inline_button_label() -> str:
+    return "📖 Документация на сайте"
