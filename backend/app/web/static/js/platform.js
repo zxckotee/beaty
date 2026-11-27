@@ -1,6 +1,7 @@
 import { applyTheme, resolveInitialTheme, themeToggleButton } from './theme.js';
 
 const TG_PLATFORM = 'https://t.me/beaty_welcome_agent';
+const DEFAULT_PLATFORM_BOT = 'beaty_welcome_agent';
 
 async function platformTelegramLogin(user) {
   const res = await fetch('/api/platform/auth/telegram-login', {
@@ -37,6 +38,83 @@ function mountTelegramLoginWidget(container, botUsername) {
   container.replaceChildren(script);
 }
 
+function appendDocsSection(root, section, openByDefault) {
+  const det = document.createElement('details');
+  det.className = 'platform-details';
+  if (openByDefault) det.open = true;
+  const summary = document.createElement('summary');
+  summary.textContent = section.title;
+  const body = document.createElement('div');
+  body.className = 'platform-details-body';
+  const p = document.createElement('p');
+  p.textContent = section.body;
+  body.append(p);
+  det.append(summary, body);
+  root.append(det);
+}
+
+async function loadPlatformDocsPage() {
+  const sectionsRoot = document.getElementById('docs-sections');
+  const legalRoot = document.getElementById('docs-legal');
+  if (!sectionsRoot) return;
+  try {
+    const data = await fetch('/api/docs/platform').then((r) => {
+      if (!r.ok) throw new Error('load failed');
+      return r.json();
+    });
+    sectionsRoot.replaceChildren();
+    for (const s of data.sections || []) {
+      appendDocsSection(sectionsRoot, s, s.id === 'platform-onboard');
+    }
+    if (legalRoot) {
+      legalRoot.replaceChildren();
+      for (const link of data.legal_links || []) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = link.href;
+        a.textContent = link.label;
+        li.append(a);
+        legalRoot.append(li);
+      }
+    }
+  } catch {
+    sectionsRoot.replaceChildren(
+      Object.assign(document.createElement('p'), {
+        className: 'muted',
+        textContent: 'Не удалось загрузить разделы. Обновите страницу.',
+      }),
+    );
+  }
+}
+
+function telegramLoginFallbackLink() {
+  return Object.assign(document.createElement('a'), {
+    className: 'btn btn-telegram',
+    href: TG_PLATFORM,
+    target: '_blank',
+    rel: 'noopener',
+    textContent: 'Войти через Telegram',
+  });
+}
+
+async function mountPlatformTelegramLoginWidgets(loginMounts) {
+  try {
+    const cfg = await fetch('/api/platform/telegram-login-config').then((r) => r.json());
+    const botUsername = cfg.bot_username ? String(cfg.bot_username) : DEFAULT_PLATFORM_BOT;
+    for (const loginMount of loginMounts) {
+      if (cfg.enabled && botUsername) {
+        mountTelegramLoginWidget(loginMount, botUsername);
+      } else {
+        loginMount.replaceChildren(telegramLoginFallbackLink());
+      }
+    }
+  } catch {
+    for (const loginMount of loginMounts) {
+      loginMount.replaceChildren(telegramLoginFallbackLink());
+    }
+  }
+}
+
 async function boot() {
   applyTheme(resolveInitialTheme());
   const cta = document.querySelector('.platform-nav-cta');
@@ -44,7 +122,7 @@ async function boot() {
 
   const demoLinks = document.querySelectorAll('[data-demo-link]');
   const tgLinks = document.querySelectorAll('[data-tg-platform]');
-  const loginMount = document.querySelector('[data-tg-login-widget]');
+  const loginMounts = document.querySelectorAll('[data-tg-login-widget]');
 
   for (const el of tgLinks) {
     el.href = TG_PLATFORM;
@@ -73,34 +151,11 @@ async function boot() {
     /* static page still works */
   }
 
-  if (loginMount) {
-    try {
-      const cfg = await fetch('/api/platform/telegram-login-config').then((r) => r.json());
-      if (cfg.enabled && cfg.bot_username) {
-        mountTelegramLoginWidget(loginMount, cfg.bot_username);
-      } else {
-        loginMount.replaceChildren(
-          Object.assign(document.createElement('a'), {
-            className: 'btn btn-telegram',
-            href: TG_PLATFORM,
-            target: '_blank',
-            rel: 'noopener',
-            textContent: 'Войти через Telegram',
-          }),
-        );
-      }
-    } catch {
-      loginMount.replaceChildren(
-        Object.assign(document.createElement('a'), {
-          className: 'btn btn-telegram',
-          href: TG_PLATFORM,
-          target: '_blank',
-          rel: 'noopener',
-          textContent: 'Войти через Telegram',
-        }),
-      );
-    }
+  if (loginMounts.length) {
+    await mountPlatformTelegramLoginWidgets(loginMounts);
   }
+
+  await loadPlatformDocsPage();
 }
 
 boot();

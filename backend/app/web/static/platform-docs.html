@@ -16,7 +16,7 @@
     </script>
     <title>Документация · Beaty</title>
     <link rel="icon" type="image/png" href="/static/img/beaty-logo.png?v=4" />
-    <link rel="stylesheet" href="/static/css/platform.css?v=5" />
+    <link rel="stylesheet" href="/static/css/platform.css?v=9" />
   </head>
   <body class="platform-page">
     <div class="platform-glow platform-glow--a" aria-hidden="true"></div>
@@ -31,42 +31,33 @@
         <a href="/docs" aria-current="page">Документация</a>
       </nav>
       <div class="platform-nav-cta">
-        <a class="btn btn-primary" href="https://t.me/beaty_welcome_agent" rel="noopener" target="_blank">Подключить салон</a>
+        <div
+          class="platform-tg-login"
+          data-tg-login-widget
+          aria-label="Войти через Telegram"
+        ></div>
+        <a
+          class="btn btn-primary"
+          href="https://t.me/beaty_welcome_agent"
+          rel="noopener"
+          target="_blank"
+          data-tg-platform
+        >Подключить салон</a>
       </div>
     </header>
     <main class="platform-docs-main">
       <h1 class="platform-grad">Документация Beaty</h1>
       <p class="platform-lead">Справка для владельцев салонов: подключение бота, кабинет, клиенты и законность обработки данных.</p>
       <div id="docs-sections" class="platform-docs-sections"></div>
-      <section class="platform-onboard-guide" style="margin-top: 2rem">
-        <h2>Правовые документы</h2>
-        <ul id="docs-legal" class="platform-docs-legal-list"></ul>
+      <section class="platform-onboard-guide platform-docs-legal" style="margin-top: 2rem">
+        <h2 style="margin: 0 0 12px; padding: 14px 18px 0; font-size: 1rem">Правовые документы</h2>
+        <ul id="docs-legal" class="platform-docs-legal-list" style="padding: 0 18px 18px"></ul>
       </section>
     </main>
     <footer class="platform-footer">
       <img src="/static/img/beaty-logo.png?v=4" width="48" height="48" alt="" />
       <p>© Beaty — онлайн-запись для beauty-бизнеса</p>
     </footer>
-    <script type="module">
-      const root = document.getElementById('docs-sections');
-      const legalRoot = document.getElementById('docs-legal');
-      try {
-        const data = await fetch('/api/docs/platform').then((r) => r.json());
-        for (const s of data.sections || []) {
-          const det = document.createElement('details');
-          det.className = 'platform-details';
-          det.open = s.id === 'platform-onboard';
-          det.innerHTML = `<summary>${s.title}</summary><div class="platform-details-body"><p>${s.body}</p></div>`;
-          root.append(det);
-        }
-        for (const link of data.legal_links || []) {
-          const li = document.createElement('li');
-          li.innerHTML = `<a href="${link.href}">${link.label}</a>`;
-          legalRoot.append(li);
-        }
-      } catch (e) {
-        root.innerHTML = '<p class="muted">Не удалось загрузить разделы. Обновите страницу.</p>';
-      }
-    </script>
+    <script type="module" src="/static/js/platform.js?v=5"></script>
   </body>
 </html>
