@@ -45,5 +45,8 @@ def test_platform_docs_api_and_page() -> None:
     assert client.get("/docs").status_code == 200
     payload = client.get("/api/docs/platform").json()
     assert payload["product"] == "Beaty"
-    assert any(s["id"] == "platform-onboard" for s in payload["sections"])
+    platform_sections = [s for s in payload["sections"] if s.get("id", "").startswith("platform-")]
+    assert len(platform_sections) >= 6
+    onboard = next(s for s in platform_sections if s["id"] == "platform-onboard")
+    assert onboard.get("bullets") or onboard.get("body") or onboard.get("paragraphs")
     assert client.get("/legal/privacy").status_code == 200

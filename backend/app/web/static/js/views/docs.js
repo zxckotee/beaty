@@ -13,7 +13,22 @@ export async function docsView() {
     body.replaceChildren(h('h1', null, 'Документация'), h('p', { class: 'muted' }, store.info ? store.info.name : ''));
     const list = h('div', { class: 'docs-sections' });
     for (const s of data.sections || []) {
-      const det = h('details', { class: 'docs-details', open: isManager() && s.id === 'manager-home' }, h('summary', null, s.title), h('p', null, s.body));
+      const bodyParts = [];
+      if (Array.isArray(s.paragraphs) && s.paragraphs.length) {
+        for (const text of s.paragraphs) bodyParts.push(h('p', null, text));
+      } else if (s.body) {
+        bodyParts.push(h('p', null, s.body));
+      }
+      if (Array.isArray(s.bullets) && s.bullets.length) {
+        bodyParts.push(h('ul', { class: 'docs-bullets' }, ...s.bullets.map((text) => h('li', null, text))));
+      }
+      const content = bodyParts.length ? h('div', { class: 'docs-details-body' }, ...bodyParts) : h('p', null, s.body || '');
+      const det = h(
+        'details',
+        { class: 'docs-details', open: isManager() && s.id === 'mgr-dashboard' },
+        h('summary', null, s.title),
+        content,
+      );
       list.append(det);
     }
   body.append(list);
