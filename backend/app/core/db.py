@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
@@ -14,9 +14,9 @@ class Base(DeclarativeBase):
     pass
 
 
-def _create_engine():
+def _create_engine() -> AsyncEngine:
     settings = get_settings()
-    kwargs: dict = {"echo": False, "pool_pre_ping": True}
+    kwargs: dict[str, object] = {"echo": False, "pool_pre_ping": True}
     if settings.environment == "test":
         kwargs["poolclass"] = NullPool
     return create_async_engine(settings.database_url, **kwargs)
