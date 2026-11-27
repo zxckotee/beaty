@@ -6,8 +6,12 @@ async function boot() {
   if (cta) cta.insertBefore(themeToggleButton(), cta.firstChild);
 
   const demoLinks = document.querySelectorAll('[data-demo-link]');
-  const tgLink = document.querySelector('[data-tg-platform]');
-  const hint = document.querySelector('[data-platform-hint]');
+  const tgLinks = document.querySelectorAll('[data-tg-platform]');
+  const TG_PLATFORM = 'https://t.me/beaty_welcome_agent';
+
+  for (const el of tgLinks) {
+    el.href = TG_PLATFORM;
+  }
 
   try {
     const meta = await fetch('/api/platform').then((r) => r.json());
@@ -21,15 +25,9 @@ async function boot() {
           el.textContent = 'Открыть демо-кабинет';
         }
       }
-      if (hint) hint.hidden = true;
     }
   } catch {
     /* static page still works */
-  }
-
-  if (tgLink) {
-    tgLink.href = 'https://t.me/';
-    tgLink.hidden = false;
   }
 }
 
