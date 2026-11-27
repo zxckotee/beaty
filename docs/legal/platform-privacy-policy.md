@@ -1,4 +1,4 @@
-# Политика конфиденциальности Beaty
+# Политика конфиденциальности Beaty-Welcome
 
 Опубликованная версия: `/legal/privacy` (генерируется из `app/content/legal_documents.py`).
 

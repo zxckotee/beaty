@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dump Beaty PostgreSQL (docker compose prod). Retain last 14 daily backups.
+# Dump Beaty-Welcome PostgreSQL (docker compose prod). Retain last 14 daily backups.
 set -euo pipefail
 
 DEPLOY_PATH="${1:-$(pwd)}"

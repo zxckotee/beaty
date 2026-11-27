@@ -1,1 +1,1 @@
-"""Beaty backend application."""
+"""Beaty-Welcome backend application."""

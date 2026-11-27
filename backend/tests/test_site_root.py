@@ -14,12 +14,12 @@ def test_production_root_serves_platform_landing(monkeypatch) -> None:
         client = TestClient(app, raise_server_exceptions=False)
         r = client.get("/")
         assert r.status_code == 200
-        assert "Beaty" in r.text
+        assert "Beaty-Welcome" in r.text
         assert "platform.css" in r.text
         assert "unsafe-eval" in r.headers.get("content-security-policy", "")
         assert client.get("/login").status_code == 404
         meta = client.get("/api/platform").json()
-        assert meta["product"] == "Beaty"
+        assert meta["product"] == "Beaty-Welcome"
         assert meta["demo_tenant_id"] is None
     finally:
         get_settings.cache_clear()
@@ -45,7 +45,7 @@ def test_platform_docs_api_and_page() -> None:
     client = TestClient(app, raise_server_exceptions=False)
     assert client.get("/docs").status_code == 200
     payload = client.get("/api/docs/platform").json()
-    assert payload["product"] == "Beaty"
+    assert payload["product"] == "Beaty-Welcome"
     platform_sections = [s for s in payload["sections"] if s.get("id", "").startswith("platform-")]
     assert len(platform_sections) >= 6
     onboard = next(s for s in platform_sections if s["id"] == "platform-onboard")

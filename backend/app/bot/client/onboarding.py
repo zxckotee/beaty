@@ -186,7 +186,7 @@ async def cmd_start(
     salon_policy = policy or (f"{base}/legal/salon-privacy" if base else "/legal/salon-privacy")
     intro = (
         f"Добро пожаловать в {tenant.name}!\n\n"
-        "Для записи нужны имя и телефон. Обработка — по политике салона и поручению оператору Beaty.\n\n"
+        "Для записи нужны имя и телефон. Обработка — по политике салона и поручению оператору Beaty-Welcome.\n\n"
         f"📄 Политика: {salon_policy}"
     )
     kb = InlineKeyboardBuilder()
