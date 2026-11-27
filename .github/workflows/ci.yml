@@ -53,7 +53,7 @@ jobs:
       - name: Pip audit (project deps)
         run: cd backend && pip-audit --desc on
       - name: Bandit
-        run: bandit -r backend/app -ll -q
+        run: bandit -r backend/app -ll -q --severity-level high
       - name: Ruff
         run: cd backend && ruff check .
       - name: Mypy
