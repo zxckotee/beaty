@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
 from app.domain.models import Booking, BookingEvent, Branch, NotificationTemplate, Tenant, TenantLanding
+from app.domain.services.dgis_catalog import enrich_locations_coords
+from app.domain.services.dgis_embed import landing_locations_from_row
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -235,6 +237,35 @@ async def get_template_body(session: AsyncSession, tenant_id: UUID, kind: str) -
     return DEFAULT_BODIES.get(kind, "Уведомление."), "HTML"
 
 
+def template_includes_dgis_location(photo_slots: list[Any]) -> bool:
+    return any(
+        slot == "dgis_location" or (isinstance(slot, dict) and slot.get("type") == "dgis_location")
+        for slot in photo_slots
+    )
+
+
+async def resolve_dgis_location_for_tenant(
+    session: AsyncSession, tenant_id: UUID
+) -> tuple[float, float, str | None] | None:
+    landing = await session.scalar(select(TenantLanding).where(TenantLanding.tenant_id == tenant_id))
+    if landing is None:
+        return None
+    tenant = await session.get(Tenant, tenant_id)
+    locs = list(landing_locations_from_row(landing))
+    if locs:
+        enriched = await enrich_locations_coords(locs)
+        primary = enriched[0] if enriched else {}
+        lat, lon = primary.get("map_lat"), primary.get("map_lon")
+        if lat is not None and lon is not None:
+            label = (primary.get("label") or "").strip()
+            title = label or ((tenant.name if tenant else None) or "").strip() or None
+            return float(lat), float(lon), title
+    if landing.map_lat is not None and landing.map_lon is not None:
+        title = ((tenant.name if tenant else None) or "").strip() or None
+        return float(landing.map_lat), float(landing.map_lon), title
+    return None
+
+
 async def resolve_photo_urls(
     session: AsyncSession, tenant_id: UUID, kind: str, ctx: BookingMessageContext
 ) -> list[str]:
@@ -271,11 +302,16 @@ async def render_booking_notification(
     tenant_id: UUID,
     kind: str,
     booking_id: UUID,
-) -> tuple[str, str, list[str]] | None:
+) -> tuple[str, str, list[str], dict[str, float | str] | None] | None:
     ctx = await build_booking_context(session, booking_id)
     if ctx is None:
         return None
     body, parse_mode = await get_template_body(session, tenant_id, kind)
+    tpl = await session.scalar(
+        select(NotificationTemplate).where(
+            NotificationTemplate.tenant_id == tenant_id, NotificationTemplate.kind == kind
+        )
+    )
     text = render_template(body, ctx)
     photos = await resolve_photo_urls(session, tenant_id, kind, ctx)
     if not ctx.dgis_url:
@@ -283,4 +319,12 @@ async def render_booking_notification(
 
         text = _re.sub(r'🗺[^\n]*\n?', "", text)
         text = _re.sub(r"<a href=\"\">[^<]*</a>\n?", "", text)
-    return text, parse_mode, photos
+    location_pin: dict[str, float | str] | None = None
+    if tpl and template_includes_dgis_location(list(tpl.photo_slots or [])):
+        pin = await resolve_dgis_location_for_tenant(session, tenant_id)
+        if pin:
+            lat, lon, title = pin
+            location_pin = {"latitude": lat, "longitude": lon}
+            if title:
+                location_pin["title"] = title[:64]
+    return text, parse_mode, photos, location_pin

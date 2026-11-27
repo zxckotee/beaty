@@ -25,10 +25,17 @@ from app.domain.services.message_tokens import (
     build_booking_context,
     render_template,
     staff_media_path,
+    template_includes_dgis_location,
 )
 from app.domain.services.notification_planner import cancel_booking_notifications, plan_booking_notifications
 from app.domain.services.provisioning import create_tenant_for_owner
 from tests.conftest import random_telegram_id
+
+
+def test_template_includes_dgis_location_slot():
+    assert template_includes_dgis_location(["staff", "dgis_location"])
+    assert not template_includes_dgis_location(["staff"])
+    assert template_includes_dgis_location([{"type": "dgis_location"}])
 
 
 def test_render_template_substitutes_tokens():

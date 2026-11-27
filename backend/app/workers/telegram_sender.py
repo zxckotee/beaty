@@ -45,6 +45,7 @@ async def send_notification(session: AsyncSession, notification: Notification) -
         "miniapp_url": miniapp_url_for_tenant(tenant),
     }
 
+    location_pin: dict[str, float | str] | None = None
     if booking_id and notification.notification_type in _RENDERABLE:
         rendered = await render_booking_notification(
             session,
@@ -53,7 +54,7 @@ async def send_notification(session: AsyncSession, notification: Notification) -
             booking_id=UUID(str(booking_id)),
         )
         if rendered:
-            text, parse_mode, photo_urls = rendered
+            text, parse_mode, photo_urls, location_pin = rendered
             _, reply_markup = build_notification_message(
                 notification.notification_type, payload, **template_kwargs
             )
@@ -100,6 +101,15 @@ async def send_notification(session: AsyncSession, notification: Notification) -
                         await bot.send_message(chat_id, "👇", reply_markup=reply_markup)
             else:
                 await bot.send_message(chat_id, text, reply_markup=reply_markup, **kwargs)
+            if location_pin:
+                loc_kwargs: dict[str, object] = {
+                    "latitude": float(location_pin["latitude"]),
+                    "longitude": float(location_pin["longitude"]),
+                }
+                title = location_pin.get("title")
+                if title:
+                    loc_kwargs["title"] = str(title)[:64]
+                await bot.send_location(chat_id, **loc_kwargs)
             notification.status = NotificationStatus.SENT.value
     except TelegramForbiddenError:
         await session.execute(
