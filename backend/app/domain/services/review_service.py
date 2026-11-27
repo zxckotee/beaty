@@ -11,9 +11,12 @@ from app.domain.models import Booking, BookingItem, BookingStatus, ClientProfile
 
 
 async def _booking_visit_end(session: AsyncSession, booking_id: UUID) -> datetime | None:
-    return await session.scalar(
+    ends_at = await session.scalar(
         select(func.max(func.upper(BookingItem.during))).where(BookingItem.booking_id == booking_id)
     )
+    if isinstance(ends_at, datetime):
+        return ends_at
+    return None
 
 
 async def _assert_visit_ended(session: AsyncSession, booking_id: UUID) -> None:
