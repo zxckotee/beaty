@@ -2,10 +2,10 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 
 from app.core.db import SessionLocal
-from app.domain.models import Notification, NotificationStatus
+from app.domain.models import Notification, NotificationStatus, NotificationType
 from app.workers.telegram_sender import send_notification
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 async def process_due_notifications(batch_size: int = 50) -> int:
     processed = 0
     async with SessionLocal() as session:
+        send_order = case(
+            (Notification.notification_type == NotificationType.BOOKING_CONFIRMED.value, 0),
+            (Notification.notification_type == NotificationType.BOOKING_CANCELLED.value, 1),
+            else_=2,
+        )
         rows = (
             await session.scalars(
                 select(Notification)
@@ -21,6 +26,7 @@ async def process_due_notifications(batch_size: int = 50) -> int:
                     Notification.status == NotificationStatus.PENDING.value,
                     Notification.send_at <= datetime.now(UTC),
                 )
+                .order_by(Notification.send_at, send_order)
                 .limit(batch_size)
                 .with_for_update(skip_locked=True)
             )

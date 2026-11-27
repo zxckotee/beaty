@@ -71,11 +71,18 @@ async def queue_booking_cancelled(
     )
 
 
-async def cancel_booking_notifications(session: AsyncSession, booking_id: UUID) -> None:
+async def cancel_booking_notifications(
+    session: AsyncSession,
+    booking_id: UUID,
+    *,
+    keep_confirmation: bool = False,
+) -> None:
     from sqlalchemy import update
 
-    await session.execute(
-        update(Notification)
-        .where(Notification.booking_id == booking_id, Notification.status == NotificationStatus.PENDING.value)
-        .values(status=NotificationStatus.CANCELLED.value)
+    stmt = update(Notification).where(
+        Notification.booking_id == booking_id,
+        Notification.status == NotificationStatus.PENDING.value,
     )
+    if keep_confirmation:
+        stmt = stmt.where(Notification.notification_type != NotificationType.BOOKING_CONFIRMED.value)
+    await session.execute(stmt.values(status=NotificationStatus.CANCELLED.value))
