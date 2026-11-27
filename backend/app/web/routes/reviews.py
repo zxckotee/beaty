@@ -56,7 +56,7 @@ async def reviewable_bookings(
 ) -> dict:
     if ctx.client is None:
         raise HTTPException(status_code=403, detail="clients only")
-    items = await review_service.list_reviewable_bookings(
+    items, pending_after = await review_service.list_reviewable_bookings(
         session, tenant_id=ctx.tenant.id, client_profile_id=ctx.client.id
     )
     return {
@@ -67,7 +67,16 @@ async def reviewable_bookings(
                 "service_names": b.get("service_names") or [],
             }
             for b in items
-        ]
+        ],
+        "pending_after": [
+            {
+                "booking_id": str(b["booking_id"]),
+                "starts_at": b["starts_at"].isoformat() if b.get("starts_at") else None,
+                "review_opens_at": b["review_opens_at"].isoformat(),
+                "service_names": b.get("service_names") or [],
+            }
+            for b in pending_after
+        ],
     }
 
 
@@ -99,9 +108,12 @@ async def create_review(
         await session.commit()
     except ValueError as exc:
         await session.rollback()
-        if "already exists" in str(exc):
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        msg = str(exc)
+        if "already exists" in msg:
+            raise HTTPException(status_code=400, detail=msg) from exc
+        if "review opens after visit end" in msg:
+            raise HTTPException(status_code=403, detail="Оценка будет доступна после окончания визита") from exc
+        raise HTTPException(status_code=400, detail=msg) from exc
     return {"id": str(review.id)}
 
 
