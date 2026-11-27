@@ -87,16 +87,31 @@ async function loadPlatformDocsPage() {
   }
 }
 
+function telegramLoginFallbackLink() {
+  return Object.assign(document.createElement('a'), {
+    className: 'btn btn-telegram',
+    href: TG_PLATFORM,
+    target: '_blank',
+    rel: 'noopener',
+    textContent: 'Войти через Telegram',
+  });
+}
+
 async function mountPlatformTelegramLoginWidgets(loginMounts) {
-  let botUsername = DEFAULT_PLATFORM_BOT;
   try {
     const cfg = await fetch('/api/platform/telegram-login-config').then((r) => r.json());
-    if (cfg.bot_username) botUsername = String(cfg.bot_username);
+    const botUsername = cfg.bot_username ? String(cfg.bot_username) : DEFAULT_PLATFORM_BOT;
+    for (const loginMount of loginMounts) {
+      if (cfg.enabled && botUsername) {
+        mountTelegramLoginWidget(loginMount, botUsername);
+      } else {
+        loginMount.replaceChildren(telegramLoginFallbackLink());
+      }
+    }
   } catch {
-    /* official widget still mounts with default bot username */
-  }
-  for (const loginMount of loginMounts) {
-    mountTelegramLoginWidget(loginMount, botUsername);
+    for (const loginMount of loginMounts) {
+      loginMount.replaceChildren(telegramLoginFallbackLink());
+    }
   }
 }
 
