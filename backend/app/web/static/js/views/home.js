@@ -55,6 +55,8 @@ export async function homeView() {
   body.append(spinner());
 
   let data = null;
+  let reviewsData = null;
+  let reviewable = [];
   let map = null;
   let mapEl = null;
 
@@ -65,12 +67,31 @@ export async function homeView() {
     draw();
   }
 
+  async function loadReviews() {
+    try {
+      reviewsData = await api.get('/reviews');
+    } catch {
+      reviewsData = (data && data.reviews_preview) || { items: [], avg_salon_rating: null };
+    }
+    if (store.me.authenticated && store.me.active_role === 'client') {
+      try {
+        const r = await api.get('/reviews/reviewable');
+        reviewable = r.bookings || [];
+      } catch {
+        reviewable = [];
+      }
+    } else {
+      reviewable = [];
+    }
+  }
+
   async function load() {
     data = await api.get(edit ? '/manager/landing' : '/landing');
     if (store.info && data.avatar_url) {
       store.info.avatar_url = data.avatar_url;
       syncHeaderBrand(store.info);
     }
+    await loadReviews();
   }
 
   function destroyMap() {
@@ -628,6 +649,107 @@ export async function homeView() {
       sections.push(
         h('div', { class: 'profile-edit-bar card' }, h('span', { class: 'tiny' }, 'Режим редактирования'), h('a', { class: 'btn sm ghost', href: '#/schedule' }, 'Расписание')),
       );
+    }
+
+    function starsLine(n) {
+      const v = Math.max(0, Math.min(5, Number(n) || 0));
+      return '★'.repeat(v) + (v < 5 ? '☆'.repeat(5 - v) : '');
+    }
+
+    function openClientReviewSheet() {
+      let bookingId = reviewable[0] ? reviewable[0].booking_id : '';
+      let salonRating = 5;
+      openSheet({
+        title: 'Отзыв о визите',
+        build: (sheet) => {
+          const pick = h(
+            'select',
+            { class: 'select', onchange: (e) => { bookingId = e.target.value; } },
+            reviewable.map((b) => h('option', { value: b.booking_id }, (b.service_names || []).join(', ') || b.booking_id)),
+          );
+          const stars = h('div', { class: 'review-stars-input row' });
+          for (let i = 1; i <= 5; i += 1) {
+            const btn = h('button', { type: 'button', class: `btn sm ghost${i <= salonRating ? ' active' : ''}` }, '★');
+            btn.addEventListener('click', () => {
+              salonRating = i;
+              stars.querySelectorAll('button').forEach((b, idx) => b.classList.toggle('active', idx < i));
+            });
+            stars.append(btn);
+          }
+          const note = field({ label: 'Комментарий', tag: 'textarea', props: { rows: 4, maxlength: 2000, placeholder: 'Необязательно' } });
+          sheet.body.append(field('Визит', pick), field('Оценка салона', stars), note.el);
+          const submit = h('button', { class: 'btn primary', type: 'button' }, 'Отправить');
+          submit.addEventListener('click', () =>
+            withBusy(submit, async () => {
+              try {
+                await api.post('/reviews', { booking_id: bookingId, salon_rating: salonRating, text: note.input.value.trim() || null });
+                await loadReviews();
+                draw();
+                sheet.close();
+                toast('Спасибо за отзыв');
+              } catch (e) {
+                toast(friendly(e), true);
+              }
+            }),
+          );
+          sheet.setFooter(h('div', { class: 'row' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => sheet.close() }, 'Отмена'), submit));
+        },
+      });
+    }
+
+    function openManagerReplySheet(review) {
+      openSheet({
+        title: 'Ответ салона',
+        build: (sheet) => {
+          const note = field({ label: 'Текст ответа', tag: 'textarea', props: { rows: 5, maxlength: 2000, value: review.business_reply || '' } });
+          sheet.body.append(note.el);
+          const save = h('button', { class: 'btn primary', type: 'button' }, 'Сохранить');
+          save.addEventListener('click', () =>
+            withBusy(save, async () => {
+              try {
+                await api.post(`/manager/reviews/${review.id}/reply`, { reply: note.input.value.trim() });
+                await loadReviews();
+                draw();
+                sheet.close();
+                toast('Ответ сохранён');
+              } catch (e) {
+                toast(friendly(e), true);
+              }
+            }),
+          );
+          sheet.setFooter(save);
+        },
+      });
+    }
+
+    const reviewItems = (reviewsData && reviewsData.items) || [];
+    const showReviews = edit || reviewItems.length || (reviewsData && reviewsData.avg_salon_rating);
+    if (showReviews) {
+      const sec = h('section', { class: 'profile-section profile-reviews' }, h('h2', null, 'Отзывы'));
+      if (reviewsData && reviewsData.avg_salon_rating != null) {
+        sec.append(h('p', { class: 'review-avg' }, `Средняя оценка: ${Number(reviewsData.avg_salon_rating).toFixed(1)} ${starsLine(Math.round(reviewsData.avg_salon_rating))}`));
+      }
+      const list = h('div', { class: 'review-list' });
+      for (const r of reviewItems) {
+        const card = h('article', { class: 'review-card card pad' });
+        card.append(
+          h('div', { class: 'review-meta row' }, h('strong', null, r.client_name || 'Клиент'), h('span', { class: 'review-stars', 'aria-hidden': 'true' }, starsLine(r.salon_rating))),
+        );
+        if (r.text) card.append(h('p', null, r.text));
+        if (r.business_reply) {
+          card.append(h('blockquote', { class: 'review-reply' }, h('span', { class: 'tiny muted' }, 'Ответ салона'), h('p', null, r.business_reply)));
+        }
+        if (edit) {
+          card.append(h('button', { class: 'btn sm ghost', type: 'button', onclick: () => openManagerReplySheet(r) }, r.business_reply ? 'Изменить ответ' : 'Ответить'));
+        }
+        list.append(card);
+      }
+      if (!reviewItems.length) list.append(h('p', { class: 'muted tiny' }, 'Пока нет отзывов'));
+      sec.append(list);
+      if (store.me.authenticated && store.me.active_role === 'client' && reviewable.length) {
+        sec.append(h('button', { class: 'btn primary', type: 'button', onclick: () => openClientReviewSheet() }, 'Оставить отзыв'));
+      }
+      sections.push(sec);
     }
 
     const showPortfolio = edit || !sectionEmpty(data.portfolio);

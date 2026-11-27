@@ -35,9 +35,11 @@ from app.web.routes import (
     auth,
     client,
     client_chat,
+    docs_api,
     landing,
     manager,
     messages,
+    reviews,
     schedule,
     site_root,
     staff_schedule,
@@ -125,6 +127,9 @@ async def domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
 
 
 app.include_router(site_root.router)
+app.include_router(docs_api.platform_docs_router)
+app.include_router(docs_api.tenant_docs_router)
+app.include_router(reviews.router)
 app.include_router(test_login.router)
 app.include_router(auth.router)
 app.include_router(schedule.router)

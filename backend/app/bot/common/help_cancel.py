@@ -5,9 +5,17 @@ from aiogram.types import Message
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
 from app.bot.chat_readonly import reply_use_miniapp
-from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
+from app.bot.filters.roles import HasActiveClientRole, is_manager
+from app.bot.help_delivery import send_help_parts
 from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint
+from app.content.user_guide import (
+    HELP_BUTTON,
+    LEGACY_HELP_BUTTON,
+    build_tenant_client_help,
+    build_tenant_manager_help,
+    tenant_docs_url,
+)
 from app.domain.models import StaffMember, Tenant  # noqa: TC001 — aiogram DI
 
 common_router = Router(name="common")
@@ -50,7 +58,7 @@ async def cmd_cancel(
 
 
 @common_router.message(Command("help"))
-@common_router.message(F.text == "Помощь")
+@common_router.message(F.text.in_({HELP_BUTTON, LEGACY_HELP_BUTTON}))
 async def cmd_help(
     message: Message,
     tenant: Tenant,
@@ -59,43 +67,37 @@ async def cmd_help(
     active_ui_role: str,
     can_switch_ui_role: bool,
 ) -> None:
-    bot_user = message.bot
-    username = getattr(bot_user, "username", None) or "bot"
-    lines = [
-        f"Салон: {tenant.name}",
-        f"Бот: @{username}",
-        "",
-    ]
-    if not bot_chat_write_enabled():
-        lines.append(miniapp_open_hint())
-        await message.answer(
-            "\n".join(lines),
-            reply_markup=_menu(
-                active_ui_role=active_ui_role,
-                can_switch_ui_role=can_switch_ui_role,
-                roles=roles,
-                staff_member=staff_member,
-            ),
+    menu = _menu(
+        active_ui_role=active_ui_role,
+        can_switch_ui_role=can_switch_ui_role,
+        roles=roles,
+        staff_member=staff_member,
+    )
+    miniapp = not bot_chat_write_enabled()
+    docs_url = tenant_docs_url(tenant.public_id)
+    if miniapp:
+        hint = miniapp_open_hint()
+        await send_help_parts(
+            message,
+            f"📖 {tenant.name}\n\n{hint}",
+            docs_url=docs_url,
+            reply_markup=menu,
         )
         return
-    lines.extend(
-        [
-            "Команды:",
-            "/cancel — отменить текущий шаг",
-        ]
-    )
-    if active_ui_role == UI_ROLE_MANAGER and is_manager(roles):
-        lines.extend(
-            [
-                "/today — записи на сегодня",
-                "Команда, Услуги — управление салоном",
-            ]
-        )
-    if active_ui_role == UI_ROLE_SPECIALIST and is_staff(roles):
-        lines.extend(["/day — мой рабочий день", "/sick — форс-мажор"])
-    if active_ui_role == UI_ROLE_CLIENT:
-        lines.extend(["/book — запись", "/my — мои записи"])
-    await message.answer("\n".join(lines))
+    if active_ui_role == UI_ROLE_CLIENT or (
+        active_ui_role == UI_ROLE_SPECIALIST and not is_manager(roles)
+    ):
+        text = build_tenant_client_help(tenant, miniapp=False)
+        await send_help_parts(message, text, docs_url=docs_url, reply_markup=menu)
+        return
+    if active_ui_role in {UI_ROLE_MANAGER, UI_ROLE_SPECIALIST} and (
+        is_manager(roles) or active_ui_role == UI_ROLE_MANAGER
+    ):
+        part1, part2 = build_tenant_manager_help(tenant, miniapp=False, web_docs_url=docs_url)
+        await send_help_parts(message, part1, part2=part2, docs_url=docs_url, reply_markup=menu)
+        return
+    text = build_tenant_client_help(tenant, miniapp=False)
+    await send_help_parts(message, text, docs_url=docs_url, reply_markup=menu)
 
 
 @common_router.message(F.text == "Запись", HasActiveClientRole())
