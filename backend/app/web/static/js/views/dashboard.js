@@ -295,6 +295,8 @@ export async function dashboardView(sub = '') {
 
   chartsRow.replaceChildren(h('div', { class: 'card pad' }, spinner()));
   await renderSummary();
+  await renderCharts();
+  requestAnimationFrame(() => requestAnimationFrame(resizeMountedCharts));
 
   root.afterMount = async () => {
     await renderCharts();
