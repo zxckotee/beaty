@@ -67,9 +67,10 @@ DEFAULT_BODIES: dict[str, str] = {
         "Не забудьте подтвердить запись кнопкой ниже 👇"
     ),
     "booking_cancelled": (
-        "❌ Запись отменена.\n\n"
-        "Было: {datetime}\n"
-        "{service} · {staff}"
+        "❌ <b>Запись отменена</b>\n\n"
+        "📅 {datetime}\n"
+        "✂️ {service}\n"
+        "👤 Мастер: {staff}"
         "{cancel_message_block}"
     ),
 }
@@ -151,46 +152,61 @@ async def build_booking_context(session: AsyncSession, booking_id: UUID) -> Book
         return None
     tenant = await session.get(Tenant, booking.tenant_id)
     branch = await session.get(Branch, booking.branch_id)
-    row = await session.execute(
-        text(
-            """
-            SELECT lower(bi.during) AS start_at,
-                   s.name AS service_name,
-                   sm.id AS staff_id,
-                   sm.display_name AS staff_name,
-                   sm.photo_url AS staff_photo,
-                   sm.photo_file_id AS staff_photo_file_id,
-                   bi.price_cents
-            FROM booking_item bi
-            JOIN service s ON s.id = bi.service_id
-            JOIN staff_member sm ON sm.id = bi.staff_member_id
-            WHERE bi.booking_id = :bid AND bi.is_active = true
-            ORDER BY lower(bi.during)
-            LIMIT 1
-            """
-        ),
-        {"bid": str(booking_id)},
-    )
-    item = row.mappings().first()
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT lower(bi.during) AS start_at,
+                       s.name AS service_name,
+                       sm.id AS staff_id,
+                       sm.display_name AS staff_name,
+                       sm.photo_url AS staff_photo,
+                       sm.photo_file_id AS staff_photo_file_id,
+                       bi.price_cents,
+                       bi.is_active
+                FROM booking_item bi
+                JOIN service s ON s.id = bi.service_id
+                JOIN staff_member sm ON sm.id = bi.staff_member_id
+                WHERE bi.booking_id = :bid
+                ORDER BY lower(bi.during)
+                """
+            ),
+            {"bid": str(booking_id)},
+        )
+    ).mappings().all()
+    active = [r for r in rows if r["is_active"]]
+    chosen = active or list(rows)
     landing = await session.scalar(select(TenantLanding).where(TenantLanding.tenant_id == booking.tenant_id))
     dgis_url = landing.dgis_url if landing and landing.dgis_url else ""
-    price = ""
-    if item is not None and item["price_cents"] is not None:
-        price = f"{int(item['price_cents']) // 100} ₽"
-    if item is None:
+    if not chosen:
         start_at = None
         service = "Услуга"
         staff = "Мастер"
         staff_photo: str | None = None
+        price = ""
     else:
-        start_at = item["start_at"]
-        service = str(item["service_name"] or "Услуга")
-        staff = str(item["staff_name"] or "Мастер")
+        start_at = chosen[0]["start_at"]
+        service_names: list[str] = []
+        staff_names: list[str] = []
+        price_cents = 0
+        for item in chosen:
+            service_name = str(item["service_name"] or "").strip()
+            if service_name and service_name not in service_names:
+                service_names.append(service_name)
+            staff_name = str(item["staff_name"] or "").strip()
+            if staff_name and staff_name not in staff_names:
+                staff_names.append(staff_name)
+            if item["price_cents"] is not None:
+                price_cents += int(item["price_cents"])
+        service = ", ".join(service_names) or "Услуга"
+        staff = ", ".join(staff_names) or "Мастер"
+        price = f"{price_cents // 100} ₽" if price_cents else ""
+        first = chosen[0]
         staff_photo = staff_media_path(
-            photo_url=item["staff_photo"],
-            photo_file_id=item["staff_photo_file_id"],
+            photo_url=first["staff_photo"],
+            photo_file_id=first["staff_photo_file_id"],
             tenant_public_id=tenant.public_id if tenant else "",
-            staff_member_id=UUID(str(item["staff_id"])),
+            staff_member_id=UUID(str(first["staff_id"])),
         )
     cancel_message = await _cancel_client_message(session, booking_id, booking.tenant_id)
     return BookingMessageContext(

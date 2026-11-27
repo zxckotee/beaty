@@ -332,7 +332,7 @@ async def cancel_booking(
     await session.execute(
         update(BookingItem).where(BookingItem.booking_id == booking.id).values(is_active=False)
     )
-    await cancel_booking_notifications(session, booking.id)
+    await cancel_booking_notifications(session, booking.id, keep_confirmation=True)
     from app.domain.services.notification_planner import queue_booking_cancelled
 
     await queue_booking_cancelled(session, booking)
