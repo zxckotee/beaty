@@ -486,6 +486,13 @@ export function dayView({ manager, embedded = false }) {
     openScheduleRulesPicker(uniq, { anchorDate: date, onSaved: () => load() });
   }
 
+  function slotEndStillFuture(dayIso, booking) {
+    const endM = toMin(booking.end);
+    const parts = dayIso.split('-').map(Number);
+    const slotEnd = new Date(parts[0], parts[1] - 1, parts[2], Math.floor(endM / 60), endM % 60, 0, 0);
+    return slotEnd.getTime() > Date.now();
+  }
+
   async function setBookingStatus(booking, action, extra) {
     const path = `${prefix}/bookings/${booking.booking_id}/${action}`;
     if (action === 'cancel' && extra?.reason != null) {
@@ -543,6 +550,14 @@ export function dayView({ manager, embedded = false }) {
                 class: 'btn ok',
                 type: 'button',
                 onclick: () => withBusy(foot, async () => {
+                  if (slotEndStillFuture(date, booking)) {
+                    const ok = await confirmDialog({
+                      title: 'Завершить визит?',
+                      text: 'Визит ещё не закончился по расписанию. Отметить «Услуга оказана»? Клиент сможет оставить отзыв только после окончания слота.',
+                      confirmLabel: 'Всё равно отметить',
+                    });
+                    if (!ok) return;
+                  }
                   await setBookingStatus(booking, 'complete');
                   sheet.close();
                 }),
