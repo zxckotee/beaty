@@ -11,6 +11,7 @@ from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
 from app.bot.keyboards.builders import contact_request_keyboard, tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled
+from app.content.user_guide import public_web_base
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -181,12 +182,28 @@ async def cmd_start(
         return
 
     policy = (tenant.rules or {}).get("privacy_url", "")
-    intro = f"Добро пожаловать в {tenant.name}!"
-    if policy:
-        intro += f"\nПолитика: {policy}"
-    intro += "\n\nНужен номер телефона — кнопка ниже."
+    base = public_web_base()
+    salon_policy = policy or (f"{base}/legal/salon-privacy" if base else "/legal/salon-privacy")
+    intro = (
+        f"Добро пожаловать в {tenant.name}!\n\n"
+        "Для записи нужны имя и телефон. Обработка — по политике салона и поручению оператору Beaty.\n\n"
+        f"📄 Политика: {salon_policy}"
+    )
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Согласен с политикой", callback_data="c:onb:pd:yes")
+    kb.adjust(1)
+    await state.set_state(ClientOnboarding.waiting_pd_consent)
+    await message.answer(intro, reply_markup=kb.as_markup())
+
+
+@client_onboarding_router.callback_query(F.data == "c:onb:pd:yes", ClientOnboarding.waiting_pd_consent)
+async def pd_consent_ok(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(pd_consent=True)
     await state.set_state(ClientOnboarding.waiting_contact)
-    await message.answer(intro, reply_markup=contact_request_keyboard())
+    if callback.message:
+        await callback.message.edit_text("Спасибо. Отправьте номер телефона кнопкой ниже.")
+        await callback.message.answer("Контакт", reply_markup=contact_request_keyboard())
+    await callback.answer()
 
 
 @client_onboarding_router.message(ClientOnboarding.waiting_contact, F.contact)

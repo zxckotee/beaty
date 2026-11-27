@@ -15,7 +15,53 @@ const STATUS = {
 export async function mineView() {
   const root = h('div');
   const list = h('div', { class: 'list' });
-  root.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Мои записи'), h('p', null, 'Предстоящие и прошедшие визиты.'))), list);
+  const privacy = h('section', { class: 'card pad col', style: { marginBottom: '12px' } },
+    h('h2', { style: { fontSize: '1.05rem' } }, 'Персональные данные'),
+    h('p', { class: 'muted small' }, 'Выгрузка данных и запрос удаления — по 152-ФЗ. Записи салона сохраняются анонимно.'),
+    h('div', { class: 'row wrap', style: { gap: '8px' } },
+      h('button', { class: 'btn sm ghost', type: 'button', onclick: () => exportData() }, 'Выгрузить'),
+      h('button', { class: 'btn sm danger', type: 'button', onclick: () => eraseData() }, 'Удалить мои данные'),
+    ),
+  );
+  root.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Мои записи'), h('p', null, 'Предстоящие и прошедшие визиты.'))), privacy, list);
+
+  async function exportData() {
+    try {
+      const payload = await api.get('/client/me/personal-data');
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'beaty-personal-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Файл выгрузки готов');
+    } catch (e) {
+      toast(friendly(e), true);
+    }
+  }
+
+  function eraseData() {
+    openSheet({
+      title: 'Удалить персональные данные?',
+      build: (sheet) => {
+        sheet.body.append(h('p', { class: 'muted small' }, 'Имя и телефон будут стёрты в профиле салона. История визитов останется без персональных данных.'));
+        const go = h('button', { class: 'btn danger', type: 'button' }, 'Удалить');
+        go.addEventListener('click', () =>
+          withBusy(go, async () => {
+            try {
+              await api.post('/client/me/personal-data/erase');
+              toast('Данные удалены');
+              sheet.close();
+            } catch (e) {
+              toast(friendly(e), true);
+            }
+          }),
+        );
+        sheet.setFooter(h('div', { class: 'row' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => sheet.close() }, 'Отмена'), go));
+      },
+    });
+  }
 
   async function reload() {
     const rows = await api.get('/client/bookings');

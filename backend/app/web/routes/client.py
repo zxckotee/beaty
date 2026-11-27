@@ -26,6 +26,7 @@ from app.domain.services.availability_service import find_schedule_offers, staff
 from app.domain.services.booking_service import book_services_at_start, book_services_in_cell, cancel_booking
 from app.domain.services.cell_service import get_default_branch, load_services
 from app.domain.services.client_service import normalize_phone, upsert_client_profile
+from app.domain.services.client_subject_service import erase_client_personal_data, export_client_data
 from app.web.deps import WebContext, get_tenant, require_auth, writable
 from app.web.serializers import hhmm, local_date, schedule_offer_dict, service_card, staff_card
 
@@ -300,3 +301,33 @@ async def cancel_my_booking(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
     return await _cancel_owned_booking(session, ctx, booking_id, message=None)
+
+
+@router.get("/me/personal-data")
+async def export_personal_data(
+    ctx: WebContext = Depends(require_auth),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    if ctx.client is None:
+        raise HTTPException(status_code=403, detail="clients only")
+    try:
+        payload = await export_client_data(session, tenant_id=ctx.tenant.id, client_profile_id=ctx.client.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return payload
+
+
+@router.post("/me/personal-data/erase")
+async def erase_personal_data(
+    ctx: WebContext = Depends(require_auth),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    if ctx.client is None:
+        raise HTTPException(status_code=403, detail="clients only")
+    try:
+        await erase_client_personal_data(session, tenant_id=ctx.tenant.id, client_profile_id=ctx.client.id)
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"status": "erased"}

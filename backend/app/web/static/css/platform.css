@@ -693,3 +693,25 @@ main {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+.platform-docs-main {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 5rem;
+}
+.platform-docs-sections .platform-details {
+  margin-bottom: 0.65rem;
+}
+.platform-docs-legal-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.legal-page main {
+  line-height: 1.55;
+}
+.legal-page p {
+  margin: 0 0 1rem;
+}
