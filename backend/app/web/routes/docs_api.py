@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from app.content.user_guide import docs_sections, platform_landing_url
 from app.web.deps import WebContext, get_context

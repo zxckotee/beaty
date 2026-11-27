@@ -5,7 +5,7 @@ from aiogram.types import Message
 
 from app.bot.active_role import UI_ROLE_CLIENT, UI_ROLE_MANAGER, UI_ROLE_SPECIALIST
 from app.bot.chat_readonly import reply_use_miniapp
-from app.bot.filters.roles import HasActiveClientRole, is_manager, is_staff
+from app.bot.filters.roles import HasActiveClientRole, is_manager
 from app.bot.help_delivery import send_help_parts
 from app.bot.keyboards.builders import tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled, miniapp_open_hint

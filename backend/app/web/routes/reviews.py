@@ -29,7 +29,11 @@ def _review_dict(row: dict) -> dict:
         "text": row.get("text"),
         "business_reply": row.get("business_reply"),
         "client_name": _mask_name(row.get("client_name")),
-        "created_at": row["created_at"].isoformat() if isinstance(row.get("created_at"), datetime) else row.get("created_at"),
+        "created_at": (
+            row["created_at"].isoformat()
+            if isinstance(row.get("created_at"), datetime)
+            else row.get("created_at")
+        ),
     }
 
 

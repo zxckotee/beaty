@@ -11,6 +11,7 @@ from app.bot.client.states import ClientOnboarding
 from app.bot.filters.roles import is_manager
 from app.bot.keyboards.builders import contact_request_keyboard, tenant_reply_keyboard
 from app.bot.miniapp import bot_chat_write_enabled
+from app.content.user_guide import public_web_base
 from app.domain.exceptions import DomainError
 from app.domain.models import ClientProfile, StaffMember, Tenant, UserAccount
 from app.domain.services.client_onboarding_service import (
@@ -19,7 +20,6 @@ from app.domain.services.client_onboarding_service import (
     ensure_user_account,
 )
 from app.domain.services.team_invite_service import accept_invite, parse_invite_token
-from app.content.user_guide import public_web_base
 from app.domain.services.web_auth_service import (
     LOGIN_PREFIX,
     bot_message_for_confirm,

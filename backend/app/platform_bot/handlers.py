@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from aiogram import F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, CommandStart
@@ -5,18 +7,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from datetime import UTC, datetime
 from aiogram.utils.token import TokenValidationError
-
-from app.bot.help_delivery import open_bot_keyboard
-from app.bot.telegram_qr import qr_png_bytes
-from app.content.user_guide import platform_landing_url, public_web_base, telegram_bot_url
-from app.platform_bot.keyboards import platform_reply_keyboard
 from sqlalchemy import select
 
 from app.bot.factory import create_bot
+from app.bot.help_delivery import open_bot_keyboard
 from app.bot.telegram_format import bot_mention_html
+from app.bot.telegram_qr import qr_png_bytes
 from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
+from app.content.user_guide import platform_landing_url, public_web_base, telegram_bot_url
 from app.core.db import SessionLocal
 from app.domain.exceptions import BotAlreadyLinkedError
 from app.domain.models import Tenant
@@ -26,6 +25,7 @@ from app.domain.services.provisioning import (
     find_owned_tenant_for_telegram_user,
     find_tenant_by_bot_id,
 )
+from app.platform_bot.keyboards import platform_reply_keyboard
 
 platform_router = Router(name="platform")
 
