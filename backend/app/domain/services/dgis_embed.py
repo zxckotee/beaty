@@ -12,7 +12,7 @@ import httpx
 
 from app.core.settings import get_settings
 from app.domain.models import TenantLanding
-from app.domain.services.dgis_url import parse_dgis_url
+from app.domain.services.dgis_url import parse_dgis_url, resolve_dgis_url
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,8 @@ def build_firmsonmap_iframe_html(embed_src: str) -> str:
 
 
 def location_from_url(raw: str, *, label: str | None = None) -> dict[str, Any] | None:
-    parsed = parse_dgis_url(raw)
+    resolved = resolve_dgis_url(raw) or str(raw).strip()
+    parsed = parse_dgis_url(resolved)
     if not parsed.firm_id:
         return None
     loc: dict[str, Any] = {

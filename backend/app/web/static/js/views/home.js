@@ -236,7 +236,7 @@ export async function homeView() {
       h(
         'p',
         { class: 'tiny muted' },
-        'Ссылки на филиалы в 2ГИС: на профиле — карта с точками, кнопки откроют маршрут в приложении 2ГИС. Координаты берутся из ссылки ( …/firm/id/долгота,широта ), если указаны.',
+        'Ссылки на филиалы: полный URL 2ГИС (…/firm/…) или короткая go.2gis.com — сервер раскроет ссылку и покажет карту. Подпись — необязательно.',
       ),
       locEditor.rows,
       h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, addBtn, saveBtn, clearBtn),
@@ -251,7 +251,7 @@ export async function homeView() {
         const addBtn = h('button', { class: 'btn sm ghost', type: 'button' }, icon('plus'), 'Филиал');
         addBtn.addEventListener('click', () => locEditor.addRow());
         sheet.body.append(
-          h('p', { class: 'tiny muted' }, 'Ссылка на карточку организации в 2ГИС (с /firm/ и номером).'),
+          h('p', { class: 'tiny muted' }, 'Карточка 2ГИС или короткая ссылка go.2gis.com — после сохранения появится превью карты выше.'),
           locEditor.rows,
           addBtn,
         );

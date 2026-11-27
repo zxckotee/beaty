@@ -67,6 +67,29 @@ def persist_legacy_dgis_locations(landing: TenantLanding) -> bool:
     return True
 
 
+async def repair_dgis_locations(landing: TenantLanding) -> bool:
+    """Re-parse stored links (e.g. go.2gis.com) when firm_id was missing on first save."""
+    stored = list(landing.dgis_locations or [])
+    inputs: list[dict[str, Any]] = []
+    for loc in stored:
+        if not isinstance(loc, dict):
+            continue
+        url = str(loc.get("dgis_url") or loc.get("url") or "").strip()
+        if url and not loc.get("firm_id"):
+            inputs.append({"dgis_url": url, "label": loc.get("label")})
+    if not inputs and (landing.dgis_url or "").strip() and not landing.dgis_firm_id:
+        inputs.append({"dgis_url": str(landing.dgis_url).strip()})
+    if not inputs:
+        return False
+    locs = await enrich_locations_coords(normalize_dgis_locations(inputs))
+    if not locs:
+        return False
+    landing.dgis_locations = locs
+    landing.dgis_embed_html = None
+    sync_legacy_dgis_fields(landing, locs)
+    return True
+
+
 async def list_portfolio(session: AsyncSession, tenant_id: uuid.UUID) -> list[LandingPortfolioItem]:
     rows = await session.scalars(
         select(LandingPortfolioItem)

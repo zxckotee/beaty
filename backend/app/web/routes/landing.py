@@ -10,7 +10,7 @@ from app.core.db import get_session
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant
 from app.domain.services import review_service
 from app.domain.services.dgis_embed import dgis_map_payload
-from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
+from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url_resolved
 from app.domain.services.landing_service import (
     get_or_create_landing,
     get_portfolio_item,
@@ -21,6 +21,7 @@ from app.domain.services.landing_service import (
     list_widgets,
     persist_legacy_dgis_locations,
     reorder_widgets,
+    repair_dgis_locations,
     update_landing,
     validate_template,
 )
@@ -121,7 +122,10 @@ async def public_landing(
     tenant: Tenant = Depends(get_tenant), session: AsyncSession = Depends(get_session)
 ) -> dict[str, object]:
     landing = await get_or_create_landing(session, tenant.id)
-    await session.commit()
+    if await repair_dgis_locations(landing):
+        await session.commit()
+    elif persist_legacy_dgis_locations(landing):
+        await session.commit()
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=True)
     widgets = await list_widgets(session, tenant.id, visible_only=True)
@@ -184,7 +188,9 @@ async def manager_get_landing(
 ) -> dict[str, object]:
     tenant = writable(ctx)
     landing = await get_or_create_landing(session, tenant.id)
-    if persist_legacy_dgis_locations(landing):
+    if await repair_dgis_locations(landing):
+        await session.commit()
+    elif persist_legacy_dgis_locations(landing):
         await session.commit()
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=False)
@@ -237,7 +243,7 @@ async def manager_parse_dgis(
     ctx: WebContext = Depends(require_manager),
 ) -> dict[str, object]:
     writable(ctx)
-    return dgis_parse_to_dict(parse_dgis_url(body.url))
+    return dgis_parse_to_dict(parse_dgis_url_resolved(body.url))
 
 
 @manager_router.post("/photo/cover")
