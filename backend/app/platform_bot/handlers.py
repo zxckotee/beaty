@@ -12,6 +12,7 @@ from app.bot.telegram_format import bot_mention_html
 from app.bot.telegram_ui_sync import sync_tenant_bot_telegram_ui
 from app.core.db import SessionLocal
 from app.domain.exceptions import BotAlreadyLinkedError
+from app.domain.models import Tenant
 from app.domain.services.provisioning import (
     attach_bot_token,
     create_tenant_for_owner,
@@ -67,6 +68,7 @@ class OnboardStates(StatesGroup):
 
 @platform_router.message(CommandStart())
 async def platform_start(message: Message, state: FSMContext) -> None:
+    await state.clear()
     async with SessionLocal() as session:
         owned = await find_owned_tenant_for_telegram_user(
             session, message.from_user.id  # type: ignore[union-attr]
@@ -123,16 +125,16 @@ async def platform_token(message: Message, state: FSMContext) -> None:
     async with SessionLocal() as session:
         try:
             owned_tenant_id = data.get("owned_tenant_id")
+            tenant: Tenant | None = None
             if owned_tenant_id:
                 from uuid import UUID
 
-                from app.domain.models import Tenant
-
                 tenant = await session.get(Tenant, UUID(owned_tenant_id))
-                if tenant is None:
-                    await message.answer("Салон не найден. Начните с /start.")
-                    return
-            else:
+            if tenant is None:
+                tenant = await find_owned_tenant_for_telegram_user(
+                    session, message.from_user.id  # type: ignore[union-attr]
+                )
+            if tenant is None:
                 tenant = await create_tenant_for_owner(
                     session,
                     owner_telegram_id=message.from_user.id,  # type: ignore[union-attr]
