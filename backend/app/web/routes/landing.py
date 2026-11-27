@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.domain.models import LandingPortfolioItem, LandingPost, LandingProfileWidget, Tenant
+from app.domain.services import review_service
 from app.domain.services.dgis_embed import dgis_map_payload
 from app.domain.services.dgis_url import dgis_parse_to_dict, parse_dgis_url
 from app.domain.services.landing_service import (
@@ -29,6 +30,31 @@ from app.web.uploads import save_image
 
 public_router = APIRouter(prefix="/api/t/{tenant_public_id}/landing", tags=["landing"])
 manager_router = APIRouter(prefix="/api/t/{tenant_public_id}/manager/landing", tags=["landing-manager"])
+
+
+def _mask_client_name(name: str | None) -> str:
+    raw = (name or "Клиент").strip()
+    if len(raw) <= 2:
+        return raw[0] + "*" if raw else "Клиент"
+    return raw[0] + "*" * (len(raw) - 2) + raw[-1]
+
+
+async def _reviews_preview(session: AsyncSession, tenant_id) -> dict[str, object]:
+    rows, avg = await review_service.list_published_for_tenant(session, tenant_id=tenant_id, limit=8)
+    return {
+        "avg_salon_rating": avg,
+        "items": [
+            {
+                "id": str(r["id"]),
+                "salon_rating": r["salon_rating"],
+                "text": r.get("text"),
+                "business_reply": r.get("business_reply"),
+                "client_name": _mask_client_name(r.get("client_name")),
+                "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
+            }
+            for r in rows
+        ],
+    }
 
 
 def _widget_dict(w: LandingProfileWidget) -> dict[str, object]:
@@ -99,7 +125,9 @@ async def public_landing(
     portfolio = await list_portfolio(session, tenant.id)
     posts = await list_posts(session, tenant.id, visible_only=True)
     widgets = await list_widgets(session, tenant.id, visible_only=True)
-    return _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
+    payload = _landing_dict(landing, portfolio, posts, widgets, tenant=tenant)
+    payload["reviews_preview"] = await _reviews_preview(session, tenant.id)
+    return payload
 
 
 class DgisLocationIn(BaseModel):

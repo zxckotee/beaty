@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('beaty.theme') || 'dark';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+    <title>Документация · Beaty</title>
+    <link rel="icon" type="image/png" href="/static/img/beaty-logo.png?v=4" />
+    <link rel="stylesheet" href="/static/css/platform.css?v=9" />
+  </head>
+  <body class="platform-page">
+    <div class="platform-glow platform-glow--a" aria-hidden="true"></div>
+    <div class="platform-glow platform-glow--b" aria-hidden="true"></div>
+    <header class="platform-nav">
+      <a class="platform-brand" href="/">
+        <img src="/static/img/beaty-logo.png?v=4" width="40" height="40" alt="" />
+        <span>Beaty</span>
+      </a>
+      <nav class="platform-nav-links">
+        <a href="/">Главная</a>
+        <a href="/docs" aria-current="page">Документация</a>
+      </nav>
+      <div class="platform-nav-cta">
+        <div
+          class="platform-tg-login"
+          data-tg-login-widget
+          aria-label="Войти через Telegram"
+        ></div>
+        <a
+          class="btn btn-primary"
+          href="https://t.me/beaty_welcome_agent"
+          rel="noopener"
+          target="_blank"
+          data-tg-platform
+        >Подключить салон</a>
+      </div>
+    </header>
+    <main class="platform-docs-main">
+      <h1 class="platform-grad">Документация Beaty</h1>
+      <p class="platform-lead">Справка для владельцев салонов: подключение бота, кабинет, клиенты и законность обработки данных.</p>
+      <div id="docs-sections" class="platform-docs-sections"></div>
+      <section class="platform-onboard-guide platform-docs-legal" style="margin-top: 2rem">
+        <h2 style="margin: 0 0 12px; padding: 14px 18px 0; font-size: 1rem">Правовые документы</h2>
+        <ul id="docs-legal" class="platform-docs-legal-list" style="padding: 0 18px 18px"></ul>
+      </section>
+    </main>
+    <footer class="platform-footer">
+      <img src="/static/img/beaty-logo.png?v=4" width="48" height="48" alt="" />
+      <p>© Beaty — онлайн-запись для beauty-бизнеса</p>
+    </footer>
+    <script type="module" src="/static/js/platform.js?v=5"></script>
+  </body>
+</html>

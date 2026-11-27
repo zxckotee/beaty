@@ -38,3 +38,12 @@ def test_platform_meta_includes_demo_tenant(monkeypatch) -> None:
         assert "data-demo-link" in r.text
     finally:
         get_settings.cache_clear()
+
+
+def test_platform_docs_api_and_page() -> None:
+    client = TestClient(app, raise_server_exceptions=False)
+    assert client.get("/docs").status_code == 200
+    payload = client.get("/api/docs/platform").json()
+    assert payload["product"] == "Beaty"
+    assert any(s["id"] == "platform-onboard" for s in payload["sections"])
+    assert client.get("/legal/privacy").status_code == 200

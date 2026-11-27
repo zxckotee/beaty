@@ -66,7 +66,7 @@ def test_view_menu_client_is_bookings_and_help() -> None:
     from app.bot.keyboards.builders import reply_button_texts, view_menu_reply
 
     texts = reply_button_texts(view_menu_reply(granted_roles={"client"}))
-    assert texts == ["Мои записи", "Помощь"]
+    assert texts == ["Мои записи", "Справка"]
 
 
 def test_view_menu_manager_has_no_write_actions() -> None:

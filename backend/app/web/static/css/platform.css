@@ -196,6 +196,16 @@ body {
 .platform-nav-cta .btn-telegram {
   white-space: nowrap;
 }
+.platform-tg-login {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.platform-tg-login iframe {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
 .btn.icon-btn,
 .theme-toggle {
   min-height: 40px;
@@ -682,4 +692,86 @@ main {
   .platform-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+.platform-docs-main {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 5rem;
+}
+.platform-docs-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+.platform-details {
+  border-radius: 18px;
+  background: var(--glass);
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, var(--line));
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--neon-2) 8%, transparent);
+}
+.platform-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 0.92rem;
+  color: var(--text);
+  list-style: none;
+  user-select: none;
+}
+.platform-details summary::-webkit-details-marker {
+  display: none;
+}
+.platform-details summary::after {
+  content: '+';
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+}
+.platform-details[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+.platform-details[open] summary::after {
+  content: '−';
+}
+.platform-details-body {
+  padding: 14px 18px 18px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.platform-details-body p {
+  margin: 0;
+}
+.platform-docs-legal h2 {
+  color: var(--text);
+}
+.platform-docs-legal-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.legal-page main {
+  line-height: 1.55;
+}
+.legal-page p {
+  margin: 0 0 1rem;
 }

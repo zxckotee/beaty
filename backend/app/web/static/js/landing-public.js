@@ -133,6 +133,25 @@ function render(data, tenantId) {
     wrap.append(wzone);
   }
 
+  const preview = data.reviews_preview;
+  if (preview && preview.items && preview.items.length) {
+    const sec = el('section', { class: 'studio-section studio-reviews' });
+    sec.append(el('h2', null, 'Отзывы'));
+    if (preview.avg_salon_rating != null) {
+      sec.append(el('p', { class: 'review-avg' }, `Средняя оценка: ${Number(preview.avg_salon_rating).toFixed(1)} ★`));
+    }
+  const list = el('div', { class: 'review-list' });
+    for (const r of preview.items) {
+      const card = el('article', { class: 'review-card card' });
+      card.append(el('div', { class: 'review-meta' }, el('strong', null, r.client_name || 'Клиент'), ' ', '★'.repeat(r.salon_rating || 0)));
+      if (r.text) card.append(el('p', null, r.text));
+      if (r.business_reply) card.append(el('blockquote', { class: 'review-reply' }, el('span', { class: 'tiny' }, 'Ответ салона '), r.business_reply));
+      list.append(card);
+    }
+    sec.append(list);
+    wrap.append(sec);
+  }
+
   const portfolio = data.portfolio || [];
   if (portfolio.length) {
     const sec = el('section', { class: 'studio-section' });

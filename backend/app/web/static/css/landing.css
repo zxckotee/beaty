@@ -345,3 +345,7 @@ body {
   box-shadow: 0 6px 20px color-mix(in srgb, var(--pw-btn-bg) 35%, transparent);
 }
 .studio-widgets .ico svg { width: 18px; height: 18px; }
+.studio-reviews .review-list { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.studio-reviews .review-card { padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.studio-reviews .review-avg { font-weight: 650; margin: 0 0 8px; }
+.studio-reviews .review-reply { margin-top: 8px; padding-left: 10px; border-left: 3px solid var(--accent); opacity: 0.9; }

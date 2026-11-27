@@ -16,6 +16,7 @@ import { scheduleRulesView } from './views/schedule-rules.js';
 import { homeView } from './views/home.js?v=21';
 import { messagesView } from './views/messages.js';
 import { chatsView } from './views/chats.js';
+import { docsView } from './views/docs.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -50,6 +51,7 @@ const ROUTES = {
   messages: { roles: ['manager'], view: () => messagesView() },
   book: { roles: ['client'], view: (sub) => bookView(sub) },
   mine: { roles: ['client'], needsAuth: true, view: () => mineView() },
+  docs: { roles: ['manager', 'specialist', 'client'], view: () => docsView() },
   login: { roles: ['client', 'manager', 'specialist'], view: () => loginView(() => navigate(defaultRoute())) },
 };
 
@@ -148,7 +150,10 @@ function header(route, sub = '') {
   } else {
     right.append(h('a', { class: 'btn sm primary', href: '#/login' }, 'Войти'));
   }
-  right.prepend(themeToggleButton());
+    if (isManager()) {
+      right.prepend(h('a', { class: 'btn sm ghost', href: '#/docs', title: 'Документация' }, 'Документация'));
+    }
+    right.prepend(themeToggleButton());
   const name = store.info ? store.info.name : '';
   return h(
     'header',

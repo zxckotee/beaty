@@ -35,9 +35,12 @@ from app.web.routes import (
     auth,
     client,
     client_chat,
+    docs_api,
     landing,
     manager,
     messages,
+    platform_auth,
+    reviews,
     schedule,
     site_root,
     staff_schedule,
@@ -64,7 +67,7 @@ CSP_BROWSER = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
     "script-src 'self' https://telegram.org https://unpkg.com; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
-    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
+    "frame-src https://oauth.telegram.org https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
     "https://widgets.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
@@ -73,7 +76,7 @@ CSP_TELEGRAM = (
     "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://unpkg.com; "
     "script-src 'self' https://telegram.org https://unpkg.com; "
     "connect-src 'self' https://*.tile.openstreetmap.org; "
-    "frame-src https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
+    "frame-src https://oauth.telegram.org https://*.2gis.ru https://*.2gis.com https://widget.2gis.com "
     "https://widgets.2gis.com https://map-widget.api.2gis.com; "
     "frame-ancestors https://web.telegram.org https://telegram.org https://*.telegram.org; "
     "base-uri 'none'; form-action 'self'"
@@ -125,6 +128,10 @@ async def domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
 
 
 app.include_router(site_root.router)
+app.include_router(platform_auth.router)
+app.include_router(docs_api.platform_docs_router)
+app.include_router(docs_api.tenant_docs_router)
+app.include_router(reviews.router)
 app.include_router(test_login.router)
 app.include_router(auth.router)
 app.include_router(schedule.router)

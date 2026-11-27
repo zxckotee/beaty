@@ -2,6 +2,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class ClientOnboarding(StatesGroup):
+    waiting_pd_consent = State()
     waiting_contact = State()
     waiting_name_confirm = State()
     waiting_name_edit = State()
