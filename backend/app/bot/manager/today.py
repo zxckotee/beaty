@@ -27,13 +27,8 @@ async def _fetch_day_bookings(
 ):
     day_start = datetime.combine(day, time.min, tzinfo=UTC)
     day_end = day_start + timedelta(days=1)
-    staff_clause = "AND bi.staff_member_id = :staff_id" if staff_filter else ""
     params: dict = {"tenant_id": str(tenant.id), "start": day_start, "end": day_end}
-    if staff_filter:
-        params["staff_id"] = str(staff_filter)
-    return await db_session.execute(
-        text(
-            f"""
+    sql = """
             SELECT b.id, cp.name AS client_name, s.name AS service_name,
                    sm.display_name AS staff_name, lower(bi.during) AS start_at, b.status
             FROM booking b
@@ -44,12 +39,12 @@ async def _fetch_day_bookings(
             WHERE b.tenant_id = :tenant_id
               AND bi.during && tstzrange(:start, :end, '[)')
               AND b.status NOT IN ('cancelled')
-              {staff_clause}
-            ORDER BY start_at
             """
-        ),
-        params,
-    )
+    if staff_filter:
+        sql += "              AND bi.staff_member_id = :staff_id\n"
+        params["staff_id"] = str(staff_filter)
+    sql += "            ORDER BY start_at"
+    return await db_session.execute(text(sql), params)
 
 
 async def send_today(

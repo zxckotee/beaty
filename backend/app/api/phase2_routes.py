@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_tenant_by_public_id, require_role, resolve_staff_and_client
+from app.api.deps import get_current_user, get_tenant_by_public_id, prepare_api_tenant_user, require_tenant_staff
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.db import get_session
@@ -67,9 +67,8 @@ async def api_create_review(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
-    user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client required")
     try:
@@ -95,7 +94,7 @@ async def api_reply_review(
     reply: str,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -139,8 +138,7 @@ async def api_waitlist(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    user = await resolve_staff_and_client(session, tenant, user)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client required")
     entry = await join_waitlist(
@@ -182,9 +180,8 @@ async def course_enroll(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
-    user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client required")
     try:
@@ -205,7 +202,7 @@ async def api_payment(
     body: PaymentCreate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner", "specialist")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner", "specialist")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     payment = await record_payment(
@@ -225,7 +222,7 @@ async def api_promotion(
     body: PromotionCreate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -259,7 +256,7 @@ async def api_validate_promo(
 async def audit_log(
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> list[dict]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     rows = (
@@ -286,7 +283,7 @@ async def platform_invoice(
     amount_cents: int = Query(...),
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("owner")),
+    _: UserContext = Depends(require_tenant_staff("owner")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     inv = await create_subscription_invoice(session, tenant=tenant, amount_cents=amount_cents)
@@ -301,9 +298,9 @@ async def prepayment_deposit(
     amount_cents: int,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(get_current_user),
+    user: UserContext = Depends(get_current_user),
 ) -> dict:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, _user = await prepare_api_tenant_user(tenant_public_id, session, user)
     return await create_deposit_invoice(
         session, tenant_id=tenant.id, booking_id=booking_id, amount_cents=amount_cents
     )
@@ -314,7 +311,7 @@ async def import_csv(
     source: str,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("owner", "manager")),
+    _: UserContext = Depends(require_tenant_staff("owner", "manager")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     return await import_from_csv(session, tenant_id=tenant.id, source=source, rows=[])
@@ -327,8 +324,7 @@ async def nl_booking(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    user = await resolve_staff_and_client(session, tenant, user)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client required")
     return await suggest_slots_from_intent(
@@ -341,7 +337,7 @@ async def nl_booking(
 @phase2_router.post("/v2/gcal/export")
 async def gcal_export(
     tenant_public_id: str = Query(...),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("specialist", "manager", "owner")),
 ) -> dict:
     if user.staff_member_id is None:
         raise HTTPException(status_code=400, detail="staff required")

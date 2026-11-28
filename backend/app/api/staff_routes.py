@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_tenant_by_public_id, require_role, resolve_staff_and_client
+from app.api.deps import get_tenant_by_public_id, require_tenant_staff, resolve_staff_and_client
 from app.api.schemas import BookingStatusUpdate
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
@@ -37,7 +37,7 @@ class StaffBookingOut(BaseModel):
 async def staff_day(
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("specialist", "manager", "owner")),
 ) -> list[StaffBookingOut]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     user = await resolve_staff_and_client(session, tenant, user)
@@ -89,7 +89,7 @@ async def staff_unavailable(
     body: UnavailableBody,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("specialist", "manager", "owner")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -116,7 +116,7 @@ async def staff_booking_status(
     body: BookingStatusUpdate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("specialist", "manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("specialist", "manager", "owner")),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)

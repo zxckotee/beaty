@@ -57,10 +57,11 @@ function attachDgisEmbedClientFallback(iframe, onFallback) {
 }
 
 function appendDgisEmbed(sec, data) {
-  if (data.dgis_embed_src) {
+  const src = data.dgis_embed_src;
+  if (src) {
     const embedWrap = el('div', { class: 'dgis-embed dgis-embed--primary' });
     const iframe = el('iframe', {
-      src: data.dgis_embed_src,
+      src,
       title: 'Карта 2ГИС',
       loading: 'lazy',
       style: 'border:0;width:100%;height:100%;min-height:420px',
@@ -69,11 +70,6 @@ function appendDgisEmbed(sec, data) {
     embedWrap.append(iframe);
     sec.append(embedWrap);
     return { embedWrap, iframe };
-  }
-  if (data.dgis_embed_html && String(data.dgis_embed_html).trim()) {
-    const embedWrap = el('div', { class: 'dgis-embed dgis-embed--primary', html: data.dgis_embed_html });
-    sec.append(embedWrap);
-    return { embedWrap, iframe: null };
   }
   return { embedWrap: null, iframe: null };
 }

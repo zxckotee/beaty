@@ -48,6 +48,12 @@ jobs:
           python-version: "3.12"
       - name: Install backend
         run: pip install -e "./backend[dev]"
+      - name: Install security tools
+        run: pip install pip-audit bandit
+      - name: Pip audit (project deps)
+        run: cd backend && pip-audit --desc on
+      - name: Bandit
+        run: bandit -r backend/app -ll -q
       - name: Ruff
         run: cd backend && ruff check .
       - name: Mypy

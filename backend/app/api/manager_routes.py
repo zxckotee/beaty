@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_tenant_by_public_id, require_role
+from app.api.deps import get_tenant_by_public_id, require_tenant_staff
 from app.api.subscription_gate import assert_tenant_can_write
 from app.core.context import UserContext
 from app.core.db import get_session
@@ -76,7 +76,7 @@ async def manager_calendar(
     tenant_public_id: str = Query(...),
     day: str | None = Query(default=None, description="YYYY-MM-DD in branch TZ"),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner", "reception")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner", "reception")),
 ) -> list[CalendarItemOut]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     branch_id = UUID(str((tenant.rules or {}).get("default_branch_id")))
@@ -134,7 +134,7 @@ async def manual_booking(
     body: ManualBookingCreate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner", "reception")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner", "reception")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -184,7 +184,7 @@ async def manual_booking(
 async def manager_list_services(
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> list[dict]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     rows = (
@@ -207,7 +207,7 @@ async def manager_create_service(
     body: ServiceCreate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -227,7 +227,7 @@ async def manager_create_service(
 async def manager_list_staff(
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> list[dict]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     rows = (
@@ -249,7 +249,7 @@ async def manager_create_staff(
     body: StaffCreate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -271,7 +271,7 @@ async def manager_set_schedule(
     rows: list[ScheduleRow],
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -291,7 +291,7 @@ async def manager_settings(
     body: BrandUpdate,
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -308,7 +308,7 @@ async def manager_apply_template(
     template_name: str = Query(...),
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    user: UserContext = Depends(require_role("manager", "owner")),
+    user: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> dict[str, str]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     assert_tenant_can_write(tenant)
@@ -321,7 +321,7 @@ async def manager_apply_template(
 async def reschedule_pending(
     tenant_public_id: str = Query(...),
     session: AsyncSession = Depends(get_session),
-    _: UserContext = Depends(require_role("manager", "owner")),
+    _: UserContext = Depends(require_tenant_staff("manager", "owner")),
 ) -> list[dict]:
     tenant = await get_tenant_by_public_id(tenant_public_id, session)
     rows = (

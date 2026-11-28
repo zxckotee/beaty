@@ -9,7 +9,7 @@ from app.api.client_routes import client_router
 from app.api.deps import (
     get_current_user,
     get_tenant_by_public_id,
-    resolve_staff_and_client,
+    prepare_api_tenant_user,
 )
 from app.api.manager_routes import manager_router
 from app.api.schemas import (
@@ -130,8 +130,7 @@ async def me(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> MeResponse:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    user = await resolve_staff_and_client(session, tenant, user)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     return MeResponse(
         user_account_id=user.user_account_id,  # type: ignore[arg-type]
         roles=sorted(user.roles),
@@ -258,9 +257,8 @@ async def api_hold_booking(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
-    user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=400, detail="client profile required")
     branch_id = UUID(str((tenant.rules or {}).get("default_branch_id")))
@@ -316,7 +314,7 @@ async def api_confirm_booking(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
     try:
         booking = await confirm_hold(
@@ -344,7 +342,7 @@ async def api_cancel_booking(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict[str, str]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
     try:
         await cancel_booking(
@@ -369,7 +367,7 @@ async def api_reschedule_booking(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> BookingOut:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
     try:
         booking = await reschedule_booking(
@@ -397,8 +395,7 @@ async def my_bookings(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> list[BookingOut]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
-    user = await resolve_staff_and_client(session, tenant, user)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     if user.client_profile_id is None:
         return []
     rows = await session.execute(
@@ -440,9 +437,8 @@ async def update_profile(
     session: AsyncSession = Depends(get_session),
     user: UserContext = Depends(get_current_user),
 ) -> dict[str, str]:
-    tenant = await get_tenant_by_public_id(tenant_public_id, session)
+    tenant, user = await prepare_api_tenant_user(tenant_public_id, session, user)
     assert_tenant_can_write(tenant)
-    user = await resolve_staff_and_client(session, tenant, user)
     if user.client_profile_id is None:
         raise HTTPException(status_code=404, detail="profile not found")
     profile = await session.get(ClientProfile, user.client_profile_id)

@@ -12,6 +12,7 @@ import httpx
 
 from app.core.settings import get_settings
 from app.domain.models import TenantLanding
+from app.domain.services.dgis_html import public_dgis_embed_html
 from app.domain.services.dgis_url import parse_dgis_url, resolve_dgis_url
 
 logger = logging.getLogger(__name__)
@@ -194,8 +195,8 @@ def dgis_map_payload(landing: TenantLanding) -> dict[str, Any]:
         if embed_src:
             embed_html = build_firmsonmap_iframe_html(embed_src)
     legacy_html = getattr(landing, "dgis_embed_html", None)
-    if embed_html is None and legacy_html and str(legacy_html).strip():
-        embed_html = str(legacy_html).strip()
+    if embed_html is None and legacy_html:
+        embed_html = public_dgis_embed_html(str(legacy_html))
     settings = get_settings()
     probe_ok = False
     if embed_src and settings.dgis_firmsonmap_probe:

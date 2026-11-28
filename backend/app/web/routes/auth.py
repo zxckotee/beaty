@@ -139,11 +139,13 @@ async def telegram_go(
 
 @router.get("/auth/poll")
 async def auth_poll(
+    request: Request,
     response: Response,
     code: str = Query(min_length=8, max_length=64),
     tenant: Tenant = Depends(get_tenant),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
+    await limit_by_ip(request, "auth_poll", limit=120, window_seconds=60)
     result = await poll_login(code, tenant_public_id=tenant.public_id)
     if result.state == "confirmed" and result.telegram_user_id is not None:
         user = await get_or_create_user_account(session, result.telegram_user_id)
@@ -164,11 +166,13 @@ class TelegramWebAppAuth(BaseModel):
 
 @router.post("/auth/telegram")
 async def auth_telegram(
+    request: Request,
     body: TelegramWebAppAuth,
     response: Response,
     tenant: Tenant = Depends(get_tenant),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
+    await limit_by_ip(request, "auth_telegram", limit=30)
     """Exchange Telegram WebApp initData for a session cookie (Mini App login)."""
     if not tenant.bot_token_encrypted:
         raise HTTPException(status_code=503, detail="bot not linked")
@@ -190,11 +194,13 @@ async def auth_telegram(
 
 @router.post("/auth/dev")
 async def auth_dev(
+    request: Request,
     body: DevLogin,
     response: Response,
     tenant: Tenant = Depends(get_tenant),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
+    await limit_by_ip(request, "auth_dev", limit=30)
     if not dev_login_enabled():
         raise HTTPException(status_code=404, detail="not found")
     if body.telegram_user_id is not None and not body.identifier:
