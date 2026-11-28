@@ -12,12 +12,8 @@ import httpx
 
 from app.core.settings import get_settings
 from app.domain.models import TenantLanding
-<<<<<<< HEAD
-from app.domain.services.dgis_url import parse_dgis_url, resolve_dgis_url
-=======
 from app.domain.services.dgis_html import public_dgis_embed_html
-from app.domain.services.dgis_url import parse_dgis_url
->>>>>>> 542a2d7 (Harden Beaty security: webhooks, API tenancy, XSS, prod guards)
+from app.domain.services.dgis_url import parse_dgis_url, resolve_dgis_url
 
 logger = logging.getLogger(__name__)
 
