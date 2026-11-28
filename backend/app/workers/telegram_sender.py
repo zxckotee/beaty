@@ -102,14 +102,19 @@ async def send_notification(session: AsyncSession, notification: Notification) -
             else:
                 await bot.send_message(chat_id, text, reply_markup=reply_markup, **kwargs)
             if location_pin:
-                loc_kwargs: dict[str, object] = {
-                    "latitude": float(location_pin["latitude"]),
-                    "longitude": float(location_pin["longitude"]),
-                }
+                lat = float(location_pin["latitude"])
+                lon = float(location_pin["longitude"])
                 title = location_pin.get("title")
                 if title:
-                    loc_kwargs["title"] = str(title)[:64]
-                await bot.send_location(chat_id, **loc_kwargs)
+                    await bot.send_venue(
+                        chat_id,
+                        latitude=lat,
+                        longitude=lon,
+                        title=str(title)[:64],
+                        address="2ГИС",
+                    )
+                else:
+                    await bot.send_location(chat_id, latitude=lat, longitude=lon)
             notification.status = NotificationStatus.SENT.value
     except TelegramForbiddenError:
         await session.execute(
